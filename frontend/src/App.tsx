@@ -54,6 +54,24 @@ export default function App() {
   }
 
   const user = getCurrentUser();
+  const canManage = user.groups.some((g) => ['Admin', 'Organizer'].includes(g));
+
+  if (!canManage) {
+    return (
+      <div className="flex flex-col items-center justify-center min-h-screen bg-slate-100 p-4">
+        <div className="bg-white p-8 rounded-2xl shadow-md max-w-md w-full text-center space-y-4">
+          <h1 className="text-xl font-bold text-slate-800">Tài khoản chưa có quyền truy cập</h1>
+          <p className="text-sm text-slate-600">
+            {user.email || 'Tài khoản này'} chưa thuộc group Organizer hoặc Admin trong Cognito. Hãy nhờ quản trị viên
+            thêm bạn vào group rồi đăng nhập lại.
+          </p>
+          <button onClick={logout} className="px-5 py-2.5 bg-red-600 text-white rounded-lg hover:bg-red-700">
+            Đăng xuất
+          </button>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen bg-slate-50 text-slate-700">

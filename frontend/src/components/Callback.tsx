@@ -1,10 +1,28 @@
-import { useEffect } from 'react';
+import { useEffect, useState } from 'react';
 import { handleAuthCallback } from '../services/auth';
 
 export const Callback = () => {
+  const [error, setError] = useState('');
+
   useEffect(() => {
-    handleAuthCallback(); // Bóc id_token & access_token rồi về trang chính
+    handleAuthCallback()
+      .then(() => window.location.replace('/'))
+      .catch((e: Error) => setError(e.message));
   }, []);
+
+  if (error) {
+    return (
+      <div className="flex justify-center items-center h-screen bg-slate-50 p-4">
+        <div className="bg-white p-8 rounded-2xl shadow-md max-w-md w-full text-center space-y-4">
+          <h1 className="text-xl font-bold text-red-600">Đăng nhập thất bại</h1>
+          <p className="text-sm text-slate-600 break-words">{error}</p>
+          <a href="/" className="inline-block px-5 py-2.5 bg-blue-600 text-white rounded-lg hover:bg-blue-700">
+            Quay lại trang đăng nhập
+          </a>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="flex justify-center items-center h-screen bg-slate-50">
