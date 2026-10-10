@@ -1,0 +1,24 @@
+# Mac
+.DS_Store
+
+# Terraform
+**/.terraform/*
+*.tfstate
+*.tfstate.*
+*.tfvars
+!terraform.tfvars.example
+.terraform.lock.hcl
+
+# Environment & Credentials
+.env.local
+*.pem
+credentials.csv
+
+# Python
+__pycache__/
+*.pyc
+
+# Node
+node_modules/
+dist/
+

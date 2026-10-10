@@ -1,0 +1,23 @@
+[
+  {
+    "id": "EX20261015001",
+    "name": "Thi Cuối Kỳ Điện Toán Đám Mây - Ca 1",
+    "startTime": "2026-10-15T08:00:00.000Z",
+    "endTime": "2026-10-15T09:00:00.000Z",
+    "questionIds": [
+      "q-aws-001",
+      "q-aws-002",
+      "q-aws-003",
+      "q-aws-004",
+      "q-aws-005"
+    ],
+    "candidateEmails": [
+      "phongpt@example.edu.vn",
+      "manhtd@example.edu.vn",
+      "tannp@example.edu.vn",
+      "hantt@example.edu.vn"
+    ],
+    "link": "https://cloudexam.vn/exam/EX20261015001"
+  }
+]
+

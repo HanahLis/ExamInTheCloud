@@ -1,0 +1,78 @@
+[
+  {
+    "id": "q-aws-001",
+    "bankId": "bank-cloud-01",
+    "content": "1 + 1 = mấy",
+    "options": [
+      "2",
+      "3",
+      "4",
+      "0"
+    ],
+    "correctIndex": 0,
+    "score": 1,
+    "difficulty": "EASY",
+    "imageUrl": ""
+  },
+  {
+    "id": "q-aws-002",
+    "bankId": "bank-cloud-01",
+    "content": "Dịch vụ nào của AWS cung cấp cơ sở dữ liệu NoSQL dạng Key-Value và Document có độ trễ mili-giây đơn?",
+    "options": [
+      "Amazon Aurora",
+      "Amazon DynamoDB",
+      "Amazon Redshift",
+      "Amazon ElastiCache"
+    ],
+    "correctIndex": 1,
+    "score": 1,
+    "difficulty": "EASY",
+    "imageUrl": ""
+  },
+  {
+    "id": "q-aws-003",
+    "bankId": "bank-cloud-01",
+    "content": "Mô hình kiến trúc Serverless trên AWS thường kết hợp các dịch vụ nào sau đây cho REST API?",
+    "options": [
+      "EC2 + Auto Scaling + ELB",
+      "API Gateway + AWS Lambda + DynamoDB",
+      "EKS + RDS + CloudFront",
+      "S3 + Route53 + VPC"
+    ],
+    "correctIndex": 1,
+    "score": 2,
+    "difficulty": "MEDIUM",
+    "imageUrl": ""
+  },
+  {
+    "id": "q-aws-004",
+    "bankId": "bank-cloud-01",
+    "content": "Dịch vụ AWS nào sử dụng công nghệ Deep Learning để phân tích và nhận diện khuôn mặt?",
+    "options": [
+      "Amazon Comprehend",
+      "Amazon Rekognition",
+      "Amazon Polly",
+      "Amazon Transcribe"
+    ],
+    "correctIndex": 1,
+    "score": 1,
+    "difficulty": "EASY",
+    "imageUrl": ""
+  },
+  {
+    "id": "q-aws-005",
+    "bankId": "bank-cloud-01",
+    "content": "Khái niệm Infrastructure as Code (IaC) được triển khai qua công cụ mã nguồn mở phổ biến nào?",
+    "options": [
+      "Terraform",
+      "Docker",
+      "Postman",
+      "Jenkins"
+    ],
+    "correctIndex": 0,
+    "score": 2,
+    "difficulty": "MEDIUM",
+    "imageUrl": ""
+  }
+]
+
