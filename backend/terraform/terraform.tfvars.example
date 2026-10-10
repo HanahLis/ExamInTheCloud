@@ -3,3 +3,13 @@ environment    = "dev"
 project_name   = "cloudexam"
 s3_bucket_name = "cloudexam-storage-409289618109-dev"
 
+# Cấu hình Cognito (Mạnh)
+cognito_domain_prefix = "cloudexam-auth-dev-uet"
+frontend_callback_urls = [
+  "http://localhost:5173/callback",
+  "http://localhost:3000/callback"
+]
+frontend_logout_urls = [
+  "http://localhost:5173/",
+  "http://localhost:3000/"
+]
