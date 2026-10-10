@@ -1,0 +1,31 @@
+[
+  {
+    "studentCode": "B21DCCN001",
+    "name": "Phạm Tuấn Phong",
+    "email": "phongpt@example.edu.vn",
+    "className": "D21CQCN01-B",
+    "faceImageUrl": "https://cloudexam-storage-409289618109-dev.s3.ap-southeast-1.amazonaws.com/faces/B21DCCN001.jpg"
+  },
+  {
+    "studentCode": "B21DCCN002",
+    "name": "Trần Đức Mạnh",
+    "email": "manhtd@example.edu.vn",
+    "className": "D21CQCN01-B",
+    "faceImageUrl": "https://cloudexam-storage-409289618109-dev.s3.ap-southeast-1.amazonaws.com/faces/B21DCCN002.jpg"
+  },
+  {
+    "studentCode": "B21DCCN003",
+    "name": "Nguyễn Phúc Tấn",
+    "email": "tannp@example.edu.vn",
+    "className": "D21CQCN01-B",
+    "faceImageUrl": "https://cloudexam-storage-409289618109-dev.s3.ap-southeast-1.amazonaws.com/faces/B21DCCN003.jpg"
+  },
+  {
+    "studentCode": "B21DCCN004",
+    "name": "Nguyễn Thị Thu Hà",
+    "email": "hantt@example.edu.vn",
+    "className": "D21CQCN01-B",
+    "faceImageUrl": "https://cloudexam-storage-409289618109-dev.s3.ap-southeast-1.amazonaws.com/faces/B21DCCN004.jpg"
+  }
+]
+

@@ -1,0 +1,5 @@
+aws_region     = "ap-southeast-1"
+environment    = "dev"
+project_name   = "cloudexam"
+s3_bucket_name = "cloudexam-storage-409289618109-dev"
+
