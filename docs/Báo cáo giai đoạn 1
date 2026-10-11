@@ -1,0 +1,75 @@
+
+#### 1. Luồng Xác thực Người tổ chức (Cognito Authentication)
+
+    Exam Organizer -> Đăng nhập (Cognito Hosted UI / Token Portal)
+                   -> Nhận ID Token & Access Token
+                   -> Lưu Token vào Client
+                   -> Axios Interceptor tự động đính kèm 'Authorization: Bearer <token>'
+                   -> API Gateway Cognito Authorizer kiểm tra token & giải mã groups: ['Organizer']
+
+  #### 2. Luồng Quản lý Ngân hàng câu hỏi & Thuộc tính chi tiết
+  • Ngân hàng câu hỏi (QuestionBank):
+      • Organizer bấm ➕ Tạo ngân hàng mới: nhập Tên ngân hàng, Môn học, Mô tả.
+      • Lọc xem danh sách câu hỏi theo từng ngân hàng chỉ bằng 1 click hoặc xem toàn bộ.
+  • Câu hỏi (Question) bao gồm đầy đủ 11 thuộc tính:
+      • questionId: ID định danh duy nhất của câu hỏi.
+      • bankId: ID của ngân hàng câu hỏi mà câu hỏi này trực thuộc.
+      • content: Nội dung câu hỏi.
+      • type: SINGLE_CHOICE (Trắc nghiệm 1 đáp án) hoặc MULTIPLE_CHOICE (Nhiều lựa chọn).
+      • options: Mảng 4 phương án trả lời [A, B, C, D].
+      • correctAnswer: Nội dung đáp án đúng (tự động trích xuất từ lựa chọn đúng).
+      • score: Điểm số của câu hỏi (hỗ trợ số thập phân, ví dụ 0.25, 0.5, 1.0).
+      • subject: Môn học (ví dụ: Điện toán đám mây, Kiến trúc máy tính).
+      • topic: Chủ đề (ví dụ: AWS Serverless, IAM & Security).
+      • difficulty: Mức độ (EASY, MEDIUM, HARD).
+      • imageUrl: Đường dẫn URL ảnh lưu trữ trên Amazon S3.
+  #### 3. Luồng Upload hình ảnh qua S3 Presigned URL (Kiến trúc 4.4)
+    Frontend (React)
+        ↓  POST /questions/image-upload { fileName, contentType }
+    API Gateway (Cognito Authorizer xác thực quyền Organizer)
+        ↓
+    AWS Lambda (boto3 s3_client.generate_presigned_url 'put_object', ExpiresIn=300s)
+        ↓  Trả về { uploadUrl, fileUrl, s3Key }
+    Frontend (React)
+        ↓  Direct HTTP PUT file ảnh lên S3 qua uploadUrl
+    Amazon S3 Bucket
+        ↓  Upload hoàn tất, S3 trả về 200 OK
+    Frontend (React)
+        ↓  POST /questions kèm S3 fileUrl và metadata câu hỏi
+    API Gateway -> AWS Lambda -> Lưu vào DynamoDB (chỉ lưu URL và metadata)
+
+
+ ### 1. 💻 HÀ — Tầng Giao diện (Frontend Developer)
+
+  • Vai trò: Làm những gì người dùng nhìn thấy và tương tác trên màn hình.
+  • Việc cụ thể:
+      • Viết code React (Vite + Tailwind CSS).
+      • Làm giao diện Ngân hàng câu hỏi (thêm, sửa, xóa, tìm kiếm), trang Thí sinh và Phòng thi.
+      • Dùng Axios gọi các API của Tấn và kết nối trang đăng nhập của Mạnh.
+  • Sản phẩm: Website hoàn chỉnh chạy trên trình duyệt (giao diện đẹp, mượt mà).
+  ──────
+  ### 2. ⚙ TẤN — Tầng Xử lý Nghiệp vụ (Backend Developer)
+
+  • Vai trò: Là bộ não xử lý tính toán đứng ở giữa kết nối Frontend với Database.
+  • Việc cụ thể:
+      • Dựng các cổng REST API trên Amazon API Gateway (/questions, /sessions, /exam/submit).
+      • Viết code Python cho AWS Lambda (bằng thư viện boto3) để tính toán: Thêm/sửa/xóa câu hỏi, quản lý ca thi, tự động chấm điểm bài thi khi thí sinh nộp bài.
+  • Sản phẩm: Bộ REST API chạy trên API Gateway + mã nguồn Lambda Python.
+  ──────
+  ### 3. 🗄 PHONG — Tầng Dữ liệu & Lưu trữ (Database & Storage Engineer)
+  • Vai trò: Phụ trách kho chứa dữ liệu của toàn bộ hệ thống.
+  • Việc cụ thể:
+      • Dùng Terraform thiết kế và tạo các bảng Amazon DynamoDB (bảng câu hỏi, ca thi, thí sinh) với khóa chính và chỉ mục GSI tối ưu.
+      • Tạo Amazon S3 Bucket kèm cấu hình CORS và chính sách vòng đời (Lifecycle) để lưu ảnh bài thi và ảnh khuôn mặt.
+      • Viết script Python nạp sẵn dữ liệu mẫu (seed_dynamodb.py) và viết 2 tài liệu thiết kế Database + S3.
+  • Sản phẩm: Cụm DynamoDB + S3 Bucket hoạt động ổn định, có sẵn dữ liệu mẫu và tài liệu thiết kế.
+  ──────
+  ### 4. 🔒 MẠNH — Tầng An ninh & Xác thực (Security & Authentication Specialist)
+
+  • Vai trò: Là người gác cổng bảo mật của hệ thống.
+  • Việc cụ thể:
+      • Tạo Amazon Cognito User Pool & Hosted UI để quản lý tài khoản, hỗ trợ luồng đăng nhập chuẩn OAuth 2.0 PKCE và phân 3 nhóm quyền (Admin, Organizer, Candidate).
+      • Cài đặt Cognito Authorizer trên API Gateway để chặn người lạ, chỉ cho phép request có Token hợp lệ đi qua.
+      • Thiết kế ma trận IAM Roles & Policies chuẩn Least Privilege cho Lambda (chỉ cấp đúng quyền cần thiết, tước bỏ quyền xóa bảng để tránh rủi ro).
+  • Sản phẩm: Hệ thống đăng nhập bảo mật và chính sách phân quyền IAM không kẽ hở.
+

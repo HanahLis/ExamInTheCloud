@@ -67,6 +67,10 @@ resource "aws_cognito_user_pool" "main" {
     Name        = "${var.project_name}-user-pool"
     Environment = var.environment
   }
+
+  lifecycle {
+    ignore_changes = [schema]
+  }
 }
 
 # 2. Cấu hình Hosted UI Domain
