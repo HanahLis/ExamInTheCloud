@@ -33,7 +33,7 @@ const TABS: { id: Tab; label: string; icon: string }[] = [
   { id: 'questions', label: '1. Ngân hàng câu hỏi', icon: '📚' },
   { id: 'candidates', label: '2. Thí sinh & ảnh mẫu', icon: '👤' },
   { id: 'session', label: '3. Tạo ca thi & sinh link', icon: '📅' },
-  { id: 'exam_test', label: '4. Phòng thi (Rekognition & Nộp bài)', icon: '🛡️' },
+  { id: 'exam_test', label: '4. Phòng thi (Thử nghiệm)', icon: '🛡️' },
 ];
 
 const PRESET_ACCOUNTS = [
@@ -42,8 +42,7 @@ const PRESET_ACCOUNTS = [
     label: 'Giảng viên / Người tổ chức',
     email: 'organizer@cloudexam.vn',
     groups: ['Organizer'],
-    desc: 'Quản lý câu hỏi, thí sinh, tạo ca thi và kích hoạt trạng thái phòng thi',
-    badge: 'bg-indigo-100 text-indigo-800 border-indigo-200',
+    desc: 'Quản lý câu hỏi, thí sinh, tạo ca thi và điều phối kỳ thi',
   },
   {
     role: 'Candidate',
@@ -51,8 +50,7 @@ const PRESET_ACCOUNTS = [
     email: 'phongpt@example.edu.vn',
     studentCode: 'B21DCCN001',
     groups: ['Candidate'],
-    desc: 'Vào cổng thí sinh, xác thực khuôn mặt webcam và làm bài thi ca EX20261015001',
-    badge: 'bg-green-100 text-green-800 border-green-200',
+    desc: 'MSSV: B21DCCN001 • Đã có ảnh mẫu để điểm danh Rekognition',
   },
   {
     role: 'Candidate',
@@ -60,8 +58,7 @@ const PRESET_ACCOUNTS = [
     email: 'manhtd@example.edu.vn',
     studentCode: 'B21DCCN002',
     groups: ['Candidate'],
-    desc: 'Thí sinh điểm danh với ảnh chân dung mẫu đã lưu',
-    badge: 'bg-green-100 text-green-800 border-green-200',
+    desc: 'MSSV: B21DCCN002 • Lớp D21CQCN01-B',
   },
   {
     role: 'Candidate',
@@ -69,16 +66,7 @@ const PRESET_ACCOUNTS = [
     email: 'hantt@example.edu.vn',
     studentCode: 'B21DCCN004',
     groups: ['Candidate'],
-    desc: 'Thí sinh lớp D21CQCN01-B',
-    badge: 'bg-green-100 text-green-800 border-green-200',
-  },
-  {
-    role: 'Admin',
-    label: 'Quản trị viên hệ thống (Admin)',
-    email: 'admin@cloudexam.vn',
-    groups: ['Admin', 'Organizer'],
-    desc: 'Toàn quyền cấu hình User Pool, API Gateway, IAM Roles và DynamoDB',
-    badge: 'bg-purple-100 text-purple-800 border-purple-200',
+    desc: 'MSSV: B21DCCN004 • Lớp D21CQCN01-B',
   },
 ];
 
@@ -92,7 +80,7 @@ export default function App() {
   // ID ca thi đang mở (nếu đang ở trong phòng thi)
   const [activeExamSessionId, setActiveExamSessionId] = useState<string | null>(null);
 
-  // Custom login input form
+  // Custom login state
   const [customEmail, setCustomEmail] = useState('');
   const [customPassword, setCustomPassword] = useState('');
   const [customRole, setCustomRole] = useState<'Organizer' | 'Candidate' | 'Admin'>('Organizer');
@@ -145,7 +133,7 @@ export default function App() {
   if (window.location.pathname === '/callback') return <Callback />;
 
   // =========================================================================
-  // MÀN HÌNH ĐĂNG NHẬP (AWS COGNITO AUTHENTICATION PORTAL)
+  // MÀN HÌNH ĐĂNG NHẬP (HÀI HÒA GIỮA AWS COGNITO & TÀI KHOẢN MẪU)
   // =========================================================================
   if (!loggedIn) {
     const handleQuickLogin = (acc: typeof PRESET_ACCOUNTS[0]) => {
@@ -161,68 +149,83 @@ export default function App() {
     };
 
     return (
-      <div className="min-h-screen bg-slate-100 py-10 px-4 flex flex-col justify-center items-center">
-        <div className="bg-white rounded-2xl shadow-xl max-w-2xl w-full border border-slate-200 overflow-hidden">
-          {/* Header phong cách AWS Cognito */}
-          <div className="bg-gradient-to-r from-slate-900 via-indigo-950 to-slate-900 p-6 text-white text-center">
-            <div className="inline-flex items-center justify-center w-12 h-12 bg-white/10 rounded-xl mb-3 text-2xl">
+      <div className="flex flex-col items-center justify-center min-h-screen bg-slate-100 p-4">
+        <div className="bg-white rounded-2xl shadow-xl max-w-lg w-full border border-slate-200 overflow-hidden">
+          {/* Header trang nhã */}
+          <div className="bg-gradient-to-r from-blue-600 to-blue-800 p-6 text-white text-center">
+            <div className="inline-flex items-center justify-center w-12 h-12 bg-white/20 rounded-xl mb-2 text-2xl">
               ☁️
             </div>
-            <h1 className="text-2xl font-black tracking-tight">Amazon Cognito Authentication</h1>
-            <p className="text-xs text-slate-300 mt-1 font-mono">
-              User Pool: <span className="text-indigo-300">cloudexam-user-pool-dev</span> | OAuth 2.0 PKCE Flow
+            <h1 className="text-2xl font-bold tracking-tight">CloudExam Platform</h1>
+            <p className="text-xs text-blue-100 mt-1">
+              Hệ thống tổ chức thi trực tuyến trên nền tảng AWS Serverless
             </p>
           </div>
 
           <div className="p-6 md:p-8 space-y-6">
-            {/* LỰA CHỌN 1: ĐĂNG NHẬP BẰNG TÀI KHOẢN AWS COGNITO THẬT */}
-            <div className="p-4 rounded-xl bg-gradient-to-r from-indigo-50 via-blue-50 to-indigo-50 border border-indigo-200 text-center space-y-2">
+            {/* Lựa chọn 1: Đăng nhập bằng AWS Cognito thật */}
+            <div className="p-4 rounded-xl bg-blue-50/70 border border-blue-200 text-center space-y-2">
               <div className="flex items-center justify-center gap-2">
-                <span className="w-2.5 h-2.5 rounded-full bg-green-500 animate-pulse"></span>
-                <span className="text-xs font-bold text-indigo-900 uppercase tracking-wide">
-                  Trải nghiệm từ đầu trên Cloud (Tài khoản AWS Thật)
+                <span className="w-2 h-2 rounded-full bg-green-500 animate-pulse"></span>
+                <span className="text-xs font-bold text-blue-900 uppercase tracking-wide">
+                  Tài khoản AWS Thật (Cloud Live)
                 </span>
               </div>
-              <p className="text-[11px] text-slate-600">
-                Đăng nhập hoặc đăng ký tài khoản qua Amazon Cognito Hosted UI để bắt đầu với Database DynamoDB & S3 sạch sẽ trên AWS.
+              <p className="text-xs text-slate-600">
+                Đăng nhập hoặc đăng ký tài khoản qua Amazon Cognito để bắt đầu với Database DynamoDB & S3 trên AWS.
               </p>
               <button
                 onClick={redirectToCognitoLogin}
-                className="w-full py-2.5 bg-gradient-to-r from-indigo-600 to-blue-600 text-white font-bold rounded-lg text-xs hover:from-indigo-700 hover:to-blue-700 transition shadow flex items-center justify-center gap-2 cursor-pointer"
+                className="w-full py-2.5 bg-blue-600 text-white font-semibold rounded-lg hover:bg-blue-700 transition shadow-sm flex items-center justify-center gap-2 cursor-pointer"
               >
                 <span>🌐</span>
-                <span>Đăng nhập với AWS Cognito Hosted UI (Cloud Live)</span>
+                <span>Đăng nhập với AWS Cognito Hosted UI</span>
               </button>
             </div>
 
-            {/* LỰA CHỌN 2: CHỌN TÀI KHOẢN THỬ NGHIỆM CÓ SẴN DATABASE */}
+            {/* Phân cách */}
+            <div className="relative flex items-center justify-center">
+              <div className="border-t border-slate-200 w-full"></div>
+              <span className="bg-white px-3 text-xs text-slate-400 font-medium whitespace-nowrap">
+                hoặc trải nghiệm nhanh (Dữ liệu mẫu có sẵn)
+              </span>
+              <div className="border-t border-slate-200 w-full"></div>
+            </div>
+
+            {/* Lựa chọn 2: 1-Click chọn tài khoản trải nghiệm */}
             <div>
               <div className="flex justify-between items-center mb-3">
                 <h2 className="text-xs font-bold uppercase tracking-wider text-slate-600">
-                  🎯 Hoặc chọn tài khoản thử nghiệm (Có sẵn Database):
+                  🎯 Chọn tài khoản trải nghiệm:
                 </h2>
-                <span className="text-[11px] text-indigo-600 font-semibold">1-Click Đăng nhập</span>
+                <span className="text-[11px] text-blue-600 font-medium">1-Click Đăng nhập</span>
               </div>
 
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
                 {PRESET_ACCOUNTS.map((acc) => (
                   <button
                     key={acc.email}
                     onClick={() => handleQuickLogin(acc)}
-                    className="p-3.5 text-left border rounded-xl hover:border-indigo-500 hover:bg-indigo-50/50 transition group flex flex-col justify-between cursor-pointer"
+                    className="p-3 text-left border rounded-xl hover:border-blue-500 hover:bg-blue-50/40 transition group flex flex-col justify-between cursor-pointer"
                   >
                     <div>
-                      <div className="flex justify-between items-start mb-1">
-                        <span className="font-bold text-slate-800 text-xs group-hover:text-indigo-600">
+                      <div className="flex justify-between items-start mb-0.5">
+                        <span className="font-semibold text-slate-800 text-xs group-hover:text-blue-600">
                           {acc.label}
                         </span>
-                        <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full border ${acc.badge}`}>
+                        <span
+                          className={`text-[9px] font-bold px-1.5 py-0.2 rounded ${
+                            acc.role === 'Organizer'
+                              ? 'bg-blue-100 text-blue-800'
+                              : 'bg-green-100 text-green-800'
+                          }`}
+                        >
                           {acc.role}
                         </span>
                       </div>
                       <p className="text-[11px] font-mono text-slate-500 truncate">{acc.email}</p>
                     </div>
-                    <p className="text-[11px] text-slate-500 mt-2 line-clamp-2 leading-relaxed">
+                    <p className="text-[10px] text-slate-400 mt-1 line-clamp-1">
                       {acc.desc}
                     </p>
                   </button>
@@ -230,18 +233,18 @@ export default function App() {
               </div>
             </div>
 
-            {/* Hoặc tự nhập tài khoản tùy chỉnh */}
+            {/* Lựa chọn 3: Hoặc tự nhập email tùy ý */}
             <div className="pt-4 border-t border-slate-200">
-              <h3 className="text-xs font-bold text-slate-700 mb-3">
-                ✍️ Hoặc nhập tài khoản tùy ý của bạn:
+              <h3 className="text-xs font-semibold text-slate-600 mb-2">
+                ✍️ Hoặc đăng nhập với email tùy chỉnh:
               </h3>
-              <form onSubmit={handleCustomLogin} className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+              <form onSubmit={handleCustomLogin} className="grid grid-cols-1 sm:grid-cols-3 gap-2">
                 <input
                   type="email"
-                  placeholder="Email đăng nhập"
+                  placeholder="Email"
                   value={customEmail}
                   onChange={(e) => setCustomEmail(e.target.value)}
-                  className="p-2.5 border rounded-lg text-xs outline-none focus:ring-2 focus:ring-indigo-500"
+                  className="p-2 border rounded-lg text-xs outline-none focus:ring-2 focus:ring-blue-500"
                   required
                 />
                 <input
@@ -249,20 +252,20 @@ export default function App() {
                   placeholder="Mật khẩu"
                   value={customPassword}
                   onChange={(e) => setCustomPassword(e.target.value)}
-                  className="p-2.5 border rounded-lg text-xs outline-none focus:ring-2 focus:ring-indigo-500"
+                  className="p-2 border rounded-lg text-xs outline-none focus:ring-2 focus:ring-blue-500"
                 />
                 <select
                   value={customRole}
                   onChange={(e) => setCustomRole(e.target.value as any)}
-                  className="p-2.5 border rounded-lg text-xs outline-none focus:ring-2 focus:ring-indigo-500 font-semibold"
+                  className="p-2 border rounded-lg text-xs outline-none focus:ring-2 focus:ring-blue-500 font-medium"
                 >
-                  <option value="Organizer">👨‍🏫 Giảng viên (Organizer)</option>
-                  <option value="Candidate">🎓 Thí sinh (Candidate)</option>
-                  <option value="Admin">🛡️ Quản trị viên (Admin)</option>
+                  <option value="Organizer">Giảng viên</option>
+                  <option value="Candidate">Thí sinh</option>
+                  <option value="Admin">Admin</option>
                 </select>
                 <button
                   type="submit"
-                  className="sm:col-span-3 py-2.5 bg-slate-900 text-white font-bold rounded-lg text-xs hover:bg-black transition shadow cursor-pointer"
+                  className="sm:col-span-3 py-2 bg-slate-800 text-white font-medium rounded-lg text-xs hover:bg-slate-900 transition cursor-pointer"
                 >
                   Đăng nhập với tài khoản này
                 </button>
@@ -314,7 +317,7 @@ export default function App() {
   };
 
   // =========================================================================
-  // GIAO DIỆN PHÒNG THI (EXAM ROOM)
+  // GIAO DIỆN PHÒNG THI (EXAM ROOM TRỰC TUYẾN)
   // =========================================================================
   if (activeExamSessionId) {
     return (
@@ -348,7 +351,7 @@ export default function App() {
       <div className="min-h-screen bg-slate-50 text-slate-700">
         <header className="bg-white border-b px-6 py-4 flex justify-between items-center shadow-sm">
           <div className="flex items-center gap-3">
-            <div className="w-9 h-9 bg-green-600 text-white rounded-xl flex items-center justify-center font-bold text-sm shadow-sm">
+            <div className="w-9 h-9 bg-blue-600 text-white rounded-xl flex items-center justify-center font-bold text-sm shadow-sm">
               🎓
             </div>
             <div>
@@ -366,13 +369,13 @@ export default function App() {
                 logout();
                 window.location.reload();
               }}
-              className="text-indigo-600 hover:underline font-semibold"
+              className="text-blue-600 hover:underline font-semibold cursor-pointer"
             >
               Đổi tài khoản
             </button>
             <button
               onClick={logout}
-              className="px-3 py-1.5 bg-red-50 text-red-600 border border-red-200 rounded-lg font-semibold hover:bg-red-100 transition"
+              className="px-3 py-1.5 bg-red-50 text-red-600 border border-red-200 rounded-lg font-semibold hover:bg-red-100 transition cursor-pointer"
             >
               Đăng xuất
             </button>
@@ -390,7 +393,7 @@ export default function App() {
               </div>
               <button
                 onClick={refreshAll}
-                className="text-xs text-blue-600 hover:underline font-medium"
+                className="text-xs text-blue-600 hover:underline font-medium cursor-pointer"
               >
                 🔄 Làm mới
               </button>
@@ -409,7 +412,7 @@ export default function App() {
                   >
                     <div>
                       <div className="flex items-center gap-2 mb-1">
-                        <span className="text-xs font-mono font-bold text-indigo-600">#{s.id}</span>
+                        <span className="text-xs font-mono font-bold text-blue-600">#{s.id}</span>
                         <span
                           className={`text-[10px] font-bold px-2 py-0.5 rounded-full border ${
                             s.status === 'RUNNING'
@@ -429,7 +432,7 @@ export default function App() {
 
                     <button
                       onClick={() => setActiveExamSessionId(s.id)}
-                      className="px-4 py-2 bg-indigo-600 text-white rounded-lg text-xs font-bold hover:bg-indigo-700 transition shadow-sm"
+                      className="px-4 py-2 bg-blue-600 text-white rounded-lg text-xs font-bold hover:bg-blue-700 transition shadow-sm cursor-pointer"
                     >
                       🚀 Vào phòng thi & Điểm danh
                     </button>
@@ -444,41 +447,41 @@ export default function App() {
   }
 
   // =========================================================================
-  // GIAO DIỆN DÀNH CHO GIẢNG VIÊN & QUẢN TRỊ VIÊN (ORGANIZER / ADMIN PORTAL)
+  // GIAO DIỆN GIẢNG VIÊN & QUẢN TRỊ VIÊN (ORGANIZER PORTAL)
   // =========================================================================
   return (
     <div className="min-h-screen bg-slate-50 text-slate-700">
-      <header className="bg-white border-b px-6 py-3.5 flex flex-wrap justify-between items-center shadow-sm gap-4">
+      <header className="bg-white border-b px-6 py-4 flex flex-wrap justify-between items-center shadow-sm gap-4">
         <div className="flex items-center gap-3">
-          <div className="w-9 h-9 bg-indigo-600 text-white rounded-xl flex items-center justify-center font-bold text-sm shadow-sm">
-            CE
+          <div className="w-9 h-9 bg-blue-600 text-white rounded-xl flex items-center justify-center font-bold text-sm shadow-sm">
+            ☁️
           </div>
           <div>
-            <h1 className="text-base font-bold text-slate-900 leading-tight">
-              CloudExam Organizer Portal
-            </h1>
-            <div className="flex items-center gap-2 text-[11px] text-slate-500">
-              <span>Hạ tầng:</span>
+            <div className="flex items-center gap-2">
+              <h1 className="text-lg font-bold text-slate-800 leading-tight">
+                CloudExam - Organizer Portal
+              </h1>
               <span
-                className={`font-semibold px-2 py-0.2 rounded-full text-[10px] border ${
+                className={`font-semibold px-2 py-0.5 rounded-full text-[10px] border ${
                   isMock
                     ? 'bg-amber-50 text-amber-700 border-amber-200'
                     : 'bg-green-50 text-green-700 border-green-200'
                 }`}
               >
-                {isMock
-                  ? 'Tài khoản thử nghiệm (Có sẵn Database mẫu)'
-                  : 'Tài khoản AWS Thật (Cloud Live DynamoDB & S3)'}
+                {isMock ? 'Bản thử nghiệm (Demo Data)' : 'AWS Live Cloud'}
               </span>
             </div>
+            <p className="text-xs text-slate-500">
+              Quản lý kỳ thi, ngân hàng câu hỏi và giám sát trực tuyến
+            </p>
           </div>
         </div>
 
         <div className="flex items-center gap-4 text-xs">
           <div className="text-right">
             <span className="font-semibold text-slate-800 block">{user.email}</span>
-            <span className="text-[10px] text-slate-500 font-mono">
-              Quyền: <strong className="text-indigo-600">{user.groups.join(', ') || 'Organizer'}</strong>
+            <span className="text-[10px] text-slate-500">
+              Vai trò: <strong className="text-blue-600">{user.groups.join(', ') || 'Organizer'}</strong>
             </span>
           </div>
           <button
@@ -486,13 +489,13 @@ export default function App() {
               logout();
               window.location.reload();
             }}
-            className="text-xs text-indigo-600 hover:underline font-semibold"
+            className="text-xs text-blue-600 hover:underline font-semibold cursor-pointer"
           >
             Đổi vai trò
           </button>
           <button
             onClick={logout}
-            className="px-3 py-1.5 bg-red-50 text-red-600 border border-red-200 rounded-lg font-semibold hover:bg-red-100 transition"
+            className="px-3 py-1.5 bg-red-50 text-red-600 border border-red-200 rounded-lg font-semibold hover:bg-red-100 transition cursor-pointer"
           >
             Đăng xuất
           </button>
@@ -500,15 +503,15 @@ export default function App() {
       </header>
 
       <main className="max-w-5xl mx-auto p-6 space-y-6">
-        {/* Navigation Tabs */}
+        {/* Navigation Tabs chuẩn phong cách của Hà */}
         <div className="flex space-x-2 border-b overflow-x-auto pb-px">
           {TABS.map((t) => (
             <button
               key={t.id}
               onClick={() => setActiveTab(t.id)}
-              className={`pb-3 px-4 font-semibold text-xs border-b-2 transition whitespace-nowrap flex items-center gap-1.5 ${
+              className={`pb-3 px-4 font-semibold text-sm border-b-2 transition whitespace-nowrap flex items-center gap-1.5 cursor-pointer ${
                 activeTab === t.id
-                  ? 'border-indigo-600 text-indigo-600'
+                  ? 'border-blue-600 text-blue-600'
                   : 'border-transparent text-slate-500 hover:text-slate-800'
               }`}
             >
@@ -565,17 +568,19 @@ export default function App() {
             </div>
 
             {sessions.length === 0 ? (
-              <p className="text-xs text-slate-400 py-4">Chưa có ca thi nào. Hãy tạo ca thi ở Tab 3 trước.</p>
+              <p className="text-xs text-slate-400 py-8 text-center">
+                Chưa có ca thi nào. Hãy tạo ca thi ở Tab 3 trước.
+              </p>
             ) : (
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4 pt-2">
                 {sessions.map((s) => (
                   <div
                     key={s.id}
-                    className="p-4 border rounded-xl bg-slate-50 space-y-3 hover:border-indigo-300 transition"
+                    className="p-4 border rounded-xl bg-slate-50 space-y-3 hover:border-blue-300 transition"
                   >
                     <div className="flex justify-between items-start">
                       <div>
-                        <span className="text-[11px] font-mono font-bold text-indigo-600 block">#{s.id}</span>
+                        <span className="text-[11px] font-mono font-bold text-blue-600 block">#{s.id}</span>
                         <h4 className="font-bold text-slate-800 text-sm">{s.name}</h4>
                       </div>
                       <span
@@ -595,7 +600,7 @@ export default function App() {
 
                     <button
                       onClick={() => setActiveExamSessionId(s.id)}
-                      className="w-full py-2 bg-indigo-600 text-white font-bold rounded-lg text-xs hover:bg-indigo-700 transition shadow-sm"
+                      className="w-full py-2 bg-blue-600 text-white font-bold rounded-lg text-xs hover:bg-blue-700 transition shadow-sm cursor-pointer"
                     >
                       🚀 Vào phòng thi này để Test
                     </button>

@@ -226,7 +226,7 @@ export const QuestionBankTab = ({ questions, onRefresh }: Props) => {
           <div className="flex items-center gap-3">
             <button
               onClick={() => setShowCreateBankModal(true)}
-              className="px-3.5 py-2 bg-indigo-600 text-white text-xs font-bold rounded-lg hover:bg-indigo-700 transition flex items-center gap-1.5 shadow-sm"
+              className="px-3.5 py-2 bg-blue-600 text-white text-xs font-bold rounded-lg hover:bg-blue-700 transition flex items-center gap-1.5 shadow-sm"
             >
               <span>➕</span>
               <span>Tạo ngân hàng mới</span>
@@ -265,7 +265,7 @@ export const QuestionBankTab = ({ questions, onRefresh }: Props) => {
                   onClick={() => setSelectedBankFilter(isSelected ? 'ALL' : b.id)}
                   className={`px-2.5 py-1 rounded-lg border text-xs font-medium transition flex items-center gap-1.5 ${
                     isSelected
-                      ? 'bg-indigo-50 border-indigo-300 text-indigo-700 font-bold'
+                      ? 'bg-blue-50 border-blue-300 text-blue-700 font-bold'
                       : 'bg-white border-slate-200 text-slate-600 hover:bg-slate-50'
                   }`}
                 >
@@ -303,7 +303,7 @@ export const QuestionBankTab = ({ questions, onRefresh }: Props) => {
                   value={newBankName}
                   onChange={(e) => setNewBankName(e.target.value)}
                   placeholder="Ví dụ: Ngân hàng Kiến trúc AWS & Serverless"
-                  className="w-full p-2.5 border rounded-lg text-xs outline-none focus:ring-2 focus:ring-indigo-500"
+                  className="w-full p-2.5 border rounded-lg text-xs outline-none focus:ring-2 focus:ring-blue-500"
                   required
                 />
               </div>
@@ -317,7 +317,7 @@ export const QuestionBankTab = ({ questions, onRefresh }: Props) => {
                   value={newBankSubject}
                   onChange={(e) => setNewBankSubject(e.target.value)}
                   placeholder="Ví dụ: Điện toán đám mây"
-                  className="w-full p-2.5 border rounded-lg text-xs outline-none focus:ring-2 focus:ring-indigo-500"
+                  className="w-full p-2.5 border rounded-lg text-xs outline-none focus:ring-2 focus:ring-blue-500"
                   required
                 />
               </div>
@@ -331,7 +331,7 @@ export const QuestionBankTab = ({ questions, onRefresh }: Props) => {
                   onChange={(e) => setNewBankDesc(e.target.value)}
                   placeholder="Mô tả mục tiêu ngân hàng câu hỏi..."
                   rows={2}
-                  className="w-full p-2.5 border rounded-lg text-xs outline-none focus:ring-2 focus:ring-indigo-500"
+                  className="w-full p-2.5 border rounded-lg text-xs outline-none focus:ring-2 focus:ring-blue-500"
                 />
               </div>
 
@@ -346,7 +346,7 @@ export const QuestionBankTab = ({ questions, onRefresh }: Props) => {
                 <button
                   type="submit"
                   disabled={creatingBank}
-                  className="px-4 py-2 bg-indigo-600 text-white text-xs font-bold rounded-lg hover:bg-indigo-700 disabled:bg-gray-400"
+                  className="px-4 py-2 bg-blue-600 text-white text-xs font-bold rounded-lg hover:bg-blue-700 disabled:bg-gray-400 cursor-pointer"
                 >
                   {creatingBank ? 'Đang tạo...' : 'Xác nhận tạo'}
                 </button>
@@ -532,7 +532,7 @@ export const QuestionBankTab = ({ questions, onRefresh }: Props) => {
                 <label className="block text-xs font-semibold text-slate-700">
                   Ảnh đính kèm (imageUrl)
                 </label>
-                <span className="text-[10px] text-indigo-600 font-mono">S3 Presigned URL</span>
+                <span className="text-[10px] text-blue-600 font-mono">S3 Presigned URL</span>
               </div>
               <input
                 ref={fileInput}
@@ -546,7 +546,7 @@ export const QuestionBankTab = ({ questions, onRefresh }: Props) => {
 
           {/* Upload Status / Image preview */}
           {uploadStatus && (
-            <p className="text-xs text-indigo-600 font-medium italic animate-pulse">
+            <p className="text-xs text-blue-600 font-medium italic animate-pulse">
               ⏳ {uploadStatus}
             </p>
           )}
@@ -642,7 +642,7 @@ export const QuestionBankTab = ({ questions, onRefresh }: Props) => {
                     <span className="text-[11px] font-mono px-2 py-0.5 rounded bg-slate-100 text-slate-600">
                       ID: {q.id}
                     </span>
-                    <span className="text-[11px] font-semibold px-2 py-0.5 rounded bg-indigo-50 text-indigo-700 border border-indigo-200">
+                    <span className="text-[11px] font-semibold px-2 py-0.5 rounded bg-blue-50 text-blue-700 border border-blue-200">
                       📁 {bank?.name || q.bankId || 'Ngân hàng chung'}
                     </span>
                     <span className="text-[11px] px-2 py-0.5 rounded bg-purple-50 text-purple-700">

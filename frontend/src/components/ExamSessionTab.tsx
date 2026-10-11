@@ -124,7 +124,7 @@ export const ExamSessionTab = ({
             value={name}
             onChange={(e) => setName(e.target.value)}
             placeholder="Ví dụ: Thi Cuối Kỳ Điện Toán Đám Mây - Ca 1"
-            className="w-full p-2.5 border rounded-lg text-sm outline-none focus:ring-2 focus:ring-indigo-500"
+            className="w-full p-2.5 border rounded-lg text-sm outline-none focus:ring-2 focus:ring-blue-500"
           />
         </div>
 
@@ -157,7 +157,7 @@ export const ExamSessionTab = ({
             </label>
             <button
               type="button"
-              className="text-xs text-indigo-600 hover:underline font-medium"
+              className="text-xs text-blue-600 hover:underline font-medium cursor-pointer"
               onClick={() =>
                 setSelectedQuestions(selectedQuestions.length === questions.length ? [] : questions.map((q) => q.id))
               }
@@ -176,12 +176,12 @@ export const ExamSessionTab = ({
               >
                 <input
                   type="checkbox"
-                  className="mt-0.5 rounded text-indigo-600 focus:ring-indigo-500"
+                  className="mt-0.5 rounded text-blue-600 focus:ring-blue-500"
                   checked={selectedQuestions.includes(q.id)}
                   onChange={(e) => toggle(selectedQuestions, setSelectedQuestions, q.id, e.target.checked)}
                 />
                 <span className="flex-1">
-                  <span className="font-semibold text-indigo-700">[{q.difficulty}]</span> {q.content}{' '}
+                  <span className="font-semibold text-blue-700">[{q.difficulty}]</span> {q.content}{' '}
                   <span className="text-slate-400">({q.score} điểm)</span>
                 </span>
               </label>
@@ -197,7 +197,7 @@ export const ExamSessionTab = ({
             </label>
             <button
               type="button"
-              className="text-xs text-indigo-600 hover:underline font-medium"
+              className="text-xs text-blue-600 hover:underline font-medium cursor-pointer"
               onClick={() =>
                 setSelectedCandidates(
                   selectedCandidates.length === candidates.length ? [] : candidates.map((c) => c.email)
@@ -218,7 +218,7 @@ export const ExamSessionTab = ({
               >
                 <input
                   type="checkbox"
-                  className="rounded text-indigo-600 focus:ring-indigo-500"
+                  className="rounded text-blue-600 focus:ring-blue-500"
                   checked={selectedCandidates.includes(c.email)}
                   onChange={(e) => toggle(selectedCandidates, setSelectedCandidates, c.email, e.target.checked)}
                 />
@@ -234,7 +234,7 @@ export const ExamSessionTab = ({
         <button
           onClick={handleCreateSession}
           disabled={submitting}
-          className="w-full py-3 bg-indigo-600 text-white font-bold rounded-lg hover:bg-indigo-700 disabled:bg-gray-400 transition shadow"
+          className="w-full py-3 bg-blue-600 text-white font-bold rounded-lg hover:bg-blue-700 disabled:bg-gray-400 transition shadow cursor-pointer"
         >
           {submitting ? 'Đang tạo ca thi trên DynamoDB...' : '🚀 Tạo ca thi và Lưu vào AWS DynamoDB'}
         </button>
@@ -260,10 +260,10 @@ export const ExamSessionTab = ({
             const examUrl = `${window.location.origin}/?exam=${s.id}`;
 
             return (
-              <div key={s.id} className="p-4 bg-indigo-50/50 border border-indigo-200 rounded-xl space-y-3">
+              <div key={s.id} className="p-4 bg-slate-50 border border-slate-200 rounded-xl space-y-3 hover:border-blue-300 transition">
                 <div className="flex flex-wrap justify-between items-center gap-2">
                   <div>
-                    <span className="text-xs font-mono font-bold text-indigo-600 mr-2">#{s.id}</span>
+                    <span className="text-xs font-mono font-bold text-blue-600 mr-2">#{s.id}</span>
                     <span className="font-bold text-slate-800 text-base">{s.name}</span>
                   </div>
                   <div className="flex items-center gap-2">
@@ -293,7 +293,7 @@ export const ExamSessionTab = ({
                 </div>
 
                 {/* Danh sách thí sinh trong ca thi & nút thêm nhanh */}
-                <div className="bg-white/80 p-2.5 rounded-lg border border-indigo-100 space-y-1.5">
+                <div className="bg-white p-2.5 rounded-lg border border-slate-200 space-y-1.5">
                   <div className="flex justify-between items-center text-[11px] text-slate-600 font-semibold">
                     <span>Thí sinh được phân công vào ca thi này:</span>
                     <span className="text-[10px] text-slate-500 font-normal">
@@ -306,7 +306,7 @@ export const ExamSessionTab = ({
                       return (
                         <span
                           key={email}
-                          className="inline-flex items-center gap-1 px-2 py-0.5 bg-indigo-100 text-indigo-900 rounded text-[11px] font-mono"
+                          className="inline-flex items-center gap-1 px-2 py-0.5 bg-blue-100 text-blue-900 rounded text-[11px] font-mono"
                         >
                           <span>{c ? c.name : email}</span>
                         </span>
@@ -322,7 +322,7 @@ export const ExamSessionTab = ({
                             key={c.email}
                             type="button"
                             onClick={() => onUpdateCandidates(s.id, [...(s.candidateEmails || []), c.email])}
-                            className="inline-flex items-center gap-1 px-2 py-0.5 bg-white border border-dashed border-indigo-400 text-indigo-700 hover:bg-indigo-50 rounded text-[11px] font-medium transition shadow-2xs"
+                            className="inline-flex items-center gap-1 px-2 py-0.5 bg-white border border-dashed border-blue-400 text-blue-700 hover:bg-blue-50 rounded text-[11px] font-medium transition shadow-2xs cursor-pointer"
                             title="Bấm để thêm thí sinh này vào ca thi"
                           >
                             <span>+ Thêm {c.name}</span>
@@ -332,14 +332,14 @@ export const ExamSessionTab = ({
                 </div>
 
                 {/* Quản lý trạng thái ca thi (Tác động tới điều kiện Lambda Face Verify) */}
-                <div className="pt-2 border-t border-indigo-100 flex flex-wrap items-center justify-between gap-2">
+                <div className="pt-2 border-t border-slate-200 flex flex-wrap items-center justify-between gap-2">
                   <div className="flex items-center gap-2">
                     <span className="text-xs font-semibold text-slate-600">Đổi trạng thái:</span>
                     {currentStatus !== 'RUNNING' && (
                       <button
                         onClick={() => handleStatusChange(s.id, 'RUNNING')}
                         disabled={updatingId === s.id}
-                        className="px-2.5 py-1 bg-green-600 text-white text-xs font-semibold rounded hover:bg-green-700 transition"
+                        className="px-2.5 py-1 bg-green-600 text-white text-xs font-semibold rounded hover:bg-green-700 transition cursor-pointer"
                       >
                         ▶ Bật ca thi (RUNNING)
                       </button>
@@ -348,7 +348,7 @@ export const ExamSessionTab = ({
                       <button
                         onClick={() => handleStatusChange(s.id, 'SCHEDULED')}
                         disabled={updatingId === s.id}
-                        className="px-2.5 py-1 bg-amber-600 text-white text-xs font-semibold rounded hover:bg-amber-700 transition"
+                        className="px-2.5 py-1 bg-amber-600 text-white text-xs font-semibold rounded hover:bg-amber-700 transition cursor-pointer"
                       >
                         ⏸ Chờ bắt đầu (SCHEDULED)
                       </button>
@@ -357,7 +357,7 @@ export const ExamSessionTab = ({
                       <button
                         onClick={() => handleStatusChange(s.id, 'CLOSED')}
                         disabled={updatingId === s.id}
-                        className="px-2.5 py-1 bg-slate-600 text-white text-xs font-semibold rounded hover:bg-slate-700 transition"
+                        className="px-2.5 py-1 bg-slate-600 text-white text-xs font-semibold rounded hover:bg-slate-700 transition cursor-pointer"
                       >
                         ⏹ Kết thúc (CLOSED)
                       </button>
@@ -368,7 +368,7 @@ export const ExamSessionTab = ({
                     {onOpenExam && (
                       <button
                         onClick={() => onOpenExam(s.id)}
-                        className="px-3 py-1 bg-indigo-600 text-white text-xs font-semibold rounded hover:bg-indigo-700 transition shadow-sm"
+                        className="px-3 py-1 bg-blue-600 text-white text-xs font-semibold rounded hover:bg-blue-700 transition shadow-sm cursor-pointer"
                       >
                         🔗 Vào thi (Test Rekognition)
                       </button>

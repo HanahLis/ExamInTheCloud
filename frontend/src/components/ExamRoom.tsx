@@ -231,7 +231,7 @@ export const ExamRoom = ({ sessionId, currentUserEmail = '', onExit }: Props) =>
   if (loadingSession) {
     return (
       <div className="flex flex-col items-center justify-center min-h-[60vh] space-y-4">
-        <div className="w-10 h-10 border-4 border-indigo-600 border-t-transparent rounded-full animate-spin"></div>
+        <div className="w-10 h-10 border-4 border-blue-600 border-t-transparent rounded-full animate-spin"></div>
         <p className="text-sm text-slate-600">Đang tải thông tin ca thi từ AWS DynamoDB...</p>
       </div>
     );
@@ -245,7 +245,7 @@ export const ExamRoom = ({ sessionId, currentUserEmail = '', onExit }: Props) =>
         <p className="text-sm text-red-600">{errorMsg || 'Mã ca thi không hợp lệ.'}</p>
         <button
           onClick={onExit}
-          className="px-4 py-2 bg-slate-700 text-white rounded-lg text-sm hover:bg-slate-800"
+          className="px-4 py-2 bg-slate-700 text-white rounded-lg text-sm hover:bg-slate-800 cursor-pointer"
         >
           Quay lại trang quản lý
         </button>
@@ -259,7 +259,7 @@ export const ExamRoom = ({ sessionId, currentUserEmail = '', onExit }: Props) =>
       <div className="bg-white p-6 rounded-2xl shadow-sm border border-slate-200 flex flex-wrap justify-between items-center gap-4">
         <div>
           <div className="flex items-center gap-2 mb-1">
-            <span className="text-xs font-mono font-bold bg-indigo-50 text-indigo-700 px-2 py-0.5 rounded border border-indigo-200">
+            <span className="text-xs font-mono font-bold bg-blue-50 text-blue-700 px-2 py-0.5 rounded border border-blue-200">
               #{session.id}
             </span>
             <span
@@ -282,9 +282,9 @@ export const ExamRoom = ({ sessionId, currentUserEmail = '', onExit }: Props) =>
 
         <div className="flex items-center gap-3">
           {step === 'IN_EXAM' && (
-            <div className="bg-indigo-50 border border-indigo-200 px-4 py-2 rounded-xl text-center">
-              <span className="block text-[10px] uppercase font-bold text-indigo-600 tracking-wider">Thời gian</span>
-              <span className="text-lg font-mono font-bold text-indigo-900">{formatTimer(timeLeft)}</span>
+            <div className="bg-blue-50 border border-blue-200 px-4 py-2 rounded-xl text-center">
+              <span className="block text-[10px] uppercase font-bold text-blue-600 tracking-wider">Thời gian</span>
+              <span className="text-lg font-mono font-bold text-blue-900">{formatTimer(timeLeft)}</span>
             </div>
           )}
           <button
@@ -330,7 +330,7 @@ export const ExamRoom = ({ sessionId, currentUserEmail = '', onExit }: Props) =>
                       onClick={() => setCandidateEmail(email)}
                       className={`text-xs px-3 py-1.5 rounded-lg border font-mono transition flex items-center gap-2 ${
                         candidateEmail.toLowerCase() === email.toLowerCase()
-                          ? 'bg-indigo-600 text-white border-indigo-600 font-bold shadow-sm'
+                          ? 'bg-blue-600 text-white border-blue-600 font-bold shadow-sm'
                           : 'bg-white text-slate-700 border-slate-300 hover:bg-slate-100'
                       }`}
                     >
@@ -363,10 +363,10 @@ export const ExamRoom = ({ sessionId, currentUserEmail = '', onExit }: Props) =>
                         key={cand.email}
                         type="button"
                         onClick={() => handleAssignCandidateToSession(cand.email)}
-                        className="text-xs px-3 py-1.5 rounded-lg border border-dashed border-indigo-400 bg-indigo-50/70 text-indigo-950 hover:bg-indigo-100 font-mono transition flex items-center gap-1.5 shadow-xs"
+                        className="text-xs px-3 py-1.5 rounded-lg border border-dashed border-blue-400 bg-blue-50/70 text-blue-950 hover:bg-blue-100 font-mono transition flex items-center gap-1.5 shadow-xs cursor-pointer"
                         title="Bấm để gán thí sinh này vào ca thi"
                       >
-                        <span className="font-bold text-indigo-600">+</span>
+                        <span className="font-bold text-blue-600">+</span>
                         <span className="font-semibold">{cand.name}</span>
                         <span className="text-[10px] text-slate-500">({cand.email})</span>
                       </button>
@@ -396,7 +396,7 @@ export const ExamRoom = ({ sessionId, currentUserEmail = '', onExit }: Props) =>
             <div className="space-y-3 p-4 bg-slate-50 rounded-xl border border-slate-200 text-center">
               <div className="flex justify-between items-center text-xs text-slate-600 mb-1">
                 <span className="font-bold">Ảnh gốc thí sinh (Amazon S3)</span>
-                <span className="font-mono text-[11px] text-indigo-600">faces/{currentCandidateObj?.studentCode}.jpg</span>
+                <span className="font-mono text-[11px] text-blue-600">faces/{currentCandidateObj?.studentCode}.jpg</span>
               </div>
               <div className="aspect-4/3 bg-slate-200 rounded-lg overflow-hidden flex items-center justify-center border border-slate-300">
                 {currentCandidateObj?.faceImageUrl ? (
@@ -517,7 +517,7 @@ export const ExamRoom = ({ sessionId, currentUserEmail = '', onExit }: Props) =>
             <button
               onClick={handleVerifyFace}
               disabled={!capturedImage || isVerifying}
-              className="w-full py-3 bg-indigo-600 text-white font-bold rounded-xl hover:bg-indigo-700 disabled:bg-slate-300 disabled:cursor-not-allowed shadow-md transition"
+              className="w-full py-3 bg-blue-600 text-white font-bold rounded-xl hover:bg-blue-700 disabled:bg-slate-300 disabled:cursor-not-allowed shadow-md transition cursor-pointer"
             >
               {isVerifying ? (
                 <span className="flex items-center justify-center gap-2">
@@ -592,14 +592,14 @@ export const ExamRoom = ({ sessionId, currentUserEmail = '', onExit }: Props) =>
               return (
                 <div
                   key={q.id}
-                  className="p-5 rounded-xl border border-slate-200 hover:border-indigo-300 transition space-y-3 bg-slate-50/50"
+                  className="p-5 rounded-xl border border-slate-200 hover:border-blue-300 transition space-y-3 bg-slate-50/50"
                 >
                   <div className="flex justify-between items-start gap-4">
                     <p className="font-semibold text-slate-900 text-sm">
-                      <span className="text-indigo-600 font-bold mr-2">Câu {idx + 1}:</span>
+                      <span className="text-blue-600 font-bold mr-2">Câu {idx + 1}:</span>
                       {q.content}
                     </p>
-                    <span className="text-[11px] font-bold px-2 py-0.5 rounded bg-indigo-100 text-indigo-700 shrink-0">
+                    <span className="text-[11px] font-bold px-2 py-0.5 rounded bg-blue-100 text-blue-700 shrink-0">
                       {q.score} điểm
                     </span>
                   </div>
@@ -621,7 +621,7 @@ export const ExamRoom = ({ sessionId, currentUserEmail = '', onExit }: Props) =>
                           key={optIdx}
                           className={`flex items-center space-x-3 p-3 rounded-lg border cursor-pointer text-xs transition ${
                             isChecked
-                              ? 'bg-indigo-50 border-indigo-600 font-semibold text-indigo-950 shadow-xs'
+                              ? 'bg-blue-50 border-blue-600 font-semibold text-blue-950 shadow-xs'
                               : 'bg-white border-slate-200 text-slate-700 hover:bg-slate-100'
                           }`}
                         >
@@ -630,9 +630,9 @@ export const ExamRoom = ({ sessionId, currentUserEmail = '', onExit }: Props) =>
                             name={`question-${q.id}`}
                             checked={isChecked}
                             onChange={() => setAnswers((prev) => ({ ...prev, [q.id]: optIdx }))}
-                            className="text-indigo-600 focus:ring-indigo-500"
+                            className="text-blue-600 focus:ring-blue-500"
                           />
-                          <span className="font-bold text-indigo-700">{label}.</span>
+                          <span className="font-bold text-blue-700">{label}.</span>
                           <span className="flex-1">{opt}</span>
                         </label>
                       );
@@ -666,17 +666,17 @@ export const ExamRoom = ({ sessionId, currentUserEmail = '', onExit }: Props) =>
             <p className="text-xs text-slate-500 mt-1">Kết quả đã được Lambda chấm điểm và lưu vào AWS DynamoDB.</p>
           </div>
 
-          <div className="max-w-md mx-auto bg-indigo-50/70 border border-indigo-200 p-6 rounded-2xl space-y-4">
+          <div className="max-w-md mx-auto bg-blue-50/70 border border-blue-200 p-6 rounded-2xl space-y-4">
             <div>
-              <div className="text-4xl font-black text-indigo-600">
+              <div className="text-4xl font-black text-blue-600">
                 {submitResult.score} / {submitResult.maxScore} điểm
               </div>
-              <p className="text-xs font-semibold text-indigo-800 mt-1">
+              <p className="text-xs font-semibold text-blue-800 mt-1">
                 Số câu đúng: {submitResult.correctCount} / {submitResult.totalQuestions} câu hỏi
               </p>
             </div>
 
-            <div className="text-xs text-slate-600 space-y-1.5 pt-2 border-t border-indigo-200 text-left">
+            <div className="text-xs text-slate-600 space-y-1.5 pt-2 border-t border-blue-200 text-left">
               <p>
                 <strong>Thí sinh:</strong> {submitResult.candidateEmail || candidateEmail}
               </p>
@@ -700,13 +700,13 @@ export const ExamRoom = ({ sessionId, currentUserEmail = '', onExit }: Props) =>
                 setStep('IN_EXAM');
                 setAnswers({});
               }}
-              className="px-5 py-2.5 bg-white border border-slate-300 text-slate-700 text-xs font-semibold rounded-xl hover:bg-slate-50 transition"
+              className="px-5 py-2.5 bg-white border border-slate-300 text-slate-700 text-xs font-semibold rounded-xl hover:bg-slate-50 transition cursor-pointer"
             >
               🔄 Thi lại (Reset)
             </button>
             <button
               onClick={onExit}
-              className="px-6 py-2.5 bg-indigo-600 text-white text-xs font-semibold rounded-xl hover:bg-indigo-700 transition shadow"
+              className="px-6 py-2.5 bg-blue-600 text-white text-xs font-semibold rounded-xl hover:bg-blue-700 transition shadow cursor-pointer"
             >
               Quay lại danh sách ca thi
             </button>
