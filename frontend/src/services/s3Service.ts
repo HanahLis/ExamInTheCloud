@@ -1,33 +1,54 @@
-import { S3Client, PutObjectCommand } from '@aws-sdk/client-s3';
-import { fromCognitoIdentityPool } from '@aws-sdk/credential-providers';
+import { requestPresignedUrl, isMockMode } from './apiService';
 
-const MOCK = import.meta.env.VITE_USE_MOCK === 'true';
-const REGION = import.meta.env.VITE_AWS_REGION;
-const BUCKET_NAME = import.meta.env.VITE_S3_BUCKET_NAME;
-
-const getClient = () =>
-  new S3Client({
-    region: REGION,
-    credentials: fromCognitoIdentityPool({
-      identityPoolId: import.meta.env.VITE_IDENTITY_POOL_ID,
-      clientConfig: { region: REGION },
-      logins: {
-        [`cognito-idp.${REGION}.amazonaws.com/${import.meta.env.VITE_COGNITO_USER_POOL_ID}`]:
-          localStorage.getItem('id_token') || '',
-      },
-    }),
+const fileToBase64 = (file: File): Promise<string> =>
+  new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onloadend = () => resolve(reader.result as string);
+    reader.onerror = reject;
+    reader.readAsDataURL(file);
   });
 
-const uploadImage = async (file: File, prefix: string): Promise<string> => {
-  if (MOCK) return URL.createObjectURL(file); // xem được ảnh ngay, không cần S3
+/**
+ * Luồng 4.4: Upload hình ảnh qua S3 Presigned URL (dùng chung cho cả Question và Face image)
+ * Frontend -> POST /api/questions/image-upload (Lambda) -> presigned URL -> Frontend Direct PUT -> S3 -> S3 Object URL
+ */
+const uploadViaPresignedUrl = async (
+  file: File,
+  prefix: 'questions' | 'faces'
+): Promise<string> => {
+  if (isMockMode()) {
+    return fileToBase64(file);
+  }
 
-  const ext = file.name.split('.').pop();
-  const key = `${prefix}/${Date.now()}-${Math.random().toString(36).substring(7)}.${ext}`;
-  await getClient().send(
-    new PutObjectCommand({ Bucket: BUCKET_NAME, Key: key, Body: file, ContentType: file.type })
-  );
-  return `https://${BUCKET_NAME}.s3.${REGION}.amazonaws.com/${key}`;
+  try {
+    // 1. Gọi backend Lambda sinh S3 Presigned URL
+    const { uploadUrl, fileUrl } = await requestPresignedUrl(
+      file.name,
+      file.type || 'image/jpeg',
+      prefix
+    );
+
+    // 2. Direct HTTP PUT trực tiếp từ Frontend lên S3 (Native fetch hỗ trợ File stream hoàn hảo)
+    const res = await fetch(uploadUrl, {
+      method: 'PUT',
+      headers: {
+        'Content-Type': file.type || 'image/jpeg',
+      },
+      body: file,
+    });
+
+    if (!res.ok) {
+      throw new Error(`Upload ảnh lên S3 thất bại (${res.status}): ${res.statusText}`);
+    }
+
+    // 3. Trả về S3 Object URL để lưu metadata vào DynamoDB
+    return fileUrl;
+  } catch (err) {
+    console.warn(`Upload S3 qua Presigned URL thất bại (${prefix}), fallback sang Base64:`, err);
+    // Fallback an toàn sang Base64 nếu người dùng chưa có quyền Cognito token hoặc offline
+    return fileToBase64(file);
+  }
 };
 
-export const uploadQuestionImage = (file: File) => uploadImage(file, 'questions');
-export const uploadFaceImage = (file: File) => uploadImage(file, 'faces');
+export const uploadQuestionImage = (file: File) => uploadViaPresignedUrl(file, 'questions');
+export const uploadFaceImage = (file: File) => uploadViaPresignedUrl(file, 'faces');

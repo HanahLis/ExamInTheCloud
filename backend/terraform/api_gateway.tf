@@ -71,6 +71,20 @@ resource "aws_api_gateway_resource" "question_id" {
   path_part   = "{id}"
 }
 
+# /questions/image-upload (Sinh S3 Presigned URL)
+resource "aws_api_gateway_resource" "question_image_upload" {
+  rest_api_id = aws_api_gateway_rest_api.main.id
+  parent_id   = aws_api_gateway_resource.questions.id
+  path_part   = "image-upload"
+}
+
+# /question-banks (Quản lý Ngân hàng câu hỏi)
+resource "aws_api_gateway_resource" "question_banks" {
+  rest_api_id = aws_api_gateway_rest_api.main.id
+  parent_id   = aws_api_gateway_rest_api.main.root_resource_id
+  path_part   = "question-banks"
+}
+
 # /candidates
 resource "aws_api_gateway_resource" "candidates" {
   rest_api_id = aws_api_gateway_rest_api.main.id
@@ -134,6 +148,8 @@ locals {
   all_resources = {
     "questions"       = aws_api_gateway_resource.questions.id
     "question_id"     = aws_api_gateway_resource.question_id.id
+    "question_img"    = aws_api_gateway_resource.question_image_upload.id
+    "question_banks"  = aws_api_gateway_resource.question_banks.id
     "candidates"      = aws_api_gateway_resource.candidates.id
     "candidate_email" = aws_api_gateway_resource.candidate_email.id
     "sessions"        = aws_api_gateway_resource.sessions.id
@@ -204,6 +220,9 @@ locals {
   core_api_methods = [
     { key = "q_get", resource_id = aws_api_gateway_resource.questions.id, http_method = "GET" },
     { key = "q_post", resource_id = aws_api_gateway_resource.questions.id, http_method = "POST" },
+    { key = "q_img_post", resource_id = aws_api_gateway_resource.question_image_upload.id, http_method = "POST" },
+    { key = "qb_get", resource_id = aws_api_gateway_resource.question_banks.id, http_method = "GET" },
+    { key = "qb_post", resource_id = aws_api_gateway_resource.question_banks.id, http_method = "POST" },
     { key = "qid_get", resource_id = aws_api_gateway_resource.question_id.id, http_method = "GET" },
     { key = "qid_put", resource_id = aws_api_gateway_resource.question_id.id, http_method = "PUT" },
     { key = "qid_del", resource_id = aws_api_gateway_resource.question_id.id, http_method = "DELETE" },

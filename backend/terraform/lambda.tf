@@ -24,7 +24,6 @@ resource "aws_lambda_function" "core_api" {
   environment {
     variables = {
       ENV            = var.environment
-      AWS_REGION     = var.aws_region
       S3_BUCKET_NAME = var.s3_bucket_name
     }
   }
@@ -49,7 +48,6 @@ resource "aws_lambda_function" "face_verify" {
   environment {
     variables = {
       ENV            = var.environment
-      AWS_REGION     = var.aws_region
       S3_BUCKET_NAME = var.s3_bucket_name
     }
   }

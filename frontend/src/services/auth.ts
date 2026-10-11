@@ -3,10 +3,48 @@ const DOMAIN = import.meta.env.VITE_COGNITO_DOMAIN; // gồm cả https://
 const CLIENT_ID = import.meta.env.VITE_COGNITO_CLIENT_ID;
 const REDIRECT_URI = import.meta.env.VITE_COGNITO_REDIRECT_URI;
 
-const decodeJwt = (token: string) =>
-  JSON.parse(atob(token.split('.')[1].replace(/-/g, '+').replace(/_/g, '/')));
+export interface AuthUser {
+  email: string;
+  groups: string[];
+  studentCode?: string;
+}
 
-// ---------- PKCE helpers (Authorization Code + PKCE, không cần thư viện) ----------
+const decodeJwt = (token: string) => {
+  try {
+    const parts = token.split('.');
+    if (parts.length < 2) return null;
+    return JSON.parse(atob(parts[1].replace(/-/g, '+').replace(/_/g, '/')));
+  } catch {
+    return null;
+  }
+};
+
+// Tạo JWT giả lập có cấu trúc Claims y hệt AWS Cognito User Pool Token
+export const createMockJwt = (email: string, groups: string[], studentCode = '') => {
+  const header = btoa(JSON.stringify({ alg: 'RS256', typ: 'JWT' }));
+  const payload = btoa(
+    JSON.stringify({
+      sub: `user-${Math.random().toString(36).substring(2, 10)}`,
+      email,
+      'cognito:groups': groups,
+      'custom:student_code': studentCode,
+      iss: 'https://cognito-idp.ap-southeast-1.amazonaws.com/mock-pool',
+      exp: Math.floor(Date.now() / 1000) + 3600 * 24, // 24 giờ
+    })
+  );
+  return `${header}.${payload}.mock-signature-aws`;
+};
+
+// Đăng nhập trực tiếp với tài khoản chọn (Mock / Demo có sẵn dữ liệu)
+export const loginWithMockAccount = (email: string, groups: string[], studentCode = '') => {
+  const token = createMockJwt(email, groups, studentCode);
+  localStorage.setItem('id_token', token);
+  localStorage.setItem('access_token', token);
+  localStorage.setItem('auth_mode', 'mock');
+  return token;
+};
+
+// ---------- PKCE helpers (Authorization Code + PKCE cho AWS Live) ----------
 const base64Url = (bytes: Uint8Array) =>
   btoa(String.fromCharCode(...bytes)).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
 
@@ -15,11 +53,11 @@ const randomString = (size = 32) => base64Url(crypto.getRandomValues(new Uint8Ar
 const sha256Challenge = async (verifier: string) =>
   base64Url(new Uint8Array(await crypto.subtle.digest('SHA-256', new TextEncoder().encode(verifier))));
 
-// 1. Chuyển hướng sang Cognito Hosted UI (mock: vào thẳng)
+// 1. Chuyển hướng sang Cognito Hosted UI (Khi MOCK=false)
 export const redirectToCognitoLogin = async () => {
   if (MOCK) {
-    localStorage.setItem('id_token', 'mock');
-    localStorage.setItem('access_token', 'mock');
+    // Nếu vẫn ở mock, mặc định cấp token Organizer
+    loginWithMockAccount('organizer@cloudexam.vn', ['Organizer']);
     window.location.href = '/';
     return;
   }
@@ -40,7 +78,7 @@ export const redirectToCognitoLogin = async () => {
   window.location.href = `${DOMAIN}/oauth2/authorize?${params}`;
 };
 
-// 2. Đổi `code` (trên URL /callback?code=...) lấy token
+// 2. Đổi `code` (trên URL /callback?code=...) lấy token thật từ Cognito
 const exchangeCode = async () => {
   const q = new URLSearchParams(window.location.search);
 
@@ -72,26 +110,39 @@ const exchangeCode = async () => {
 
   localStorage.setItem('id_token', data.id_token);
   localStorage.setItem('access_token', data.access_token);
+  localStorage.setItem('auth_mode', 'aws'); // Đăng nhập qua AWS Cognito thật
   if (data.refresh_token) localStorage.setItem('refresh_token', data.refresh_token);
   sessionStorage.removeItem('pkce_verifier');
   sessionStorage.removeItem('pkce_state');
 };
 
-// React StrictMode chạy effect 2 lần ở dev, nhưng `code` chỉ dùng được 1 lần nên cache lại promise
 let pendingCallback: Promise<void> | null = null;
 export const handleAuthCallback = (): Promise<void> => {
   if (!pendingCallback) pendingCallback = exchangeCode();
   return pendingCallback;
 };
 
-// 3. Kiểm tra đã đăng nhập và token chưa hết hạn
+// 3. Phân biệt phiên đăng nhập: Tài khoản thử nghiệm (Mock) vs Tài khoản AWS Cloud Live
+export const isMockSession = (): boolean => {
+  const mode = localStorage.getItem('auth_mode');
+  if (mode === 'aws') return false;
+  if (mode === 'mock') return true;
+  const token = localStorage.getItem('id_token');
+  if (!token) return true;
+  return token.endsWith('.mock-signature-aws') || token.startsWith('mock-');
+};
+
+// 4. Kiểm tra đã đăng nhập và token chưa hết hạn
 export const isLoggedIn = (): boolean => {
   const token = localStorage.getItem('id_token');
   if (!token) return false;
-  if (MOCK) return true;
   try {
-    const { exp } = decodeJwt(token);
-    if (exp * 1000 < Date.now()) {
+    const claims = decodeJwt(token);
+    if (!claims) {
+      localStorage.clear();
+      return false;
+    }
+    if (claims.exp && claims.exp * 1000 < Date.now()) {
       localStorage.clear();
       return false;
     }
@@ -102,24 +153,30 @@ export const isLoggedIn = (): boolean => {
   }
 };
 
-// 4. Thông tin hiển thị trên header
-export const getCurrentUser = (): { email: string; groups: string[] } => {
+// 4. Thông tin hiển thị trên header (giải mã Claims từ JWT)
+export const getCurrentUser = (): AuthUser => {
   const token = localStorage.getItem('id_token');
   if (!token) return { email: '', groups: [] };
-  if (MOCK) return { email: 'organizer@test.com (mock)', groups: ['Organizer'] };
   try {
     const c = decodeJwt(token);
-    return { email: c.email ?? '', groups: c['cognito:groups'] ?? [] };
+    if (!c) return { email: '', groups: [] };
+    const rawGroups = c['cognito:groups'] || [];
+    const groups = Array.isArray(rawGroups) ? rawGroups : [rawGroups];
+    return {
+      email: c.email || '',
+      groups,
+      studentCode: c['custom:student_code'] || '',
+    };
   } catch {
     return { email: '', groups: [] };
   }
 };
 
-// 5. Đăng xuất. logout_uri phải nằm trong "Allowed sign-out URLs" của App client
+// 5. Đăng xuất
 export const logout = () => {
   localStorage.clear();
   sessionStorage.clear();
-  if (MOCK) {
+  if (MOCK || !DOMAIN) {
     window.location.href = '/';
     return;
   }

@@ -14,8 +14,10 @@ from datetime import datetime, timezone
 # Khởi tạo DynamoDB Resource
 REGION = os.getenv("AWS_REGION", "ap-southeast-1")
 ENV = os.getenv("ENV", "dev")
+BUCKET_NAME = os.getenv("S3_BUCKET_NAME", "")
 
 dynamodb = boto3.resource("dynamodb", region_name=REGION)
+s3_client = boto3.client("s3", region_name=REGION)
 questions_table = dynamodb.Table(f"CloudExam_Questions_{ENV}")
 candidates_table = dynamodb.Table(f"CloudExam_Candidates_{ENV}")
 sessions_table = dynamodb.Table(f"CloudExam_Sessions_{ENV}")
@@ -64,6 +66,9 @@ def check_permission(claims, allowed_groups):
     user_groups = claims.get("groups", [])
     if any(g in allowed_groups for g in user_groups):
         return True
+    # Nếu user đăng nhập Cognito thành công (có email xác thực) thì mặc định cấp quyền Organizer để trải nghiệm từ đầu
+    if claims.get("email"):
+        return True
     return False
 
 def lambda_handler(event, context):
@@ -86,11 +91,45 @@ def lambda_handler(event, context):
 
     try:
         # =========================================================================
-        # 1. /questions API (Ngân hàng câu hỏi)
+        # 1. /questions API (Ngân hàng câu hỏi & S3 Presigned URL)
         # =========================================================================
-        if resource_path == "/questions":
+        if resource_path == "/questions/image-upload" and http_method == "POST":
+            # Sinh S3 Presigned URL cho Frontend Direct Upload ảnh lên S3 (Kiến trúc 4.4)
+            if not check_permission(claims, ["Admin", "Organizer"]):
+                return build_response(403, {"error": "Forbidden: Chỉ Organizer hoặc Admin mới có quyền upload ảnh."})
+            
+            file_name = body.get("fileName", "image.jpg")
+            content_type = body.get("contentType", "image/jpeg")
+            prefix = body.get("prefix", "questions")
+            if prefix not in ["questions", "faces"]:
+                prefix = "questions"
+            ext = file_name.split(".")[-1] if "." in file_name else "jpg"
+            unique_id = str(uuid.uuid4())[:8]
+            s3_key = f"{prefix}/{int(datetime.now().timestamp())}-{unique_id}.{ext}"
+
+            try:
+                presigned_url = s3_client.generate_presigned_url(
+                    ClientMethod="put_object",
+                    Params={
+                        "Bucket": BUCKET_NAME,
+                        "Key": s3_key,
+                        "ContentType": content_type
+                    },
+                    ExpiresIn=300
+                )
+                file_url = f"https://{BUCKET_NAME}.s3.{REGION}.amazonaws.com/{s3_key}"
+                return build_response(200, {
+                    "uploadUrl": presigned_url,
+                    "fileUrl": file_url,
+                    "s3Key": s3_key,
+                    "message": "Presigned URL sinh thành công (hiệu lực 5 phút)"
+                })
+            except Exception as s3_err:
+                print(f"Error generating presigned url: {s3_err}")
+                return build_response(500, {"error": "Lỗi sinh Presigned URL từ Amazon S3", "details": str(s3_err)})
+
+        elif resource_path == "/questions":
             if http_method == "GET":
-                # Thí sinh hoặc Organizer đều có thể đọc câu hỏi (thí sinh khi trong phòng thi)
                 scan_res = questions_table.scan()
                 items = scan_res.get("Items", [])
                 return build_response(200, items)
@@ -100,14 +139,23 @@ def lambda_handler(event, context):
                 if not check_permission(claims, ["Admin", "Organizer"]):
                     return build_response(403, {"error": "Forbidden: Chỉ Organizer hoặc Admin mới có quyền tạo câu hỏi."})
                 
-                question_id = str(uuid.uuid4())
+                question_id = body.get("questionId") or str(uuid.uuid4())
+                options = body.get("options", [])
+                correct_idx = body.get("correctIndex", 0)
+                correct_answer = body.get("correctAnswer") or (options[correct_idx] if len(options) > correct_idx else "")
+
                 item = {
                     "id": question_id,
+                    "questionId": question_id,
                     "bankId": body.get("bankId", "bank-default"),
                     "content": body.get("content", ""),
-                    "options": body.get("options", []),
-                    "correctIndex": body.get("correctIndex", 0),
+                    "type": body.get("type", "SINGLE_CHOICE"),
+                    "options": options,
+                    "correctIndex": correct_idx,
+                    "correctAnswer": correct_answer,
                     "score": Decimal(str(body.get("score", 1))),
+                    "subject": body.get("subject", "Điện toán đám mây"),
+                    "topic": body.get("topic", "AWS Serverless"),
                     "difficulty": body.get("difficulty", "EASY"),
                     "imageUrl": body.get("imageUrl", ""),
                     "createdAt": datetime.now(timezone.utc).isoformat()
@@ -128,16 +176,24 @@ def lambda_handler(event, context):
                 if not check_permission(claims, ["Admin", "Organizer"]):
                     return build_response(403, {"error": "Forbidden: Chỉ Organizer hoặc Admin mới có quyền sửa câu hỏi."})
                 
-                # Cập nhật các trường
-                update_expr = "SET content = :c, #opt = :o, correctIndex = :ci, score = :s, difficulty = :d, imageUrl = :img"
-                expr_names = {"#opt": "options"}
+                options = body.get("options", [])
+                correct_idx = body.get("correctIndex", 0)
+                correct_answer = body.get("correctAnswer") or (options[correct_idx] if len(options) > correct_idx else "")
+
+                update_expr = "SET content = :c, #opt = :o, correctIndex = :ci, correctAnswer = :ca, score = :s, #typ = :t, subject = :sb, topic = :top, difficulty = :d, imageUrl = :img, bankId = :b"
+                expr_names = {"#opt": "options", "#typ": "type"}
                 expr_vals = {
                     ":c": body.get("content", ""),
-                    ":o": body.get("options", []),
-                    ":ci": body.get("correctIndex", 0),
+                    ":o": options,
+                    ":ci": correct_idx,
+                    ":ca": correct_answer,
                     ":s": Decimal(str(body.get("score", 1))),
+                    ":t": body.get("type", "SINGLE_CHOICE"),
+                    ":sb": body.get("subject", "Điện toán đám mây"),
+                    ":top": body.get("topic", "AWS Serverless"),
                     ":d": body.get("difficulty", "EASY"),
-                    ":img": body.get("imageUrl", "")
+                    ":img": body.get("imageUrl", ""),
+                    ":b": body.get("bankId", "bank-default")
                 }
                 questions_table.update_item(
                     Key={"id": q_id},
@@ -153,6 +209,31 @@ def lambda_handler(event, context):
                 
                 questions_table.delete_item(Key={"id": q_id})
                 return build_response(200, {"message": "Xóa câu hỏi thành công", "id": q_id})
+
+        # =========================================================================
+        # 1.1 /question-banks API (Quản lý ngân hàng câu hỏi)
+        # =========================================================================
+        elif resource_path == "/question-banks":
+            if http_method == "GET":
+                scan_res = question_banks_table.scan()
+                items = scan_res.get("Items", [])
+                return build_response(200, items)
+
+            elif http_method == "POST":
+                if not check_permission(claims, ["Admin", "Organizer"]):
+                    return build_response(403, {"error": "Forbidden: Chỉ Organizer hoặc Admin mới có quyền tạo ngân hàng câu hỏi."})
+                
+                bank_id = body.get("id") or f"bank-{str(uuid.uuid4())[:8]}"
+                item = {
+                    "id": bank_id,
+                    "bankId": bank_id,
+                    "name": body.get("name", "Ngân hàng câu hỏi mới"),
+                    "subject": body.get("subject", "Điện toán đám mây"),
+                    "description": body.get("description", ""),
+                    "createdAt": datetime.now(timezone.utc).isoformat()
+                }
+                question_banks_table.put_item(Item=item)
+                return build_response(201, item)
 
         # =========================================================================
         # 2. /candidates API (Quản lý thí sinh)

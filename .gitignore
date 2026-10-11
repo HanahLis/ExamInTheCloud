@@ -7,8 +7,8 @@
 *.tfstate.*
 *.tfvars
 !terraform.tfvars.example
-.terraform.lock.hcl
 *.zip
+*.exe
 
 # Environment & Credentials
 .env.local
