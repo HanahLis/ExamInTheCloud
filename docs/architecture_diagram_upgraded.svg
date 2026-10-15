@@ -1,0 +1,388 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1560 920" width="100%" height="100%" style="background:#ffffff; font-family:'Segoe UI', Roboto, Helvetica, Arial, sans-serif;">
+  <defs>
+    <!-- Markers for arrows -->
+    <marker id="arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
+      <path d="M 0 1 L 10 5 L 0 9 z" fill="#475569" />
+    </marker>
+    <marker id="arrow-blue" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
+      <path d="M 0 1 L 10 5 L 0 9 z" fill="#0284c7" />
+    </marker>
+    <marker id="arrow-orange" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
+      <path d="M 0 1 L 10 5 L 0 9 z" fill="#ea580c" />
+    </marker>
+    <marker id="arrow-red" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
+      <path d="M 0 1 L 10 5 L 0 9 z" fill="#dc2626" />
+    </marker>
+    <marker id="arrow-green" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
+      <path d="M 0 1 L 10 5 L 0 9 z" fill="#16a34a" />
+    </marker>
+    <marker id="arrow-purple" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
+      <path d="M 0 1 L 10 5 L 0 9 z" fill="#9333ea" />
+    </marker>
+    
+    <!-- Filter for soft shadow -->
+    <filter id="shadow" x="-5%" y="-5%" width="110%" height="110%">
+      <feDropShadow dx="0" dy="3" stdDeviation="4" flood-color="#000000" flood-opacity="0.06"/>
+    </filter>
+  </defs>
+
+  <!-- TITLE -->
+  <text x="780" y="45" text-anchor="middle" font-size="22" font-weight="800" fill="#0f172a" letter-spacing="0.5">
+    HỆ THỐNG CLOUDEXAM - KIẾN TRÚC TRIỂN KHAI AWS SERVERLESS &amp; EVENT-DRIVEN NÂNG CAO
+  </text>
+  <text x="780" y="70" text-anchor="middle" font-size="13" font-weight="500" fill="#64748b">
+    Tích hợp Đệm tải SQS Buffer, Tự động hóa Step Functions &amp; EventBridge, Định danh Cognito PKCE, Terraform IaC
+  </text>
+
+  <!-- ========================================================================= -->
+  <!-- 1. QUẢN TRỊ HẠ TẦNG & VẬN HÀNH (IaC & OBSERVABILITY) -->
+  <!-- ========================================================================= -->
+  <rect x="40" y="95" width="370" height="340" rx="14" fill="#faf5ff" stroke="#a855f7" stroke-width="2" filter="url(#shadow)"/>
+  <rect x="40" y="95" width="370" height="36" rx="14" fill="#f3e8ff"/>
+  <text x="55" y="119" font-size="12" font-weight="800" fill="#7e22ce" letter-spacing="0.5">1. QUẢN TRỊ HẠ TẦNG &amp; VẬN HÀNH (IaC &amp; OPS)</text>
+
+  <!-- Node: Terraform -->
+  <rect x="65" y="150" width="140" height="110" rx="10" fill="#ffffff" stroke="#c084fc" stroke-width="1.5" filter="url(#shadow)"/>
+  <rect x="110" y="160" width="50" height="35" rx="6" fill="#f3e8ff"/>
+  <text x="135" y="182" text-anchor="middle" font-size="16">🏗️</text>
+  <text x="135" y="212" text-anchor="middle" font-size="12" font-weight="700" fill="#581c87">Terraform Engine</text>
+  <text x="135" y="230" text-anchor="middle" font-size="10" fill="#6b21a8">IaC tự động hóa 100%</text>
+  <text x="135" y="245" text-anchor="middle" font-size="9" fill="#9333ea">7 Modules .tf</text>
+
+  <!-- Node: IAM Roles -->
+  <rect x="245" y="150" width="140" height="110" rx="10" fill="#ffffff" stroke="#f87171" stroke-width="1.5" filter="url(#shadow)"/>
+  <rect x="290" y="160" width="50" height="35" rx="6" fill="#fee2e2"/>
+  <text x="315" y="182" text-anchor="middle" font-size="16">🛡️</text>
+  <text x="315" y="212" text-anchor="middle" font-size="12" font-weight="700" fill="#991b1b">AWS IAM Roles</text>
+  <text x="315" y="230" text-anchor="middle" font-size="10" fill="#b91c1c">Least Privilege Security</text>
+  <text x="315" y="245" text-anchor="middle" font-size="9" fill="#dc2626">Role riêng từng hàm</text>
+
+  <!-- Node: CloudWatch -->
+  <rect x="155" y="295" width="140" height="115" rx="10" fill="#ffffff" stroke="#f472b6" stroke-width="1.5" filter="url(#shadow)"/>
+  <rect x="200" y="305" width="50" height="35" rx="6" fill="#fce7f3"/>
+  <text x="225" y="327" text-anchor="middle" font-size="16">📈</text>
+  <text x="225" y="357" text-anchor="middle" font-size="12" font-weight="700" fill="#9d174d">AWS CloudWatch</text>
+  <text x="225" y="375" text-anchor="middle" font-size="10" fill="#be185d">Logs, Metrics &amp; Alarms</text>
+  <text x="225" y="392" text-anchor="middle" font-size="9" fill="#db2777">Giám sát độ trễ &amp; Lỗi</text>
+
+
+  <!-- ========================================================================= -->
+  <!-- 2. LỚP GIAO DIỆN & ĐỊNH DANH (CLIENT & AUTH) -->
+  <!-- ========================================================================= -->
+  <rect x="40" y="475" width="370" height="400" rx="14" fill="#f0f9ff" stroke="#0284c7" stroke-width="2" filter="url(#shadow)"/>
+  <rect x="40" y="475" width="370" height="36" rx="14" fill="#e0f2fe"/>
+  <text x="55" y="499" font-size="12" font-weight="800" fill="#0369a1" letter-spacing="0.5">2. LỚP GIAO DIỆN &amp; ĐỊNH DANH (CLIENT &amp; AUTH)</text>
+
+  <!-- Node: Client Web Browser -->
+  <rect x="65" y="540" width="140" height="130" rx="10" fill="#ffffff" stroke="#38bdf8" stroke-width="1.5" filter="url(#shadow)"/>
+  <rect x="110" y="555" width="50" height="35" rx="6" fill="#e0f2fe"/>
+  <text x="135" y="577" text-anchor="middle" font-size="16">⚛️</text>
+  <text x="135" y="608" text-anchor="middle" font-size="12" font-weight="700" fill="#0369a1">Client Browser</text>
+  <text x="135" y="626" text-anchor="middle" font-size="10" fill="#0284c7">React SPA (Vite / TS)</text>
+  <text x="135" y="642" text-anchor="middle" font-size="9" fill="#0ea5e9">Webcam HTML5 Live</text>
+  <text x="135" y="658" text-anchor="middle" font-size="9" fill="#0284c7">HTTPS / TLS 1.3</text>
+
+  <!-- Node: Cognito -->
+  <rect x="245" y="540" width="140" height="130" rx="10" fill="#ffffff" stroke="#f59e0b" stroke-width="1.5" filter="url(#shadow)"/>
+  <rect x="290" y="555" width="50" height="35" rx="6" fill="#fef3c7"/>
+  <text x="315" y="577" text-anchor="middle" font-size="16">🔑</text>
+  <text x="315" y="608" text-anchor="middle" font-size="12" font-weight="700" fill="#b45309">Amazon Cognito</text>
+  <text x="315" y="626" text-anchor="middle" font-size="10" fill="#d97706">User Pool (OAuth 2.0)</text>
+  <text x="315" y="642" text-anchor="middle" font-size="9" fill="#b45309">PKCE Auth Code Flow</text>
+  <text x="315" y="658" text-anchor="middle" font-size="9" fill="#78350f">Groups: Admin, Student</text>
+
+  <!-- Note: Client Features -->
+  <rect x="65" y="700" width="320" height="150" rx="8" fill="#ffffff" stroke="#bae6fd" stroke-width="1"/>
+  <text x="80" y="725" font-size="11" font-weight="700" fill="#0369a1">⚡ Trải nghiệm &amp; Tính năng Client:</text>
+  <text x="80" y="748" font-size="10" fill="#475569">• Tự động đăng nhập SSO qua Cognito Hosted UI</text>
+  <text x="80" y="770" font-size="10" fill="#475569">• Chụp webcam điểm danh gửi Base64 Image</text>
+  <text x="80" y="792" font-size="10" fill="#475569">• Upload thẳng ảnh đề thi lên S3 qua Presigned URL</text>
+  <text x="80" y="814" font-size="10" fill="#475569">• Làm bài thi trắc nghiệm &amp; Tự động lưu LocalStorage</text>
+  <text x="80" y="836" font-size="10" fill="#475569">• Nộp bài tức thì vào SQS Buffer trong &lt; 100ms</text>
+
+
+  <!-- ========================================================================= -->
+  <!-- 3. CỔNG TIẾP NHẬN (API GATEWAY) -->
+  <!-- ========================================================================= -->
+  <rect x="450" y="475" width="190" height="400" rx="14" fill="#f5f3ff" stroke="#6366f1" stroke-width="2" filter="url(#shadow)"/>
+  <rect x="450" y="475" width="190" height="36" rx="14" fill="#ede9fe"/>
+  <text x="465" y="499" font-size="12" font-weight="800" fill="#4f46e5" letter-spacing="0.5">3. CỔNG API GATEWAY</text>
+
+  <!-- Node: API Gateway -->
+  <rect x="470" y="540" width="150" height="310" rx="10" fill="#ffffff" stroke="#818cf8" stroke-width="1.5" filter="url(#shadow)"/>
+  <rect x="520" y="555" width="50" height="35" rx="6" fill="#e0e7ff"/>
+  <text x="545" y="577" text-anchor="middle" font-size="16">🌐</text>
+  <text x="545" y="608" text-anchor="middle" font-size="13" font-weight="700" fill="#3730a3">API Gateway</text>
+  <text x="545" y="626" text-anchor="middle" font-size="11" fill="#4338ca">Regional REST API</text>
+
+  <line x1="485" y1="645" x2="605" y2="645" stroke="#e0e7ff" stroke-width="1.5"/>
+  <text x="485" y="668" font-size="10" font-weight="700" fill="#4338ca">🛡️ Chốt chặn Ingress:</text>
+  <text x="485" y="688" font-size="9" fill="#475569">• Cognito Authorizer</text>
+  <text x="485" y="704" font-size="9" fill="#64748b">(Check JWT qua JWKS)</text>
+  <text x="485" y="724" font-size="9" fill="#475569">• Mock CORS Preflight</text>
+  <text x="485" y="740" font-size="9" fill="#64748b">(OPTIONS 200 OK)</text>
+
+  <line x1="485" y1="755" x2="605" y2="755" stroke="#e0e7ff" stroke-width="1.5"/>
+  <text x="485" y="776" font-size="10" font-weight="700" fill="#4338ca">📍 Tuyến đường (Routes):</text>
+  <text x="485" y="796" font-size="9" fill="#475569">• /questions</text>
+  <text x="485" y="812" font-size="9" fill="#475569">• /sessions</text>
+  <text x="485" y="828" font-size="9" fill="#475569">• /auth/face-verify</text>
+  <text x="485" y="844" font-size="9" fill="#dc2626">• /exam/submit (Buffer)</text>
+
+
+  <!-- ========================================================================= -->
+  <!-- 4. TÍNH TOÁN SERVERLESS (AWS LAMBDA) -->
+  <!-- ========================================================================= -->
+  <rect x="680" y="365" width="230" height="510" rx="14" fill="#fff7ed" stroke="#ea580c" stroke-width="2" filter="url(#shadow)"/>
+  <rect x="680" y="365" width="230" height="36" rx="14" fill="#ffedd5"/>
+  <text x="695" y="389" font-size="12" font-weight="800" fill="#c2410c" letter-spacing="0.5">4. TÍNH TOÁN (AWS LAMBDA)</text>
+
+  <!-- Lambda: Core API -->
+  <rect x="700" y="420" width="190" height="120" rx="10" fill="#ffffff" stroke="#fb923c" stroke-width="1.5" filter="url(#shadow)"/>
+  <rect x="715" y="432" width="36" height="30" rx="6" fill="#ffedd5"/>
+  <text x="733" y="452" text-anchor="middle" font-size="14">⚙️</text>
+  <text x="760" y="445" font-size="12" font-weight="700" fill="#9a3412">Lambda: Core API</text>
+  <text x="760" y="460" font-size="10" fill="#c2410c">api_handler.py</text>
+  <text x="715" y="485" font-size="9.5" fill="#475569">• CRUD Questions, Sessions</text>
+  <text x="715" y="502" font-size="9.5" fill="#475569">• Sinh S3 Presigned URL (300s)</text>
+  <text x="715" y="519" font-size="9.5" fill="#dc2626">• Đẩy gói bài nộp vào SQS</text>
+  <text x="715" y="533" font-size="8.5" fill="#94a3b8">256MB RAM | Timeout 15s</text>
+
+  <!-- Lambda: Face Verify -->
+  <rect x="700" y="560" width="190" height="135" rx="10" fill="#ffffff" stroke="#fb923c" stroke-width="1.5" filter="url(#shadow)"/>
+  <rect x="715" y="572" width="36" height="30" rx="6" fill="#ffedd5"/>
+  <text x="733" y="592" text-anchor="middle" font-size="14">👤</text>
+  <text x="760" y="585" font-size="12" font-weight="700" fill="#9a3412">Lambda: Face Verify</text>
+  <text x="760" y="600" font-size="10" fill="#c2410c">face_verify_handler.py</text>
+  <text x="715" y="625" font-size="9.5" fill="#475569">• Kiểm tra Session RUNNING</text>
+  <text x="715" y="642" font-size="9.5" fill="#475569">• Tải ảnh thẻ gốc S3 faces/*</text>
+  <text x="715" y="659" font-size="9.5" fill="#475569">• So sánh Rekognition (≥80%)</text>
+  <text x="715" y="676" font-size="9.5" fill="#16a34a">• Cập nhật CHECKED_IN</text>
+  <text x="715" y="690" font-size="8.5" fill="#94a3b8">512MB RAM | Timeout 30s</text>
+
+  <!-- Lambda: Grading Worker (NÂNG CẤP) -->
+  <rect x="700" y="715" width="190" height="140" rx="10" fill="#fff1f2" stroke="#e11d48" stroke-width="2" filter="url(#shadow)"/>
+  <rect x="715" y="727" width="36" height="30" rx="6" fill="#ffe4e6"/>
+  <text x="733" y="747" text-anchor="middle" font-size="14">📝</text>
+  <text x="760" y="740" font-size="12" font-weight="800" fill="#9f1239">Lambda: Grading Worker</text>
+  <text x="760" y="755" font-size="10" font-weight="600" fill="#e11d48">grading_worker.py (MỚI)</text>
+  <text x="715" y="780" font-size="9.5" fill="#475569">• Kích hoạt bởi SQS Event Mapping</text>
+  <text x="715" y="797" font-size="9.5" fill="#475569">• Chấm điểm tự động theo lô</text>
+  <text x="715" y="814" font-size="9.5" fill="#475569">• Đối soát đáp án chuẩn DynamoDB</text>
+  <text x="715" y="831" font-size="9.5" fill="#16a34a">• Ghi điểm &amp; trạng thái COMPLETED</text>
+  <text x="715" y="847" font-size="8.5" fill="#94a3b8">Batch Size: 10 | 512MB RAM</text>
+
+
+  <!-- ========================================================================= -->
+  <!-- 5. ĐỆM TẢI & ĐIỀU PHỐI (ASYNC & WORKFLOW) - [MỚI NÂNG CẤP] -->
+  <!-- ========================================================================= -->
+  <rect x="950" y="95" width="260" height="780" rx="14" fill="#fff1f2" stroke="#f43f5e" stroke-width="2" filter="url(#shadow)"/>
+  <rect x="950" y="95" width="260" height="36" rx="14" fill="#ffe4e6"/>
+  <text x="965" y="119" font-size="12" font-weight="800" fill="#be123c" letter-spacing="0.5">5. ĐỆM TẢI &amp; ĐIỀU PHỐI (ASYNC / WORKFLOW)</text>
+
+  <!-- Node: SQS Queue -->
+  <rect x="970" y="150" width="220" height="150" rx="10" fill="#ffffff" stroke="#fb7185" stroke-width="1.5" filter="url(#shadow)"/>
+  <rect x="985" y="162" width="36" height="30" rx="6" fill="#ffe4e6"/>
+  <text x="1003" y="182" text-anchor="middle" font-size="14">📬</text>
+  <text x="1030" y="175" font-size="12" font-weight="700" fill="#9f1239">Amazon SQS Queue</text>
+  <text x="1030" y="190" font-size="10" font-weight="600" fill="#e11d48">[Submission Buffer]</text>
+  <text x="985" y="215" font-size="9.5" fill="#475569">• Hấp thụ xung tải giờ nộp bài</text>
+  <text x="985" y="232" font-size="9.5" fill="#475569">• Đảm bảo 100% không mất bài thi</text>
+  <text x="985" y="249" font-size="9.5" fill="#475569">• Phản hồi Client trong &lt; 100ms</text>
+  <line x1="985" y1="260" x2="1170" y2="260" stroke="#fecdd3" stroke-width="1"/>
+  <text x="985" y="278" font-size="9" font-weight="700" fill="#be123c">⚠️ Dead Letter Queue (DLQ):</text>
+  <text x="985" y="293" font-size="8.5" fill="#64748b">Cô lập các gói nộp lỗi để xử lý lại</text>
+
+  <!-- Node: Step Functions -->
+  <rect x="970" y="325" width="220" height="155" rx="10" fill="#ffffff" stroke="#f43f5e" stroke-width="1.5" filter="url(#shadow)"/>
+  <rect x="985" y="337" width="36" height="30" rx="6" fill="#ffe4e6"/>
+  <text x="1003" y="357" text-anchor="middle" font-size="14">🔄</text>
+  <text x="1030" y="350" font-size="12" font-weight="700" fill="#9f1239">AWS Step Functions</text>
+  <text x="1030" y="365" font-size="10" font-weight="600" fill="#e11d48">Exam State Machine</text>
+  <text x="985" y="390" font-size="9.5" fill="#475569">• Điều phối tự động vòng đời ca thi</text>
+  <text x="985" y="407" font-size="9.5" fill="#475569">• Trạng thái: PENDING → RUNNING</text>
+  <text x="985" y="424" font-size="9.5" fill="#475569">• Đếm ngược thời lượng làm bài</text>
+  <text x="985" y="441" font-size="9.5" fill="#475569">• Khóa sổ ca thi: CLOSED</text>
+  <text x="985" y="458" font-size="9.5" fill="#dc2626">• Từ chối nộp muộn &amp; Kích hoạt SNS</text>
+
+  <!-- Node: EventBridge Scheduler -->
+  <rect x="970" y="505" width="220" height="110" rx="10" fill="#ffffff" stroke="#fb7185" stroke-width="1.5" filter="url(#shadow)"/>
+  <rect x="985" y="517" width="36" height="30" rx="6" fill="#ffe4e6"/>
+  <text x="1003" y="537" text-anchor="middle" font-size="14">⏰</text>
+  <text x="1030" y="530" font-size="12" font-weight="700" fill="#9f1239">Amazon EventBridge</text>
+  <text x="1030" y="545" font-size="10" font-weight="600" fill="#e11d48">Scheduler &amp; Event Rules</text>
+  <text x="985" y="570" font-size="9.5" fill="#475569">• Hẹn giờ kích hoạt ca thi chính xác</text>
+  <text x="985" y="587" font-size="9.5" fill="#475569">• Bắn sự kiện sang Step Functions</text>
+  <text x="985" y="604" font-size="8.5" fill="#94a3b8">Hoàn toàn không cần trực máy chủ</text>
+
+  <!-- Node: Amazon SNS -->
+  <rect x="970" y="640" width="220" height="110" rx="10" fill="#ffffff" stroke="#f43f5e" stroke-width="1.5" filter="url(#shadow)"/>
+  <rect x="985" y="652" width="36" height="30" rx="6" fill="#ffe4e6"/>
+  <text x="1003" y="672" text-anchor="middle" font-size="14">📢</text>
+  <text x="1030" y="665" font-size="12" font-weight="700" fill="#9f1239">Amazon SNS Topic</text>
+  <text x="1030" y="680" font-size="10" font-weight="600" fill="#e11d48">Notification &amp; Alerts</text>
+  <text x="985" y="705" font-size="9.5" fill="#475569">• Gửi Email cảnh báo vi phạm</text>
+  <text x="985" y="722" font-size="9.5" fill="#475569">• Báo cáo tổng kết điểm thi</text>
+  <text x="985" y="739" font-size="8.5" fill="#94a3b8">Bắn tin nhắn tới Giám thị &amp; Giảng viên</text>
+
+  <rect x="970" y="768" width="220" height="90" rx="8" fill="#ffffff" stroke="#fecdd3" stroke-width="1"/>
+  <text x="985" y="790" font-size="10" font-weight="700" fill="#be123c">💡 Giá trị kỹ thuật vượt trội:</text>
+  <text x="985" y="810" font-size="9" fill="#475569">• Xóa bỏ hoàn toàn nút thắt nghẽn nộp bài</text>
+  <text x="985" y="828" font-size="9" fill="#475569">• Tự động hóa 100% thời gian thi</text>
+  <text x="985" y="846" font-size="9" fill="#475569">• Giám sát vi phạm chủ động qua SNS</text>
+
+
+  <!-- ========================================================================= -->
+  <!-- 6. DỊCH VỤ DỮ LIỆU & TRÍ TUỆ NHÂN TẠO (DATA & AI) -->
+  <!-- ========================================================================= -->
+  <rect x="1250" y="95" width="270" height="780" rx="14" fill="#f0fdf4" stroke="#16a34a" stroke-width="2" filter="url(#shadow)"/>
+  <rect x="1250" y="95" width="270" height="36" rx="14" fill="#dcfce7"/>
+  <text x="1265" y="119" font-size="12" font-weight="800" fill="#15803d" letter-spacing="0.5">6. DỮ LIỆU &amp; TRÍ TUỆ NHÂN TẠO (DATA &amp; AI)</text>
+
+  <!-- Node: DynamoDB -->
+  <rect x="1275" y="150" width="220" height="230" rx="10" fill="#ffffff" stroke="#4ade80" stroke-width="1.5" filter="url(#shadow)"/>
+  <rect x="1290" y="162" width="36" height="30" rx="6" fill="#dcfce7"/>
+  <text x="1308" y="182" text-anchor="middle" font-size="14">🗄️</text>
+  <text x="1335" y="175" font-size="12" font-weight="700" fill="#166534">Amazon DynamoDB</text>
+  <text x="1335" y="190" font-size="10" fill="#15803d">PAY_PER_REQUEST (On-Demand)</text>
+  <line x1="1290" y1="205" x2="1475" y2="205" stroke="#bbf7d0" stroke-width="1"/>
+  <text x="1290" y="224" font-size="10" font-weight="700" fill="#166534">4 Bảng NoSQL chuyên biệt:</text>
+  <text x="1290" y="244" font-size="9.5" fill="#475569">• CloudExam_QuestionBanks_dev</text>
+  <text x="1300" y="258" font-size="8.5" fill="#64748b">(PK: id)</text>
+  <text x="1290" y="275" font-size="9.5" fill="#475569">• CloudExam_Questions_dev</text>
+  <text x="1300" y="289" font-size="8.5" fill="#64748b">(PK: id | GSI: BankIdIndex)</text>
+  <text x="1290" y="306" font-size="9.5" fill="#475569">• CloudExam_Candidates_dev</text>
+  <text x="1300" y="320" font-size="8.5" fill="#64748b">(PK: email | GSI: StudentCodeIndex)</text>
+  <text x="1290" y="337" font-size="9.5" fill="#475569">• CloudExam_Sessions_dev</text>
+  <text x="1300" y="351" font-size="8.5" fill="#64748b">(PK: id | Danh sách thí sinh &amp; Điểm)</text>
+  <text x="1290" y="370" font-size="9" font-weight="600" fill="#16a34a">Độ trễ đọc/ghi: &lt; 15 mili-giây</text>
+
+  <!-- Node: S3 -->
+  <rect x="1275" y="405" width="220" height="180" rx="10" fill="#ffffff" stroke="#4ade80" stroke-width="1.5" filter="url(#shadow)"/>
+  <rect x="1290" y="417" width="36" height="30" rx="6" fill="#dcfce7"/>
+  <text x="1308" y="437" text-anchor="middle" font-size="14">🪣</text>
+  <text x="1335" y="430" font-size="12" font-weight="700" fill="#166534">Amazon S3 Bucket</text>
+  <text x="1335" y="445" font-size="10" fill="#15803d">S3 Media Storage</text>
+  <line x1="1290" y1="460" x2="1475" y2="460" stroke="#bbf7d0" stroke-width="1"/>
+  <text x="1290" y="480" font-size="9.5" fill="#475569">• faces/*: Lưu ảnh thẻ gốc thí sinh</text>
+  <text x="1290" y="498" font-size="9.5" fill="#475569">• questions/*: Lưu ảnh đề thi minh họa</text>
+  <text x="1290" y="520" font-size="10" font-weight="700" fill="#15803d">⚡ Direct Upload CORS:</text>
+  <text x="1290" y="538" font-size="9" fill="#475569">Nhận PUT upload trực tiếp từ Client</text>
+  <text x="1290" y="554" font-size="9" fill="#475569">qua Presigned URL (Expires 300s)</text>
+  <text x="1290" y="574" font-size="9" font-weight="600" fill="#16a34a">Giảm tải 100% băng thông cho Lambda</text>
+
+  <!-- Node: Rekognition -->
+  <rect x="1275" y="610" width="220" height="150" rx="10" fill="#ffffff" stroke="#4ade80" stroke-width="1.5" filter="url(#shadow)"/>
+  <rect x="1290" y="622" width="36" height="30" rx="6" fill="#dcfce7"/>
+  <text x="1308" y="642" text-anchor="middle" font-size="14">🔍</text>
+  <text x="1335" y="635" font-size="12" font-weight="700" fill="#166534">Amazon Rekognition</text>
+  <text x="1335" y="650" font-size="10" fill="#15803d">Thị giác máy tính AI SaaS</text>
+  <line x1="1290" y1="665" x2="1475" y2="665" stroke="#bbf7d0" stroke-width="1"/>
+  <text x="1290" y="685" font-size="9.5" fill="#475569">• API: CompareFaces</text>
+  <text x="1290" y="703" font-size="9.5" fill="#475569">• So khớp vector 1:1 khuôn mặt</text>
+  <text x="1290" y="721" font-size="9.5" fill="#475569">• Ngưỡng tin cậy: Similarity ≥ 80%</text>
+  <text x="1290" y="741" font-size="9" font-weight="600" fill="#16a34a">Thời gian phản hồi: &lt; 1.5 giây</text>
+
+  <rect x="1275" y="780" width="220" height="78" rx="8" fill="#ffffff" stroke="#bbf7d0" stroke-width="1"/>
+  <text x="1290" y="802" font-size="10" font-weight="700" fill="#166534">📊 Khả năng mở rộng:</text>
+  <text x="1290" y="820" font-size="9" fill="#475569">• Tự động co giãn 0 → hàng ngàn RPS</text>
+  <text x="1290" y="838" font-size="9" fill="#475569">• Chi phí Zero khi kỳ thi đóng lại</text>
+
+
+  <!-- ========================================================================= -->
+  <!-- CONNECTING ARROWS & LABELS -->
+  <!-- ========================================================================= -->
+
+  <!-- Flow 1: Client -> Cognito -->
+  <path d="M 205 590 L 245 590" stroke="#0284c7" stroke-width="2" marker-end="url(#arrow-blue)"/>
+  <text x="225" y="582" text-anchor="middle" font-size="9" font-weight="700" fill="#0284c7">1. PKCE</text>
+
+  <!-- Flow 2: Client -> API Gateway -->
+  <path d="M 205 630 L 470 630" stroke="#0284c7" stroke-width="2" marker-end="url(#arrow-blue)"/>
+  <rect x="235" y="618" width="160" height="20" rx="4" fill="#ffffff" stroke="#bae6fd" stroke-width="1"/>
+  <text x="315" y="632" text-anchor="middle" font-size="9.5" font-weight="600" fill="#0369a1">2. Gọi API kèm Bearer JWT Token</text>
+
+  <!-- Flow: APIGW -> Cognito (JWKS) -->
+  <path d="M 470 570 C 420 550, 410 550, 385 570" stroke="#9333ea" stroke-width="1.5" stroke-dasharray="4,4" marker-end="url(#arrow-purple)"/>
+  <text x="425" y="555" text-anchor="middle" font-size="9" fill="#7e22ce">Xác thực JWKS</text>
+
+  <!-- Flow: Client -> S3 Presigned URL (Curved line going below) -->
+  <path d="M 135 670 C 135 900, 1380 900, 1385 585" stroke="#0284c7" stroke-width="2" stroke-dasharray="6,4" fill="none" marker-end="url(#arrow-blue)"/>
+  <rect x="680" y="888" width="250" height="22" rx="4" fill="#ffffff" stroke="#38bdf8" stroke-width="1"/>
+  <text x="805" y="903" text-anchor="middle" font-size="10" font-weight="700" fill="#0284c7">Client PUT Direct Upload ảnh lên S3 (Presigned URL 300s)</text>
+
+  <!-- Flow: APIGW -> Lambda Core API -->
+  <path d="M 620 600 C 660 560, 660 480, 700 480" stroke="#ea580c" stroke-width="2" fill="none" marker-end="url(#arrow-orange)"/>
+  <text x="660" y="530" text-anchor="middle" font-size="9" font-weight="600" fill="#ea580c">Proxy /questions, /sessions</text>
+
+  <!-- Flow: APIGW -> Lambda Face Verify -->
+  <path d="M 620 620 L 700 620" stroke="#ea580c" stroke-width="2" marker-end="url(#arrow-orange)"/>
+  <text x="660" y="612" text-anchor="middle" font-size="9" font-weight="600" fill="#ea580c">POST /auth/face-verify</text>
+
+  <!-- Flow: APIGW -> SQS Queue Buffer (NỘP BÀI ĐỆM TẢI) -->
+  <path d="M 620 815 C 650 815, 650 220, 970 220" stroke="#dc2626" stroke-width="2.5" fill="none" marker-end="url(#arrow-red)"/>
+  <rect x="730" y="270" width="180" height="22" rx="4" fill="#ffffff" stroke="#f43f5e" stroke-width="1.5"/>
+  <text x="820" y="285" text-anchor="middle" font-size="9.5" font-weight="800" fill="#dc2626">POST /exam/submit (Đẩy tải SQS)</text>
+
+  <!-- Flow: SQS -> Lambda Grading Worker -->
+  <path d="M 970 240 C 930 240, 920 780, 890 780" stroke="#e11d48" stroke-width="2" fill="none" marker-end="url(#arrow-red)"/>
+  <rect x="880" y="470" width="115" height="32" rx="4" fill="#ffffff" stroke="#fb7185" stroke-width="1"/>
+  <text x="937" y="484" text-anchor="middle" font-size="8.5" font-weight="700" fill="#be123c">Event Source Mapping</text>
+  <text x="937" y="496" text-anchor="middle" font-size="8" fill="#64748b">(Rút bài Batch 10)</text>
+
+  <!-- Flow: SQS -> DLQ -->
+  <path d="M 1190 220 C 1220 220, 1220 280, 1190 280" stroke="#be123c" stroke-width="1.5" stroke-dasharray="3,3" fill="none" marker-end="url(#arrow-red)"/>
+
+  <!-- Flow: Lambda Core -> S3 (Presigned URL) -->
+  <path d="M 890 470 C 1050 470, 1100 450, 1275 450" stroke="#ea580c" stroke-width="1.5" fill="none" marker-end="url(#arrow-orange)"/>
+  <text x="1100" y="462" text-anchor="middle" font-size="8.5" fill="#c2410c">Sinh Presigned URL</text>
+
+  <!-- Flow: Lambda Core -> DynamoDB -->
+  <path d="M 890 440 C 1050 440, 1150 250, 1275 250" stroke="#ea580c" stroke-width="1.5" fill="none" marker-end="url(#arrow-orange)"/>
+  <text x="1080" y="315" text-anchor="middle" font-size="8.5" fill="#c2410c">CRUD Đề &amp; Ca thi</text>
+
+  <!-- Flow: Lambda Face -> S3 (Download reference photo) -->
+  <path d="M 890 620 C 1050 620, 1150 510, 1275 510" stroke="#ea580c" stroke-width="1.5" fill="none" marker-end="url(#arrow-orange)"/>
+  <text x="1100" y="580" text-anchor="middle" font-size="8.5" fill="#c2410c">Tải ảnh thẻ gốc faces/*</text>
+
+  <!-- Flow: Lambda Face -> Rekognition -->
+  <path d="M 890 650 C 1050 650, 1150 685, 1275 685" stroke="#ea580c" stroke-width="1.5" fill="none" marker-end="url(#arrow-orange)"/>
+  <text x="1090" y="662" text-anchor="middle" font-size="8.5" fill="#c2410c">CompareFaces (≥80%)</text>
+
+  <!-- Flow: Lambda Face -> DynamoDB (CHECKED_IN) -->
+  <path d="M 890 600 C 1000 600, 1020 280, 1275 280" stroke="#16a34a" stroke-width="1.5" fill="none" marker-end="url(#arrow-green)"/>
+  <text x="965" y="315" text-anchor="middle" font-size="8.5" fill="#15803d">Ghi CHECKED_IN</text>
+
+  <!-- Flow: Lambda Face -> SNS (Alert) -->
+  <path d="M 890 670 L 970 670" stroke="#e11d48" stroke-width="1.5" stroke-dasharray="3,3" marker-end="url(#arrow-red)"/>
+  <text x="930" y="663" text-anchor="middle" font-size="8" fill="#be123c">Cảnh báo vi phạm</text>
+
+  <!-- Flow: Lambda Grading Worker -> DynamoDB -->
+  <path d="M 890 820 C 1050 820, 1150 340, 1275 340" stroke="#e11d48" stroke-width="2" fill="none" marker-end="url(#arrow-red)"/>
+  <text x="1110" y="810" text-anchor="middle" font-size="9" font-weight="700" fill="#9f1239">Đối soát đáp án &amp; Ghi điểm COMPLETED</text>
+
+  <!-- Flow: EventBridge -> Step Functions -->
+  <path d="M 1080 505 L 1080 480" stroke="#f43f5e" stroke-width="2" marker-end="url(#arrow-red)"/>
+  <text x="1115" y="495" text-anchor="middle" font-size="8" fill="#be123c">Hẹn giờ</text>
+
+  <!-- Flow: Step Functions -> DynamoDB (Khóa ca thi) -->
+  <path d="M 1190 380 C 1230 380, 1240 310, 1275 310" stroke="#f43f5e" stroke-width="1.5" fill="none" marker-end="url(#arrow-red)"/>
+  <text x="1235" y="345" text-anchor="middle" font-size="8" fill="#be123c">Khóa CLOSED</text>
+
+  <!-- Flow: Step Functions -> SNS (Báo cáo) -->
+  <path d="M 1080 480 L 1080 640" stroke="#f43f5e" stroke-width="1.5" marker-end="url(#arrow-red)"/>
+  <text x="1120" y="630" text-anchor="middle" font-size="8" fill="#be123c">Báo cáo điểm số</text>
+
+  <!-- Flow: Terraform -> IAM -->
+  <path d="M 205 205 L 245 205" stroke="#9333ea" stroke-width="1.5" stroke-dasharray="4,4" marker-end="url(#arrow-purple)"/>
+  <text x="225" y="198" text-anchor="middle" font-size="8.5" fill="#7e22ce">Policy</text>
+
+  <!-- Flow: IAM -> Lambdas -->
+  <path d="M 385 205 C 550 205, 550 430, 700 430" stroke="#9333ea" stroke-width="1" stroke-dasharray="4,4" fill="none" marker-end="url(#arrow-purple)"/>
+  <text x="560" y="320" text-anchor="middle" font-size="8" fill="#7e22ce">Least-Privilege Execution Role</text>
+
+  <!-- Flow: Lambdas -> CloudWatch -->
+  <path d="M 700 450 C 450 450, 450 350, 295 350" stroke="#db2777" stroke-width="1" stroke-dasharray="4,4" fill="none" marker-end="url(#arrow)"/>
+  <text x="490" y="390" text-anchor="middle" font-size="8.5" fill="#db2777">Execution Logs &amp; Metrics</text>
+
+</svg>
