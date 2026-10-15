@@ -1,0 +1,147 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Sơ đồ Kiến trúc Tính năng CloudExam v2.0</title>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+      background: #0b0f19;
+      color: #f1f5f9;
+      padding: 20px;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+    }
+    .header {
+      max-width: 1200px;
+      width: 100%;
+      margin-bottom: 16px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      flex-wrap: wrap;
+      gap: 12px;
+    }
+    .title h1 {
+      font-size: 20px;
+      font-weight: 800;
+      background: linear-gradient(90deg, #38bdf8, #818cf8, #c084fc);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+    }
+    .title p {
+      font-size: 13px;
+      color: #94a3b8;
+      margin-top: 4px;
+    }
+    .actions {
+      display: flex;
+      gap: 8px;
+    }
+    .btn {
+      background: #1e293b;
+      color: #e2e8f0;
+      border: 1px solid #334155;
+      padding: 8px 14px;
+      border-radius: 8px;
+      font-size: 13px;
+      font-weight: 600;
+      cursor: pointer;
+      transition: all 0.2s;
+      text-decoration: none;
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+    }
+    .btn:hover {
+      background: #334155;
+      border-color: #64748b;
+    }
+    .btn-primary {
+      background: #0284c7;
+      border-color: #0369a1;
+      color: #ffffff;
+    }
+    .btn-primary:hover {
+      background: #0369a1;
+    }
+    .container {
+      width: 100%;
+      max-width: 1720px;
+      background: #0f172a;
+      border-radius: 16px;
+      border: 1px solid #1e293b;
+      box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.5), 0 8px 10px -6px rgba(0, 0, 0, 0.5);
+      overflow: hidden;
+      padding: 10px;
+    }
+    .legend {
+      max-width: 1200px;
+      width: 100%;
+      margin-top: 20px;
+      background: #1e293b;
+      border: 1px solid #334155;
+      border-radius: 12px;
+      padding: 16px 20px;
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+      gap: 12px;
+    }
+    .legend-item {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      font-size: 13px;
+    }
+    .legend-color {
+      width: 16px;
+      height: 16px;
+      border-radius: 4px;
+      flex-shrink: 0;
+    }
+  </style>
+</head>
+<body>
+  <div class="header">
+    <div class="title">
+      <h1>HỆ THỐNG CLOUDEXAM — SƠ ĐỒ KIẾN TRÚC TÍNH NĂNG (SOA &amp; SERVERLESS v2.0)</h1>
+      <p>Khớp nối 100% với Báo cáo tiến độ và Mã nguồn thực tế tại <code>ExamInTheCloud</code></p>
+    </div>
+    <div class="actions">
+      <button class="btn" onclick="window.print()">🖨️ In / Xuất PDF</button>
+      <a class="btn btn-primary" href="./architecture_diagram_v2.svg" download="architecture_diagram_v2.svg">📥 Tải file SVG gốc</a>
+    </div>
+  </div>
+
+  <div class="container" id="svg-wrapper">
+    <!-- Embed SVG Directly -->
+    <object data="./architecture_diagram_v2.svg" type="image/svg+xml" style="width:100%; min-height:850px;"></object>
+  </div>
+
+  <div class="legend">
+    <div class="legend-item">
+      <div class="legend-color" style="background:#0284c7;"></div>
+      <span><strong>Tầng 0 &amp; 1:</strong> Edge, Route 53, WAFv2, CloudFront, Cognito, API Gateway</span>
+    </div>
+    <div class="legend-item">
+      <div class="legend-color" style="background:#f59e0b;"></div>
+      <span><strong>Tầng 2:</strong> Lambda Face Verify, Rekognition, Lambda Core API, Step Functions</span>
+    </div>
+    <div class="legend-item">
+      <div class="legend-color" style="background:#ea580c;"></div>
+      <span><strong>Tầng 3:</strong> SQS ExamSubmission Queue &amp; Dead Letter Queue (DLQ)</span>
+    </div>
+    <div class="legend-item">
+      <div class="legend-color" style="background:#10b981;"></div>
+      <span><strong>Tầng 4:</strong> DynamoDB 4 Bảng + Global Tables, S3 CRR, KMS Multi-Region</span>
+    </div>
+    <div class="legend-item">
+      <div class="legend-color" style="background:#a855f7;"></div>
+      <span><strong>Tầng 5:</strong> Terraform Modules, IAM Least Privilege, X-Ray, CloudWatch, $0 FinOps</span>
+    </div>
+  </div>
+</body>
+</html>
