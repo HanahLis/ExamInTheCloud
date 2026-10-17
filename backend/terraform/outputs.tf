@@ -99,3 +99,21 @@ output "iam_role_cognito_authenticated_arn" {
   description = "ARN của IAM Role cho Cognito Authenticated User"
   value       = aws_iam_role.cognito_authenticated.arn
 }
+
+# ------------------------------------------------------------------------------
+# 5. CloudWatch & Observability Outputs (Phong phụ trách)
+# ------------------------------------------------------------------------------
+output "sns_alerts_topic_arn" {
+  description = "ARN của SNS Topic nhận cảnh báo giám sát hệ thống"
+  value       = aws_sns_topic.alerts.arn
+}
+
+output "cloudwatch_log_group_face_verify" {
+  description = "Tên CloudWatch Log Group của hàm Face Verify"
+  value       = aws_cloudwatch_log_group.lambda_face_verify.name
+}
+
+output "cloudwatch_log_group_core_api" {
+  description = "Tên CloudWatch Log Group của hàm Core API"
+  value       = aws_cloudwatch_log_group.lambda_core_api.name
+}
