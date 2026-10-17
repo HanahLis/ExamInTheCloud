@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import type { Question, Candidate, ExamSession, SessionStatus } from '../services/apiService';
+import SessionResultsModal from './SessionResultsModal';
 
 export type { ExamSession };
 
@@ -39,6 +40,9 @@ export const ExamSessionTab = ({
   const [selectedCandidates, setSelectedCandidates] = useState<string[]>([]);
   const [submitting, setSubmitting] = useState(false);
   const [updatingId, setUpdatingId] = useState<string | null>(null);
+  
+  // State điều khiển Modal xem điểm
+  const [viewingResultsSessionId, setViewingResultsSessionId] = useState<string | null>(null);
 
   const toggle = (list: string[], set: (v: string[]) => void, value: string, checked: boolean) =>
     set(checked ? [...list, value] : list.filter((x) => x !== value));
@@ -55,7 +59,6 @@ export const ExamSessionTab = ({
 
     setSubmitting(true);
     try {
-      // Xác định trạng thái ban đầu dựa vào giờ hoặc mặc định RUNNING nếu đang trong khung giờ
       const now = Date.now();
       const start = new Date(startTime).getTime();
       const end = new Date(endTime).getTime();
@@ -98,7 +101,6 @@ export const ExamSessionTab = ({
 
   return (
     <div className="space-y-6">
-      {/* Form Tạo ca thi */}
       <div className="bg-white p-6 rounded-xl shadow-sm border border-slate-200 space-y-6">
         <div className="flex justify-between items-center">
           <div>
@@ -110,7 +112,7 @@ export const ExamSessionTab = ({
           {onRefresh && (
             <button
               onClick={() => onRefresh()}
-              className="text-xs text-blue-600 hover:underline font-medium"
+              className="text-xs text-blue-600 hover:underline font-medium cursor-pointer"
             >
               🔄 Làm mới
             </button>
@@ -149,7 +151,6 @@ export const ExamSessionTab = ({
           </div>
         </div>
 
-        {/* Chọn câu hỏi */}
         <div>
           <div className="flex justify-between items-center mb-2">
             <label className="text-xs font-semibold text-slate-700">
@@ -189,7 +190,6 @@ export const ExamSessionTab = ({
           </div>
         </div>
 
-        {/* Chọn thí sinh */}
         <div>
           <div className="flex justify-between items-center mb-2">
             <label className="text-xs font-semibold text-slate-700">
@@ -240,7 +240,6 @@ export const ExamSessionTab = ({
         </button>
       </div>
 
-      {/* Danh sách ca thi */}
       <div className="bg-white p-6 rounded-xl shadow-sm border border-slate-200">
         <div className="flex justify-between items-center mb-4">
           <h3 className="text-lg font-bold text-slate-800">
@@ -292,7 +291,6 @@ export const ExamSessionTab = ({
                   <span>👥 {s.candidateEmails?.length || 0} thí sinh</span>
                 </div>
 
-                {/* Danh sách thí sinh trong ca thi & nút thêm nhanh */}
                 <div className="bg-white p-2.5 rounded-lg border border-slate-200 space-y-1.5">
                   <div className="flex justify-between items-center text-[11px] text-slate-600 font-semibold">
                     <span>Thí sinh được phân công vào ca thi này:</span>
@@ -313,7 +311,6 @@ export const ExamSessionTab = ({
                       );
                     })}
 
-                    {/* Hiển thị các thí sinh chưa thuộc ca thi này với nút thêm nhanh */}
                     {onUpdateCandidates &&
                       candidates
                         .filter((c) => !s.candidateEmails?.some((e) => e.toLowerCase() === c.email.toLowerCase()))
@@ -331,7 +328,6 @@ export const ExamSessionTab = ({
                   </div>
                 </div>
 
-                {/* Quản lý trạng thái ca thi (Tác động tới điều kiện Lambda Face Verify) */}
                 <div className="pt-2 border-t border-slate-200 flex flex-wrap items-center justify-between gap-2">
                   <div className="flex items-center gap-2">
                     <span className="text-xs font-semibold text-slate-600">Đổi trạng thái:</span>
@@ -365,6 +361,13 @@ export const ExamSessionTab = ({
                   </div>
 
                   <div className="flex items-center gap-2">
+                    <button
+                      onClick={() => setViewingResultsSessionId(s.id)}
+                      className="px-3 py-1 bg-purple-600 text-white text-xs font-semibold rounded hover:bg-purple-700 transition shadow-sm cursor-pointer"
+                    >
+                      📊 Xem Bảng Điểm
+                    </button>
+                    
                     {onOpenExam && (
                       <button
                         onClick={() => onOpenExam(s.id)}
@@ -378,7 +381,7 @@ export const ExamSessionTab = ({
                         navigator.clipboard.writeText(examUrl);
                         alert(`Đã sao chép link ca thi:\n${examUrl}`);
                       }}
-                      className="px-3 py-1 bg-white border border-slate-300 text-slate-700 text-xs font-medium rounded hover:bg-slate-100"
+                      className="px-3 py-1 bg-white border border-slate-300 text-slate-700 text-xs font-medium rounded hover:bg-slate-100 cursor-pointer"
                     >
                       📋 Copy Link
                     </button>
@@ -389,6 +392,15 @@ export const ExamSessionTab = ({
           })}
         </div>
       </div>
+      
+      {/* Tích hợp Modal */}
+      {viewingResultsSessionId && (
+        <SessionResultsModal
+          isOpen={true}
+          onClose={() => setViewingResultsSessionId(null)}
+          sessionId={viewingResultsSessionId}
+        />
+      )}
     </div>
   );
 };
