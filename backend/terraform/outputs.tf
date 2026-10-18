@@ -3,7 +3,7 @@
 # ==============================================================================
 
 # ------------------------------------------------------------------------------
-# 1. S3 & DynamoDB Outputs (Phong phụ trách)
+# 1. S3 & DynamoDB Outputs
 # ------------------------------------------------------------------------------
 output "s3_bucket_name" {
   description = "Tên S3 Bucket đã tạo"
@@ -36,7 +36,7 @@ output "dynamodb_question_banks_table" {
 }
 
 # ------------------------------------------------------------------------------
-# 2. Cognito Outputs (Mạnh phụ trách)
+# 2. Cognito Outputs
 # Dùng để điền vào file frontend/.env.local
 # ------------------------------------------------------------------------------
 output "cognito_user_pool_id" {
@@ -65,7 +65,7 @@ output "cognito_identity_pool_id" {
 }
 
 # ------------------------------------------------------------------------------
-# 3. API Gateway Outputs (Mạnh phụ trách)
+# 3. API Gateway Outputs
 # ------------------------------------------------------------------------------
 output "api_gateway_id" {
   description = "ID của API Gateway REST API"
@@ -83,7 +83,7 @@ output "api_gateway_authorizer_id" {
 }
 
 # ------------------------------------------------------------------------------
-# 4. IAM Roles Outputs (Mạnh phụ trách)
+# 4. IAM Roles Outputs
 # ------------------------------------------------------------------------------
 output "iam_role_lambda_core_api_arn" {
   description = "ARN của IAM Role cho Lambda Core API"
@@ -98,4 +98,50 @@ output "iam_role_lambda_face_verify_arn" {
 output "iam_role_cognito_authenticated_arn" {
   description = "ARN của IAM Role cho Cognito Authenticated User"
   value       = aws_iam_role.cognito_authenticated.arn
+}
+
+output "iam_role_lambda_grading_worker_arn" {
+  description = "ARN của IAM Role cho Lambda Grading Worker"
+  value       = aws_iam_role.lambda_grading_worker.arn
+}
+
+# ------------------------------------------------------------------------------
+# 5. SQS & Async Pipeline Outputs
+# ------------------------------------------------------------------------------
+output "sqs_exam_submission_queue_url" {
+  description = "URL của hàng đợi SQS ExamSubmission Queue"
+  value       = aws_sqs_queue.exam_submission.url
+}
+
+output "sqs_exam_submission_queue_arn" {
+  description = "ARN của hàng đợi SQS ExamSubmission Queue"
+  value       = aws_sqs_queue.exam_submission.arn
+}
+
+output "sqs_exam_submission_dlq_url" {
+  description = "URL của hàng đợi SQS Dead Letter Queue (DLQ)"
+  value       = aws_sqs_queue.exam_submission_dlq.url
+}
+
+output "sqs_exam_submission_dlq_arn" {
+  description = "ARN của hàng đợi SQS Dead Letter Queue (DLQ)"
+  value       = aws_sqs_queue.exam_submission_dlq.arn
+}
+
+# ------------------------------------------------------------------------------
+# 6. WAF & Step Functions Outputs
+# ------------------------------------------------------------------------------
+output "waf_web_acl_arn" {
+  description = "ARN của AWS WAFv2 Web ACL (nếu bật WAF)"
+  value       = var.enable_waf ? aws_wafv2_web_acl.api_waf[0].arn : null
+}
+
+output "waf_web_acl_id" {
+  description = "ID của AWS WAFv2 Web ACL (nếu bật WAF)"
+  value       = var.enable_waf ? aws_wafv2_web_acl.api_waf[0].id : null
+}
+
+output "step_functions_state_machine_arn" {
+  description = "ARN của AWS Step Functions State Machine quản lý ca thi"
+  value       = aws_sfn_state_machine.exam_lifecycle.arn
 }

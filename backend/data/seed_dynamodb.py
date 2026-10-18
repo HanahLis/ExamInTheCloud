@@ -1,6 +1,5 @@
 """
 Script nạp dữ liệu mẫu (Seed Data) vào các bảng DynamoDB cho dự án CloudExam.
-Phụ trách: Phong (DynamoDB + S3)
 
 Cách chạy:
     pip install boto3

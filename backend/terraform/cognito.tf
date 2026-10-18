@@ -1,6 +1,5 @@
 # ==============================================================================
 # AMAZON COGNITO: USER POOL, HOSTED UI, APP CLIENT, GROUPS & IDENTITY POOL
-# Phụ trách: Mạnh (Authentication, API Gateway, IAM Security)
 # ==============================================================================
 
 # 1. Cognito User Pool
