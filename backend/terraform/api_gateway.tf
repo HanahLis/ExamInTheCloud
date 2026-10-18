@@ -1,6 +1,5 @@
 # ==============================================================================
 # AMAZON API GATEWAY: REST API, COGNITO AUTHORIZER & CORS
-# Phụ trách: Mạnh (Authentication, API Gateway, IAM Security)
 # ==============================================================================
 
 # 1. Khởi tạo REST API
