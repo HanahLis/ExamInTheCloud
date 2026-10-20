@@ -334,6 +334,53 @@ def lambda_handler(event, context):
                 return build_response(200, {"message": "Cập nhật ca thi thành công", "id": s_id, "status": status})
 
         # =========================================================================
+        # 3.1. /sessions/{id}/results API (Xem bảng điểm ca thi - Giảng viên)
+        # =========================================================================
+        elif resource_path == "/sessions/{id}/results" and http_method == "GET":
+            s_id = path_parameters.get("id")
+            res = sessions_table.get_item(Key={"id": s_id})
+            session_item = res.get("Item")
+            if not session_item:
+                return build_response(404, {"error": "Ca thi không tồn tại"})
+
+            submissions_map = session_item.get("submissions", {})
+            results_list = []
+
+            for email, sub in submissions_map.items():
+                cand_code = ""
+                cand_name = email
+                try:
+                    c_res = candidates_table.get_item(Key={"email": email})
+                    cand_item = c_res.get("Item")
+                    if cand_item:
+                        cand_code = cand_item.get("studentCode", "")
+                        cand_name = cand_item.get("name", email)
+                except Exception:
+                    pass
+
+                results_list.append({
+                    "id": sub.get("id", f"{s_id}#{email}"),
+                    "studentCode": cand_code or sub.get("studentCode", ""),
+                    "name": cand_name,
+                    "email": email,
+                    "candidateEmail": email,
+                    "score": sub.get("score", 0),
+                    "maxScore": sub.get("maxScore", 100),
+                    "correctCount": sub.get("correctCount", 0),
+                    "totalQuestions": sub.get("totalQuestions", 0),
+                    "submittedAt": sub.get("submittedAt", ""),
+                    "status": sub.get("status", "COMPLETED")
+                })
+
+            return build_response(200, {
+                "sessionId": s_id,
+                "sessionName": session_item.get("name", ""),
+                "status": session_item.get("status", ""),
+                "totalSubmissions": len(results_list),
+                "results": results_list
+            })
+
+        # =========================================================================
         # 4. /exam/submit API (Nộp bài thi - Hỗ trợ SQS Buffer Pipeline)
         # =========================================================================
         elif resource_path == "/exam/submit" and http_method == "POST":
@@ -413,6 +460,23 @@ def lambda_handler(event, context):
                 "submittedAt": submitted_at,
                 "status": "COMPLETED"
             }
+
+            # Lưu vào DynamoDB Sessions map submissions
+            try:
+                sessions_table.update_item(
+                    Key={"id": session_id},
+                    UpdateExpression="SET submissions = if_not_exists(submissions, :empty_map)",
+                    ExpressionAttributeValues={":empty_map": {}}
+                )
+                sessions_table.update_item(
+                    Key={"id": session_id},
+                    UpdateExpression="SET submissions.#email = :res",
+                    ExpressionAttributeNames={"#email": user_email},
+                    ExpressionAttributeValues={":res": result_item}
+                )
+            except Exception as ddb_err:
+                print(f"[WARN] Lỗi cập nhật DynamoDB submission fallback: {str(ddb_err)}")
+
             return build_response(200, {
                 "message": "Nộp bài thành công",
                 "result": result_item
