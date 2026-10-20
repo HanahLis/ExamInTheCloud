@@ -18,6 +18,9 @@ BUCKET_NAME = os.getenv("S3_BUCKET_NAME", "")
 
 dynamodb = boto3.resource("dynamodb", region_name=REGION)
 s3_client = boto3.client("s3", region_name=REGION)
+sqs_client = boto3.client("sqs", region_name=REGION)
+SQS_QUEUE_URL = os.getenv("SQS_QUEUE_URL", "")
+
 questions_table = dynamodb.Table(f"CloudExam_Questions_{ENV}")
 candidates_table = dynamodb.Table(f"CloudExam_Candidates_{ENV}")
 sessions_table = dynamodb.Table(f"CloudExam_Sessions_{ENV}")
@@ -331,30 +334,83 @@ def lambda_handler(event, context):
                 return build_response(200, {"message": "Cập nhật ca thi thành công", "id": s_id, "status": status})
 
         # =========================================================================
-        # 4. /exam/submit API (Nộp bài thi)
+        # 4. /exam/submit API (Nộp bài thi - Hỗ trợ SQS Buffer Pipeline)
         # =========================================================================
         elif resource_path == "/exam/submit" and http_method == "POST":
-            user_email = claims.get("email")
+            user_email = claims.get("email") or body.get("candidateEmail")
             session_id = body.get("sessionId")
             answers = body.get("answers", {})  # { questionId: chosenIndex }
 
             if not session_id or not user_email:
                 return build_response(400, {"error": "Thiếu sessionId hoặc thông tin thí sinh."})
 
-            # Tính điểm cơ bản
+            submitted_at = datetime.now(timezone.utc).isoformat()
+            submission_id = str(uuid.uuid4())
+
+            # Nếu cấu hình SQS_QUEUE_URL -> Đẩy vào SQS để xử lý bất đồng bộ
+            if SQS_QUEUE_URL:
+                submission_payload = {
+                    "submissionId": submission_id,
+                    "sessionId": session_id,
+                    "candidateEmail": user_email,
+                    "answers": answers,
+                    "submittedAt": submitted_at
+                }
+
+                try:
+                    sqs_client.send_message(
+                        QueueUrl=SQS_QUEUE_URL,
+                        MessageBody=json.dumps(submission_payload),
+                        MessageAttributes={
+                            "SessionId": {"DataType": "String", "StringValue": session_id},
+                            "CandidateEmail": {"DataType": "String", "StringValue": user_email}
+                        }
+                    )
+                    print(f"[SQS] Đã đẩy bài nộp {submission_id} của {user_email} vào hàng đợi thành công")
+
+                    result_item = {
+                        "id": submission_id,
+                        "sessionId": session_id,
+                        "candidateEmail": user_email,
+                        "score": 0,
+                        "maxScore": len(answers),
+                        "correctCount": 0,
+                        "totalQuestions": len(answers),
+                        "submittedAt": submitted_at,
+                        "status": "QUEUED"
+                    }
+
+                    return build_response(200, {
+                        "message": "Bài thi đã được tiếp nhận an toàn qua hàng đợi SQS và đang được chấm điểm bất đồng bộ.",
+                        "submissionId": submission_id,
+                        "result": result_item
+                    })
+                except Exception as sqs_err:
+                    print(f"[ERROR SQS] Không thể gửi message vào SQS: {str(sqs_err)}, chuyển sang chấm đồng bộ dự phòng")
+
+            # Fallback chấm đồng bộ (khi SQS không khả dụng hoặc môi trường test)
             total_score = Decimal("0")
+            max_score = Decimal("0")
+            correct_count = 0
             for q_id, chosen_idx in answers.items():
                 q_res = questions_table.get_item(Key={"id": q_id})
                 q_item = q_res.get("Item")
-                if q_item and q_item.get("correctIndex") == chosen_idx:
-                    total_score += Decimal(str(q_item.get("score", 1)))
+                if q_item:
+                    q_score = Decimal(str(q_item.get("score", 1)))
+                    max_score += q_score
+                    if q_item.get("correctIndex") == chosen_idx:
+                        total_score += q_score
+                        correct_count += 1
 
             result_item = {
                 "id": f"{session_id}#{user_email}",
                 "sessionId": session_id,
                 "candidateEmail": user_email,
                 "score": total_score,
-                "submittedAt": datetime.now(timezone.utc).isoformat(),
+                "maxScore": max_score,
+                "correctCount": correct_count,
+                "totalQuestions": len(answers),
+                "submittedAt": submitted_at,
                 "status": "COMPLETED"
             }
             return build_response(200, {

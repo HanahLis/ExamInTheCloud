@@ -117,3 +117,42 @@ output "cloudwatch_log_group_core_api" {
   description = "Tên CloudWatch Log Group của hàm Core API"
   value       = aws_cloudwatch_log_group.lambda_core_api.name
 }
+
+# ------------------------------------------------------------------------------
+# 6. SQS & Async Grading Worker Outputs (Ngọc Hà phụ trách)
+# ------------------------------------------------------------------------------
+output "sqs_exam_submission_queue_url" {
+  description = "URL của hàng đợi chính SQS Exam Submission"
+  value       = aws_sqs_queue.exam_submission.url
+}
+
+output "sqs_exam_submission_queue_arn" {
+  description = "ARN của hàng đợi chính SQS Exam Submission"
+  value       = aws_sqs_queue.exam_submission.arn
+}
+
+output "sqs_exam_submission_dlq_url" {
+  description = "URL của Dead Letter Queue (DLQ)"
+  value       = aws_sqs_queue.exam_submission_dlq.url
+}
+
+output "sqs_exam_submission_dlq_arn" {
+  description = "ARN của Dead Letter Queue (DLQ)"
+  value       = aws_sqs_queue.exam_submission_dlq.arn
+}
+
+output "lambda_grading_worker_name" {
+  description = "Tên Lambda Function Grading Worker"
+  value       = aws_lambda_function.grading_worker.function_name
+}
+
+output "lambda_grading_worker_arn" {
+  description = "ARN của Lambda Function Grading Worker"
+  value       = aws_lambda_function.grading_worker.arn
+}
+
+output "iam_role_lambda_grading_worker_arn" {
+  description = "ARN của IAM Role cho Lambda Grading Worker"
+  value       = aws_iam_role.lambda_grading_worker.arn
+}
+

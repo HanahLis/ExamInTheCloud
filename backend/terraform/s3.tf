@@ -34,23 +34,33 @@ resource "aws_s3_bucket_public_access_block" "image_storage_public_access" {
 }
 
 # 4. Cấu hình CORS để Frontend (React/Amplify/localhost) có thể upload ảnh trực tiếp
+# Task H-04: Chuẩn hóa CORS để loại bỏ lỗi preflight/CORS khi upload qua Presigned URL
 resource "aws_s3_bucket_cors_configuration" "image_storage_cors" {
   bucket = aws_s3_bucket.image_storage.id
 
   cors_rule {
     allowed_headers = ["*"]
-    allowed_methods = ["GET", "PUT", "POST", "HEAD"]
+    allowed_methods = ["GET", "PUT", "POST", "HEAD", "DELETE"]
     allowed_origins = [
       "http://localhost:5173",
       "http://localhost:3000",
-      "https://*.amplifyapp.com"
+      "http://localhost:4173",
+      "http://127.0.0.1:5173",
+      "https://*.amplifyapp.com",
+      "*"
     ]
-    expose_headers  = ["ETag"]
+    expose_headers  = [
+      "ETag",
+      "x-amz-server-side-encryption",
+      "x-amz-request-id",
+      "x-amz-id-2"
+    ]
     max_age_seconds = 3600
   }
 }
 
-# 5. Bucket Policy cho phép người dùng đọc (GET) các ảnh đã tải lên
+# 5. Bucket Policy: Chuẩn hóa phân quyền đọc công khai cho thư mục faces/ và questions/
+# Phụ trách: Nguyễn Thị Ngọc Hà (24020115) — Trưởng nhóm / Task H-04
 resource "aws_s3_bucket_policy" "image_storage_read_policy" {
   bucket     = aws_s3_bucket.image_storage.id
   depends_on = [aws_s3_bucket_public_access_block.image_storage_public_access]
@@ -59,11 +69,14 @@ resource "aws_s3_bucket_policy" "image_storage_read_policy" {
     Version = "2012-10-17"
     Statement = [
       {
-        Sid       = "PublicReadGetObject"
+        Sid       = "PublicReadQuestionsAndFaces"
         Effect    = "Allow"
         Principal = "*"
         Action    = "s3:GetObject"
-        Resource  = "${aws_s3_bucket.image_storage.arn}/*"
+        Resource  = [
+          "${aws_s3_bucket.image_storage.arn}/questions/*",
+          "${aws_s3_bucket.image_storage.arn}/faces/*"
+        ]
       }
     ]
   })
