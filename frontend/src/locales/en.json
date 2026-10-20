@@ -1,5 +1,22 @@
 {
-  "room_title": "Online Exam Room",
-  "start_verify": "Start Verification",
-  "time_left": "Time Left"
+  "app_title": "CloudExam",
+  "app_subtitle_candidate": "Online Exam Room & AI Biometric Attendance",
+  "app_subtitle_organizer": "Exam Management, Question Banks & Online Monitoring",
+  "tab_questions": "1. Question Bank",
+  "tab_candidates": "2. Candidates & Photos",
+  "tab_sessions": "3. Exam Sessions & Links",
+  "tab_exam_test": "4. Exam Room (Preview)",
+  "country_label": "Country",
+  "lang_label": "Language",
+  "switch_account": "Switch Account",
+  "logout": "Logout",
+  "assigned_sessions": "Assigned Exam Sessions",
+  "assigned_sessions_hint": "You must pass AI biometric face verification before starting your exam.",
+  "refresh": "Refresh",
+  "enter_exam": "Enter Exam & Verify Face",
+  "view_results": "View Results",
+  "time_left": "Time Left",
+  "submit_exam": "Submit Exam",
+  "download_csv": "Download CSV",
+  "close": "Close"
 }

@@ -26,14 +26,58 @@ import { QuestionBankTab } from './components/QuestionBankTab';
 import { CandidatesTab } from './components/CandidatesTab';
 import { ExamSessionTab } from './components/ExamSessionTab';
 import { ExamRoom } from './components/ExamRoom';
+import { useTheme } from './themes/themeContext';
+import { useTranslation, type Language } from './locales/i18nContext';
 
 type Tab = 'questions' | 'candidates' | 'session' | 'exam_test';
 
-const TABS: { id: Tab; label: string; icon: string }[] = [
-  { id: 'questions', label: '1. Ngân hàng câu hỏi', icon: '📚' },
-  { id: 'candidates', label: '2. Thí sinh & ảnh mẫu', icon: '👤' },
-  { id: 'session', label: '3. Tạo ca thi & sinh link', icon: '📅' },
-  { id: 'exam_test', label: '4. Phòng thi (Thử nghiệm)', icon: '🛡️' },
+export const CountryLanguageBar = () => {
+  const { themeName, setThemeName } = useTheme();
+  const { lang, setLang, t } = useTranslation();
+
+  const handleCountryChange = (c: string) => {
+    setThemeName(c);
+    if (c === 'vn') setLang('vi');
+    else if (c === 'la') setLang('la');
+    else setLang('en');
+  };
+
+  return (
+    <div className="flex items-center gap-2">
+      <div className="flex items-center gap-1 bg-slate-100 p-1 rounded-lg border border-slate-200 shadow-2xs">
+        <span className="text-[11px] font-semibold text-slate-500 pl-1">{t('country_label')}:</span>
+        <select
+          value={themeName}
+          onChange={(e) => handleCountryChange(e.target.value)}
+          className="text-xs bg-white border border-slate-200 rounded px-1.5 py-0.5 font-medium text-slate-700 cursor-pointer outline-none"
+        >
+          <option value="vn">🇻🇳 Việt Nam</option>
+          <option value="la">🇱🇦 Lào</option>
+          <option value="default">🌐 Quốc tế</option>
+        </select>
+      </div>
+
+      <div className="flex items-center gap-1 bg-slate-100 p-1 rounded-lg border border-slate-200 shadow-2xs">
+        <span className="text-[11px] font-semibold text-slate-500 pl-1">{t('lang_label')}:</span>
+        <select
+          value={lang}
+          onChange={(e) => setLang(e.target.value as Language)}
+          className="text-xs bg-white border border-slate-200 rounded px-1.5 py-0.5 font-medium text-slate-700 cursor-pointer outline-none"
+        >
+          <option value="vi">VI (Tiếng Việt)</option>
+          <option value="en">EN (English)</option>
+          <option value="la">LA (ພາສາລາວ)</option>
+        </select>
+      </div>
+    </div>
+  );
+};
+
+const TABS: { id: Tab; labelKey: string; icon: string }[] = [
+  { id: 'questions', labelKey: 'tab_questions', icon: '📚' },
+  { id: 'candidates', labelKey: 'tab_candidates', icon: '👤' },
+  { id: 'session', labelKey: 'tab_sessions', icon: '📅' },
+  { id: 'exam_test', labelKey: 'tab_exam_test', icon: '🛡️' },
 ];
 
 const PRESET_ACCOUNTS = [
@@ -71,6 +115,8 @@ const PRESET_ACCOUNTS = [
 ];
 
 export default function App() {
+  const { theme } = useTheme();
+  const { t } = useTranslation();
   const [activeTab, setActiveTab] = useState<Tab>('questions');
   const [questions, setQuestions] = useState<Question[]>([]);
   const [candidates, setCandidates] = useState<Candidate[]>([]);
@@ -150,6 +196,9 @@ export default function App() {
 
     return (
       <div className="flex flex-col items-center justify-center min-h-screen bg-slate-100 p-4">
+        <div className="mb-3 flex justify-end max-w-lg w-full">
+          <CountryLanguageBar />
+        </div>
         <div className="bg-white rounded-2xl shadow-xl max-w-lg w-full border border-slate-200 overflow-hidden">
           {/* Header trang nhã */}
           <div className="bg-gradient-to-r from-blue-600 to-blue-800 p-6 text-white text-center">
@@ -363,7 +412,8 @@ export default function App() {
             </div>
           </div>
 
-          <div className="flex items-center gap-3 text-xs">
+          <div className="flex items-center gap-4 text-xs">
+            <CountryLanguageBar />
             <button
               onClick={() => {
                 logout();
@@ -478,6 +528,7 @@ export default function App() {
         </div>
 
         <div className="flex items-center gap-4 text-xs">
+          <CountryLanguageBar />
           <div className="text-right">
             <span className="font-semibold text-slate-800 block">{user.email}</span>
             <span className="text-[10px] text-slate-500">
@@ -505,18 +556,22 @@ export default function App() {
       <main className="max-w-5xl mx-auto p-6 space-y-6">
         {/* Navigation Tabs chuẩn phong cách của Hà */}
         <div className="flex space-x-2 border-b overflow-x-auto pb-px">
-          {TABS.map((t) => (
+          {TABS.map((tItem) => (
             <button
-              key={t.id}
-              onClick={() => setActiveTab(t.id)}
+              key={tItem.id}
+              onClick={() => setActiveTab(tItem.id)}
               className={`pb-3 px-4 font-semibold text-sm border-b-2 transition whitespace-nowrap flex items-center gap-1.5 cursor-pointer ${
-                activeTab === t.id
+                activeTab === tItem.id
                   ? 'border-blue-600 text-blue-600'
                   : 'border-transparent text-slate-500 hover:text-slate-800'
               }`}
+              style={{
+                borderColor: activeTab === tItem.id ? theme.colors.primary : 'transparent',
+                color: activeTab === tItem.id ? theme.colors.primary : undefined,
+              }}
             >
-              <span>{t.icon}</span>
-              <span>{t.label}</span>
+              <span>{tItem.icon}</span>
+              <span>{t(tItem.labelKey)}</span>
             </button>
           ))}
         </div>

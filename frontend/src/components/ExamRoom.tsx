@@ -40,6 +40,11 @@ export const ExamRoom = ({ sessionId, currentUserEmail = '', onExit }: Props) =>
   const [verifyResult, setVerifyResult] = useState<FaceVerifyResponse | null>(null);
 
   const [answers, setAnswers] = useState<Record<string, number>>({});
+  const answersRef = useRef(answers);
+  useEffect(() => {
+    answersRef.current = answers;
+  }, [answers]);
+
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [submitResult, setSubmitResult] = useState<ExamSubmitResult | null>(null);
   const [timeLeft, setTimeLeft] = useState<number>(45 * 60);
@@ -87,7 +92,7 @@ export const ExamRoom = ({ sessionId, currentUserEmail = '', onExit }: Props) =>
       setTimeLeft((prev) => {
         if (prev <= 1) {
           clearInterval(interval);
-          handleSubmitExam();
+          handleSubmitExam(true);
           return 0;
         }
         return prev - 1;
@@ -174,17 +179,20 @@ export const ExamRoom = ({ sessionId, currentUserEmail = '', onExit }: Props) =>
     }
   };
 
-  const handleSubmitExam = async () => {
-    if (!confirm('Bạn có chắc chắn muốn nộp bài thi?')) return;
+  const handleSubmitExam = async (isAutoSubmit = false) => {
+    if (!isAutoSubmit && !confirm('Bạn có chắc chắn muốn nộp bài thi?')) return;
     setIsSubmitting(true);
     try {
       const res = await submitExam({
         sessionId,
-        answers,
+        answers: answersRef.current || answers,
         candidateEmail,
       });
       setSubmitResult(res.result);
       setStep('COMPLETED');
+      if (isAutoSubmit) {
+        alert('Đã hết 45 phút làm bài! Hệ thống đã tự động nộp bài thi của bạn.');
+      }
     } catch (err: any) {
       alert('Lỗi nộp bài: ' + (err?.response?.data?.error || err?.message || err));
     } finally {
@@ -571,7 +579,7 @@ export const ExamRoom = ({ sessionId, currentUserEmail = '', onExit }: Props) =>
               </p>
             </div>
             <button
-              onClick={handleSubmitExam}
+              onClick={() => handleSubmitExam(false)}
               disabled={isSubmitting}
               className="py-2.5 px-6 bg-green-600 text-white font-bold rounded-xl hover:bg-green-700 disabled:bg-gray-400 transition shadow cursor-pointer"
             >
@@ -638,7 +646,7 @@ export const ExamRoom = ({ sessionId, currentUserEmail = '', onExit }: Props) =>
 
           <div className="pt-4 border-t flex justify-end">
             <button
-              onClick={handleSubmitExam}
+              onClick={() => handleSubmitExam(false)}
               disabled={isSubmitting}
               className="py-3 px-8 bg-green-600 text-white font-bold rounded-xl hover:bg-green-700 disabled:bg-gray-400 transition shadow-md cursor-pointer"
             >
