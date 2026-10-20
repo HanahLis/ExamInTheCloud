@@ -750,4 +750,89 @@ export const submitExam = async (req: ExamSubmitRequest): Promise<ExamSubmitResp
   return res.data;
 };
 
+export interface CandidateSessionResult {
+  id?: string;
+  studentCode: string;
+  name: string;
+  email: string;
+  candidateEmail?: string;
+  score: number;
+  maxScore: number;
+  correctCount: number;
+  totalQuestions: number;
+  submittedAt: string;
+  status: string;
+}
+
+export interface SessionResultsResponse {
+  sessionId: string;
+  sessionName?: string;
+  status?: string;
+  totalSubmissions: number;
+  results: CandidateSessionResult[];
+}
+
+export const fetchSessionResults = async (sessionId: string): Promise<SessionResultsResponse> => {
+  if (isMockMode()) {
+    const savedResults = loadStored<ExamSubmitResult[]>('cloudexam_results', []);
+    const candidates = loadStored<Candidate[]>('cloudexam_candidates', []);
+    const matching = savedResults.filter((r) => r.sessionId === sessionId);
+
+    let results: CandidateSessionResult[] = matching.map((r) => {
+      const cand = candidates.find((c) => c.email.toLowerCase() === r.candidateEmail.toLowerCase());
+      return {
+        id: r.id,
+        studentCode: cand?.studentCode || 'SV' + (r.candidateEmail.split('@')[0] || '001'),
+        name: cand?.name || r.candidateEmail,
+        email: r.candidateEmail,
+        candidateEmail: r.candidateEmail,
+        score: r.score,
+        maxScore: r.maxScore || 10,
+        correctCount: r.correctCount || 0,
+        totalQuestions: r.totalQuestions || 0,
+        submittedAt: r.submittedAt,
+        status: r.status,
+      };
+    });
+
+    if (results.length === 0) {
+      results = [
+        {
+          studentCode: 'B21DCCN001',
+          name: 'Phạm Tuấn Phong',
+          email: 'phongpt@example.edu.vn',
+          candidateEmail: 'phongpt@example.edu.vn',
+          score: 8,
+          maxScore: 10,
+          correctCount: 8,
+          totalQuestions: 10,
+          submittedAt: new Date(Date.now() - 3600000).toISOString(),
+          status: 'COMPLETED',
+        },
+        {
+          studentCode: 'B21DCCN002',
+          name: 'Trần Đức Mạnh',
+          email: 'manhtd@example.edu.vn',
+          candidateEmail: 'manhtd@example.edu.vn',
+          score: 10,
+          maxScore: 10,
+          correctCount: 10,
+          totalQuestions: 10,
+          submittedAt: new Date(Date.now() - 1800000).toISOString(),
+          status: 'COMPLETED',
+        },
+      ];
+    }
+
+    return {
+      sessionId,
+      totalSubmissions: results.length,
+      results,
+    };
+  }
+
+  const res = await api.get(`/sessions/${sessionId}/results`);
+  return res.data;
+};
+
 export default api;

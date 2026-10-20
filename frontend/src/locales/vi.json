@@ -1,0 +1,22 @@
+{
+  "app_title": "CloudExam",
+  "app_subtitle_candidate": "Phòng thi trực tuyến & Điểm danh sinh trắc học AI",
+  "app_subtitle_organizer": "Quản lý kỳ thi, ngân hàng câu hỏi và giám sát trực tuyến",
+  "tab_questions": "1. Ngân hàng câu hỏi",
+  "tab_candidates": "2. Thí sinh & ảnh mẫu",
+  "tab_sessions": "3. Tạo ca thi & sinh link",
+  "tab_exam_test": "4. Phòng thi (Thử nghiệm)",
+  "country_label": "Quốc gia",
+  "lang_label": "Ngôn ngữ",
+  "switch_account": "Đổi tài khoản",
+  "logout": "Đăng xuất",
+  "assigned_sessions": "Các ca thi được chỉ định cho bạn",
+  "assigned_sessions_hint": "Bạn cần vượt qua bước xác thực khuôn mặt sinh trắc học trước khi làm bài.",
+  "refresh": "Làm mới",
+  "enter_exam": "Vào phòng thi & Điểm danh",
+  "view_results": "Xem Bảng Điểm",
+  "time_left": "Thời gian còn lại",
+  "submit_exam": "Nộp bài thi",
+  "download_csv": "Tải bảng điểm (CSV)",
+  "close": "Đóng"
+}
