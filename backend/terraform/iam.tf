@@ -87,6 +87,18 @@ resource "aws_iam_role_policy" "lambda_core_api_policy" {
           "${aws_s3_bucket.image_storage.arn}/questions/*",
           "${aws_s3_bucket.image_storage.arn}/faces/*"
         ]
+      },
+
+      # 1.4. Quyền đẩy bài nộp thi vào hàng đợi Amazon SQS (SQS Buffer Pipeline)
+      {
+        Sid    = "SQSSendSubmissionMessage"
+        Effect = "Allow"
+        Action = [
+          "sqs:SendMessage",
+          "sqs:GetQueueUrl",
+          "sqs:GetQueueAttributes"
+        ]
+        Resource = aws_sqs_queue.exam_submission.arn
       }
     ]
   })
@@ -236,3 +248,88 @@ resource "aws_iam_role_policy" "lambda_exam_workflow_policy" {
     ]
   })
 }
+
+# ==============================================================================
+# 4. IAM ROLE CHO LAMBDA GRADING WORKER (Tiêu thụ SQS chấm điểm trắc nghiệm)
+# Phụ trách: Nguyễn Thị Ngọc Hà (24020115) — Trưởng nhóm
+# Task H-03: Cập nhật IAM Policy cấp quyền SQS Receive/Delete cho Grading Worker
+# ==============================================================================
+resource "aws_iam_role" "lambda_grading_worker" {
+  name = "${var.project_name}-role-lambda-grading-worker-${var.environment}"
+
+  assume_role_policy = jsonencode({
+    Version = "2012-10-17"
+    Statement = [
+      {
+        Effect    = "Allow"
+        Principal = { Service = "lambda.amazonaws.com" }
+        Action    = "sts:AssumeRole"
+      }
+    ]
+  })
+
+  tags = {
+    Name        = "Lambda-Grading-Worker-Role"
+    Environment = var.environment
+    Project     = var.project_name
+    ManagedBy   = "Terraform"
+  }
+}
+
+resource "aws_iam_role_policy" "lambda_grading_worker_policy" {
+  name = "${var.project_name}-policy-lambda-grading-worker-${var.environment}"
+  role = aws_iam_role.lambda_grading_worker.id
+
+  policy = jsonencode({
+    Version = "2012-10-17"
+    Statement = [
+      # 4.1. CloudWatch Logs
+      {
+        Sid    = "CloudWatchLogging"
+        Effect = "Allow"
+        Action = [
+          "logs:CreateLogGroup",
+          "logs:CreateLogStream",
+          "logs:PutLogEvents"
+        ]
+        Resource = "arn:aws:logs:${var.aws_region}:${data.aws_caller_identity.current.account_id}:log-group:/aws/lambda/${var.project_name}-grading-worker-*:*"
+      },
+      # 4.2. Quyền tiêu thụ tin nhắn từ Amazon SQS ExamSubmission Queue
+      {
+        Sid    = "SQSConsumeMessages"
+        Effect = "Allow"
+        Action = [
+          "sqs:ReceiveMessage",
+          "sqs:DeleteMessage",
+          "sqs:GetQueueAttributes",
+          "sqs:ChangeMessageVisibility"
+        ]
+        Resource = aws_sqs_queue.exam_submission.arn
+      },
+      # 4.3. Quyền đọc câu hỏi từ DynamoDB Questions để đối soát đáp án
+      {
+        Sid    = "DynamoDBReadQuestions"
+        Effect = "Allow"
+        Action = [
+          "dynamodb:GetItem",
+          "dynamodb:BatchGetItem"
+        ]
+        Resource = [
+          aws_dynamodb_table.questions.arn,
+          "${aws_dynamodb_table.questions.arn}/index/*"
+        ]
+      },
+      # 4.4. Quyền cập nhật kết quả thi vào DynamoDB Sessions
+      {
+        Sid    = "DynamoDBUpdateSessions"
+        Effect = "Allow"
+        Action = [
+          "dynamodb:GetItem",
+          "dynamodb:UpdateItem"
+        ]
+        Resource = aws_dynamodb_table.exam_sessions.arn
+      }
+    ]
+  })
+}
+
