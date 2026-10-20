@@ -23,7 +23,13 @@ import os
 import json
 import base64
 import unittest
+import io
 from unittest.mock import MagicMock, patch
+
+# Đảm bảo in an toàn ký tự Unicode tiếng Việt và emoji trên console Windows
+if sys.platform == "win32":
+    sys.stdout = io.TextIOWrapper(sys.stdout.buffer, encoding="utf-8", errors="replace")
+    sys.stderr = io.TextIOWrapper(sys.stderr.buffer, encoding="utf-8", errors="replace")
 
 # Thiết lập Mock boto3 nếu môi trường chưa cài đặt
 if "boto3" not in sys.modules:
