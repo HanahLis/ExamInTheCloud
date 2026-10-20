@@ -1,6 +1,5 @@
 # ==============================================================================
-# AWS LAMBDA FUNCTIONS: CORE REST API & FACE VERIFICATION
-# Phụ trách: Mạnh (Authentication, API Gateway, IAM Security)
+# AWS LAMBDA FUNCTIONS: CORE REST API, FACE VERIFICATION & GRADING WORKER
 # ==============================================================================
 
 # 1. Đóng gói mã nguồn Lambda thành file ZIP
@@ -97,4 +96,3 @@ resource "aws_lambda_event_source_mapping" "sqs_to_grading_worker" {
   function_response_types            = ["ReportBatchItemFailures"]
   enabled                            = true
 }
-
