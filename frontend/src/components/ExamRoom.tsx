@@ -28,14 +28,10 @@ export const ExamRoom = ({ sessionId, currentUserEmail = '', onExit }: Props) =>
   const [loadingSession, setLoadingSession] = useState(true);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
 
-  // Flow Step
   const [step, setStep] = useState<ExamStep>('FACE_VERIFY');
-
-  // Candidate Email dùng cho xác thực
   const [candidateEmail, setCandidateEmail] = useState(currentUserEmail);
   const [simulateMode, setSimulateMode] = useState<'AUTO' | 'FORCE_PASS' | 'FORCE_MISMATCH' | 'FORCE_NO_FACE'>('AUTO');
 
-  // Camera & Face Verification state
   const videoRef = useRef<HTMLVideoElement | null>(null);
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
   const [cameraActive, setCameraActive] = useState(false);
@@ -43,13 +39,16 @@ export const ExamRoom = ({ sessionId, currentUserEmail = '', onExit }: Props) =>
   const [isVerifying, setIsVerifying] = useState(false);
   const [verifyResult, setVerifyResult] = useState<FaceVerifyResponse | null>(null);
 
-  // Exam Taking state
   const [answers, setAnswers] = useState<Record<string, number>>({});
+  const answersRef = useRef(answers);
+  useEffect(() => {
+    answersRef.current = answers;
+  }, [answers]);
+
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [submitResult, setSubmitResult] = useState<ExamSubmitResult | null>(null);
-  const [timeLeft, setTimeLeft] = useState<number>(45 * 60); // 45 phút mặc định
+  const [timeLeft, setTimeLeft] = useState<number>(45 * 60);
 
-  // 1. Tải thông tin ca thi và câu hỏi
   useEffect(() => {
     let isMounted = true;
     const loadSessionData = async () => {
@@ -65,14 +64,12 @@ export const ExamRoom = ({ sessionId, currentUserEmail = '', onExit }: Props) =>
         setSession(s);
         setCandidates(allCandidates);
 
-        // Mặc định chọn email thí sinh nếu user chưa có email hoặc email hiện tại không có trong ca thi
         if (s.candidateEmails && s.candidateEmails.length > 0) {
           if (!candidateEmail || !s.candidateEmails.some((e) => e.toLowerCase() === candidateEmail.toLowerCase())) {
             setCandidateEmail(s.candidateEmails[0]);
           }
         }
 
-        // Tải các câu hỏi của ca thi
         const filtered = allQuestions.filter((q) => s.questionIds.includes(q.id));
         setSessionQuestions(filtered.length > 0 ? filtered : allQuestions);
       } catch (err: any) {
@@ -89,14 +86,13 @@ export const ExamRoom = ({ sessionId, currentUserEmail = '', onExit }: Props) =>
     };
   }, [sessionId]);
 
-  // 2. Timer đếm ngược khi đang làm bài
   useEffect(() => {
     if (step !== 'IN_EXAM') return;
     const interval = setInterval(() => {
       setTimeLeft((prev) => {
         if (prev <= 1) {
           clearInterval(interval);
-          handleSubmitExam();
+          handleSubmitExam(true);
           return 0;
         }
         return prev - 1;
@@ -105,7 +101,6 @@ export const ExamRoom = ({ sessionId, currentUserEmail = '', onExit }: Props) =>
     return () => clearInterval(interval);
   }, [step]);
 
-  // Điều khiển Camera
   const startCamera = async () => {
     try {
       const stream = await navigator.mediaDevices.getUserMedia({
@@ -157,7 +152,6 @@ export const ExamRoom = ({ sessionId, currentUserEmail = '', onExit }: Props) =>
     }
   };
 
-  // 3. Gửi ảnh lên API Gateway -> Lambda Rekognition CompareFaces
   const handleVerifyFace = async () => {
     if (!capturedImage) return alert('Vui lòng chụp ảnh khuôn mặt trước khi xác thực!');
     if (!candidateEmail) return alert('Vui lòng chọn hoặc nhập email thí sinh!');
@@ -185,18 +179,20 @@ export const ExamRoom = ({ sessionId, currentUserEmail = '', onExit }: Props) =>
     }
   };
 
-  // 4. Nộp bài thi lên Lambda API /exam/submit
-  const handleSubmitExam = async () => {
-    if (!confirm('Bạn có chắc chắn muốn nộp bài thi?')) return;
+  const handleSubmitExam = async (isAutoSubmit = false) => {
+    if (!isAutoSubmit && !confirm('Bạn có chắc chắn muốn nộp bài thi?')) return;
     setIsSubmitting(true);
     try {
       const res = await submitExam({
         sessionId,
-        answers,
+        answers: answersRef.current || answers,
         candidateEmail,
       });
       setSubmitResult(res.result);
       setStep('COMPLETED');
+      if (isAutoSubmit) {
+        alert('Đã hết 45 phút làm bài! Hệ thống đã tự động nộp bài thi của bạn.');
+      }
     } catch (err: any) {
       alert('Lỗi nộp bài: ' + (err?.response?.data?.error || err?.message || err));
     } finally {
@@ -223,7 +219,6 @@ export const ExamRoom = ({ sessionId, currentUserEmail = '', onExit }: Props) =>
     return `${m.toString().padStart(2, '0')}:${s.toString().padStart(2, '0')}`;
   };
 
-  // Tìm thông tin hồ sơ thí sinh hiện tại
   const currentCandidateObj = candidates.find(
     (c) => c.email.toLowerCase() === candidateEmail.toLowerCase()
   );
@@ -255,7 +250,6 @@ export const ExamRoom = ({ sessionId, currentUserEmail = '', onExit }: Props) =>
 
   return (
     <div className="max-w-4xl mx-auto space-y-6">
-      {/* Header ca thi */}
       <div className="bg-white p-6 rounded-2xl shadow-sm border border-slate-200 flex flex-wrap justify-between items-center gap-4">
         <div>
           <div className="flex items-center gap-2 mb-1">
@@ -289,16 +283,13 @@ export const ExamRoom = ({ sessionId, currentUserEmail = '', onExit }: Props) =>
           )}
           <button
             onClick={onExit}
-            className="text-xs text-slate-500 hover:text-slate-800 px-3 py-2 border rounded-lg hover:bg-slate-50 transition"
+            className="text-xs text-slate-500 hover:text-slate-800 px-3 py-2 border rounded-lg hover:bg-slate-50 transition cursor-pointer"
           >
             ✕ Thoát phòng thi
           </button>
         </div>
       </div>
 
-      {/* =========================================================================
-          BƯỚC 1: XÁC THỰC KHUÔN MẶT BẰNG AMAZON REKOGNITION
-          ========================================================================= */}
       {step === 'FACE_VERIFY' && (
         <div className="bg-white p-6 md:p-8 rounded-2xl shadow-sm border border-slate-200 space-y-6">
           <div className="border-b pb-4">
@@ -312,7 +303,6 @@ export const ExamRoom = ({ sessionId, currentUserEmail = '', onExit }: Props) =>
             </p>
           </div>
 
-          {/* Chọn danh tính thí sinh */}
           <div className="bg-slate-50 p-4 rounded-xl border border-slate-200 space-y-3">
             <div>
               <div className="flex justify-between items-center mb-1.5">
@@ -342,7 +332,6 @@ export const ExamRoom = ({ sessionId, currentUserEmail = '', onExit }: Props) =>
               </div>
             </div>
 
-            {/* Các thí sinh đã đăng ký trong hệ thống nhưng chưa được gán vào ca thi này */}
             {candidates.filter(
               (c) => !session.candidateEmails.some((e) => e.toLowerCase() === c.email.toLowerCase())
             ).length > 0 && (
@@ -375,13 +364,12 @@ export const ExamRoom = ({ sessionId, currentUserEmail = '', onExit }: Props) =>
               </div>
             )}
 
-            {/* Bộ giả lập tình huống kiểm thử */}
             <div className="pt-2 border-t border-slate-200 flex flex-wrap items-center gap-2 text-xs">
               <span className="font-semibold text-slate-600">Thử nghiệm tình huống Rekognition:</span>
               <select
                 value={simulateMode}
                 onChange={(e) => setSimulateMode(e.target.value as any)}
-                className="bg-white border border-slate-300 rounded px-2 py-1 text-xs text-slate-700 font-medium"
+                className="bg-white border border-slate-300 rounded px-2 py-1 text-xs text-slate-700 font-medium outline-none"
               >
                 <option value="AUTO">🎯 Tự động nhận diện (Người thật - PASS ≥ 80%)</option>
                 <option value="FORCE_MISMATCH">🚫 Giả lập không khớp mặt (Khác người - FAIL &lt; 80%)</option>
@@ -390,9 +378,7 @@ export const ExamRoom = ({ sessionId, currentUserEmail = '', onExit }: Props) =>
             </div>
           </div>
 
-          {/* Đối chiếu 2 ảnh: Ảnh S3 vs Ảnh Webcam */}
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6 items-start">
-            {/* Cột 1: Ảnh gốc trên S3 */}
             <div className="space-y-3 p-4 bg-slate-50 rounded-xl border border-slate-200 text-center">
               <div className="flex justify-between items-center text-xs text-slate-600 mb-1">
                 <span className="font-bold">Ảnh gốc thí sinh (Amazon S3)</span>
@@ -420,14 +406,24 @@ export const ExamRoom = ({ sessionId, currentUserEmail = '', onExit }: Props) =>
               </p>
             </div>
 
-            {/* Cột 2: Ảnh chụp trực tiếp Webcam */}
             <div className="space-y-3 p-4 bg-slate-50 rounded-xl border border-slate-200 text-center">
               <div className="flex justify-between items-center text-xs text-slate-600 mb-1">
                 <span className="font-bold">Ảnh chụp trực tiếp (Webcam Live)</span>
                 <span className="font-mono text-[11px] text-green-600">CompareFaces Target</span>
               </div>
 
+              {/* Tích hợp hiệu ứng laser tia quét sinh trắc học */}
               <div className="relative aspect-4/3 bg-slate-900 rounded-lg overflow-hidden flex items-center justify-center border border-slate-300">
+                <style>
+                  {`
+                    @keyframes scan {
+                      0% { top: 0%; opacity: 0; }
+                      10% { opacity: 1; }
+                      90% { opacity: 1; }
+                      100% { top: 100%; opacity: 0; }
+                    }
+                  `}
+                </style>
                 <video
                   ref={videoRef}
                   autoPlay
@@ -435,6 +431,17 @@ export const ExamRoom = ({ sessionId, currentUserEmail = '', onExit }: Props) =>
                   muted
                   className={`w-full h-full object-cover ${cameraActive ? 'block' : 'hidden'}`}
                 />
+                
+                {cameraActive && (
+                  <div className="absolute inset-0 z-10 pointer-events-none">
+                    <div 
+                      className="absolute left-0 w-full h-1 bg-green-400 shadow-[0_0_15px_rgba(74,222,128,1)]" 
+                      style={{ animation: 'scan 2.5s ease-in-out infinite' }}
+                    ></div>
+                    <div className="absolute inset-0 m-8 border-2 border-dashed border-white/40 rounded-2xl"></div>
+                    <div className="absolute top-4 left-4 text-[10px] text-green-400 font-mono font-bold">● REC / AI SCANNING</div>
+                  </div>
+                )}
 
                 {capturedImage && !cameraActive && (
                   <img
@@ -454,12 +461,11 @@ export const ExamRoom = ({ sessionId, currentUserEmail = '', onExit }: Props) =>
                 <canvas ref={canvasRef} className="hidden" />
               </div>
 
-              {/* Nút bật cam / chụp */}
               <div className="flex flex-wrap gap-2 justify-center">
                 {!cameraActive ? (
                   <button
                     onClick={startCamera}
-                    className="py-1.5 px-3 bg-slate-800 text-white rounded-lg text-xs font-medium hover:bg-slate-900 transition"
+                    className="py-1.5 px-3 bg-slate-800 text-white rounded-lg text-xs font-medium hover:bg-slate-900 transition cursor-pointer"
                   >
                     🎥 Bật Webcam
                   </button>
@@ -467,13 +473,13 @@ export const ExamRoom = ({ sessionId, currentUserEmail = '', onExit }: Props) =>
                   <>
                     <button
                       onClick={capturePhoto}
-                      className="py-1.5 px-3 bg-green-600 text-white rounded-lg text-xs font-bold hover:bg-green-700 transition"
+                      className="py-1.5 px-3 bg-green-600 text-white rounded-lg text-xs font-bold hover:bg-green-700 transition cursor-pointer"
                     >
                       📸 Chụp ảnh ngay
                     </button>
                     <button
                       onClick={stopCamera}
-                      className="py-1.5 px-3 bg-slate-500 text-white rounded-lg text-xs font-medium hover:bg-slate-600 transition"
+                      className="py-1.5 px-3 bg-slate-500 text-white rounded-lg text-xs font-medium hover:bg-slate-600 transition cursor-pointer"
                     >
                       Tắt cam
                     </button>
@@ -488,7 +494,6 @@ export const ExamRoom = ({ sessionId, currentUserEmail = '', onExit }: Props) =>
             </div>
           </div>
 
-          {/* Tiêu chí kiểm tra & Nút gửi xác thực */}
           <div className="space-y-4">
             <div className="p-4 bg-slate-50 rounded-xl border border-slate-200">
               <h4 className="text-xs font-bold uppercase tracking-wider text-slate-600 mb-2">
@@ -529,7 +534,6 @@ export const ExamRoom = ({ sessionId, currentUserEmail = '', onExit }: Props) =>
               )}
             </button>
 
-            {/* Kết quả xác thực */}
             {verifyResult && (
               <div
                 className={`p-4 rounded-xl border ${
@@ -552,7 +556,7 @@ export const ExamRoom = ({ sessionId, currentUserEmail = '', onExit }: Props) =>
                 {verifyResult.verified && (
                   <button
                     onClick={() => setStep('IN_EXAM')}
-                    className="mt-3 w-full py-2.5 bg-green-600 text-white font-bold rounded-lg hover:bg-green-700 transition shadow"
+                    className="mt-3 w-full py-2.5 bg-green-600 text-white font-bold rounded-lg hover:bg-green-700 transition shadow cursor-pointer"
                   >
                     👉 Bắt đầu làm bài thi ngay
                   </button>
@@ -563,9 +567,6 @@ export const ExamRoom = ({ sessionId, currentUserEmail = '', onExit }: Props) =>
         </div>
       )}
 
-      {/* =========================================================================
-          BƯỚC 2: PHÒNG THI & LÀM BÀI TRẮC NGHIỆM
-          ========================================================================= */}
       {step === 'IN_EXAM' && (
         <div className="bg-white p-6 md:p-8 rounded-2xl shadow-sm border border-slate-200 space-y-8">
           <div className="flex justify-between items-center border-b pb-4">
@@ -578,9 +579,9 @@ export const ExamRoom = ({ sessionId, currentUserEmail = '', onExit }: Props) =>
               </p>
             </div>
             <button
-              onClick={handleSubmitExam}
+              onClick={() => handleSubmitExam(false)}
               disabled={isSubmitting}
-              className="py-2.5 px-6 bg-green-600 text-white font-bold rounded-xl hover:bg-green-700 disabled:bg-gray-400 transition shadow"
+              className="py-2.5 px-6 bg-green-600 text-white font-bold rounded-xl hover:bg-green-700 disabled:bg-gray-400 transition shadow cursor-pointer"
             >
               {isSubmitting ? 'Đang nộp...' : '🏁 Nộp bài thi'}
             </button>
@@ -645,9 +646,9 @@ export const ExamRoom = ({ sessionId, currentUserEmail = '', onExit }: Props) =>
 
           <div className="pt-4 border-t flex justify-end">
             <button
-              onClick={handleSubmitExam}
+              onClick={() => handleSubmitExam(false)}
               disabled={isSubmitting}
-              className="py-3 px-8 bg-green-600 text-white font-bold rounded-xl hover:bg-green-700 disabled:bg-gray-400 transition shadow-md"
+              className="py-3 px-8 bg-green-600 text-white font-bold rounded-xl hover:bg-green-700 disabled:bg-gray-400 transition shadow-md cursor-pointer"
             >
               {isSubmitting ? 'Đang chấm điểm qua API Gateway...' : '🏁 Nộp bài thi và Xem kết quả'}
             </button>
@@ -655,9 +656,6 @@ export const ExamRoom = ({ sessionId, currentUserEmail = '', onExit }: Props) =>
         </div>
       )}
 
-      {/* =========================================================================
-          BƯỚC 3: KẾT QUẢ THI ĐÃ NỘP (DYNAMODB RESULTS)
-          ========================================================================= */}
       {step === 'COMPLETED' && submitResult && (
         <div className="bg-white p-8 rounded-2xl shadow-sm border border-slate-200 text-center space-y-6">
           <div className="text-5xl">🏆</div>
