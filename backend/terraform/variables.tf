@@ -28,7 +28,6 @@ variable "s3_bucket_name" {
 
 # ==============================================================================
 # CẤU HÌNH COGNITO & AUTHENTICATION
-# Phụ trách: Mạnh (Authentication, API Gateway, IAM Security)
 # ==============================================================================
 
 variable "cognito_domain_prefix" {
@@ -53,4 +52,20 @@ variable "frontend_logout_urls" {
     "http://localhost:5173/",
     "http://localhost:3000/"
   ]
+}
+
+# ==============================================================================
+# CẤU HÌNH AWS WAFv2 & SECURITY
+# ==============================================================================
+
+variable "enable_waf" {
+  description = "Bật/Tắt AWS WAFv2 Web ACL (FinOps: có thể tắt khi không thi để giữ chi phí $0)"
+  type        = bool
+  default     = true
+}
+
+variable "waf_rate_limit" {
+  description = "Ngưỡng số lượng request tối đa trong 5 phút từ một IP trước khi bị WAF chặn"
+  type        = number
+  default     = 100
 }

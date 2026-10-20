@@ -1,6 +1,5 @@
 # ==============================================================================
 # IAM ROLES & POLICIES (NGUYÊN TẮC ĐẶC QUYỀN TỐI THIỂU - LEAST PRIVILEGE)
-# Phụ trách: Mạnh (Authentication, API Gateway, IAM Security)
 # ==============================================================================
 
 # Data source lấy AWS Account ID hiện tại
@@ -332,4 +331,3 @@ resource "aws_iam_role_policy" "lambda_grading_worker_policy" {
     ]
   })
 }
-

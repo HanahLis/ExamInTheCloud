@@ -1,6 +1,5 @@
 # ==============================================================================
 # AMAZON API GATEWAY: REST API, COGNITO AUTHORIZER & CORS
-# Phụ trách: Mạnh (Authentication, API Gateway, IAM Security)
 # ==============================================================================
 
 # 1. Khởi tạo REST API
@@ -113,6 +112,13 @@ resource "aws_api_gateway_resource" "session_id" {
   path_part   = "{id}"
 }
 
+# /sessions/{id}/results (Xem bảng điểm ca thi)
+resource "aws_api_gateway_resource" "session_results" {
+  rest_api_id = aws_api_gateway_rest_api.main.id
+  parent_id   = aws_api_gateway_resource.session_id.id
+  path_part   = "results"
+}
+
 # /auth
 resource "aws_api_gateway_resource" "auth" {
   rest_api_id = aws_api_gateway_rest_api.main.id
@@ -154,6 +160,7 @@ locals {
     "candidate_email" = aws_api_gateway_resource.candidate_email.id
     "sessions"        = aws_api_gateway_resource.sessions.id
     "session_id"      = aws_api_gateway_resource.session_id.id
+    "session_results" = aws_api_gateway_resource.session_results.id
     "auth"            = aws_api_gateway_resource.auth.id
     "face_verify"     = aws_api_gateway_resource.face_verify.id
     "exam"            = aws_api_gateway_resource.exam.id
@@ -234,6 +241,7 @@ locals {
     { key = "s_post", resource_id = aws_api_gateway_resource.sessions.id, http_method = "POST" },
     { key = "sid_get", resource_id = aws_api_gateway_resource.session_id.id, http_method = "GET" },
     { key = "sid_put", resource_id = aws_api_gateway_resource.session_id.id, http_method = "PUT" },
+    { key = "sres_get", resource_id = aws_api_gateway_resource.session_results.id, http_method = "GET" },
     { key = "sub_post", resource_id = aws_api_gateway_resource.exam_submit.id, http_method = "POST" }
   ]
 }
