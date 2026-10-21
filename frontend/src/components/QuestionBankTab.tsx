@@ -212,9 +212,6 @@ export const QuestionBankTab = ({ questions, onRefresh }: Props) => {
             <h3 className="text-sm font-semibold text-slate-800">
               Ngân hàng câu hỏi
             </h3>
-            <p className="text-xs text-slate-500 mt-0.5">
-              Quản lý danh sách câu hỏi phân loại theo môn học và mức độ.
-            </p>
           </div>
 
           <div className="flex items-center gap-2">

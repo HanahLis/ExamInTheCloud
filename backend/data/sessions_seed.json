@@ -2,8 +2,8 @@
   {
     "id": "EX-VNU-2026-01",
     "name": "Thi Đánh Giá Năng Lực: Kiến trúc & Phát triển Phần mềm",
-    "startTime": "2026-10-21T00:00:00.000Z",
-    "endTime": "2026-10-22T23:59:59.000Z",
+    "startTime": "2026-10-20T00:00:00.000Z",
+    "endTime": "2026-10-31T23:59:59.000Z",
     "status": "RUNNING",
     "questionIds": [
       "q-se-001",
