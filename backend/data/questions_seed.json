@@ -1,78 +1,192 @@
 [
   {
-    "id": "q-aws-001",
-    "bankId": "bank-cloud-01",
-    "content": "1 + 1 = mấy",
+    "id": "q-se-001",
+    "bankId": "bank-se-arch-01",
+    "content": "Mẫu thiết kế phần mềm (Design Pattern) nào thuộc nhóm Mẫu khởi tạo (Creational Patterns) giúp đảm bảo một lớp chỉ có duy nhất một thể hiện (instance) và cung cấp một điểm truy cập toàn cục tới nó?",
+    "type": "SINGLE_CHOICE",
     "options": [
-      "2",
-      "3",
-      "4",
-      "0"
+      "Factory Method",
+      "Abstract Factory",
+      "Singleton",
+      "Builder"
     ],
-    "correctIndex": 0,
+    "correctIndex": 2,
+    "correctAnswer": "Singleton",
     "score": 1,
+    "subject": "Kiến trúc & Phát triển Phần mềm",
+    "topic": "Creational Design Patterns",
     "difficulty": "EASY",
     "imageUrl": ""
   },
   {
-    "id": "q-aws-002",
-    "bankId": "bank-cloud-01",
-    "content": "Dịch vụ nào của AWS cung cấp cơ sở dữ liệu NoSQL dạng Key-Value và Document có độ trễ mili-giây đơn?",
+    "id": "q-se-002",
+    "bankId": "bank-se-arch-01",
+    "content": "Trong mô hình kiến trúc Lục giác (Hexagonal Architecture / Ports and Adapters), thành phần nào đóng vai trò là cầu nối để ứng dụng bên ngoài (như Web UI, REST API) giao tiếp với các cổng (Ports) của lõi nghiệp vụ?",
+    "type": "SINGLE_CHOICE",
     "options": [
-      "Amazon Aurora",
-      "Amazon DynamoDB",
-      "Amazon Redshift",
-      "Amazon ElastiCache"
+      "Repository",
+      "Adapter",
+      "Entity",
+      "Value Object"
     ],
     "correctIndex": 1,
+    "correctAnswer": "Adapter",
     "score": 1,
-    "difficulty": "EASY",
-    "imageUrl": ""
-  },
-  {
-    "id": "q-aws-003",
-    "bankId": "bank-cloud-01",
-    "content": "Mô hình kiến trúc Serverless trên AWS thường kết hợp các dịch vụ nào sau đây cho REST API?",
-    "options": [
-      "EC2 + Auto Scaling + ELB",
-      "API Gateway + AWS Lambda + DynamoDB",
-      "EKS + RDS + CloudFront",
-      "S3 + Route53 + VPC"
-    ],
-    "correctIndex": 1,
-    "score": 2,
+    "subject": "Kiến trúc & Phát triển Phần mềm",
+    "topic": "Hexagonal Architecture",
     "difficulty": "MEDIUM",
     "imageUrl": ""
   },
   {
-    "id": "q-aws-004",
-    "bankId": "bank-cloud-01",
-    "content": "Dịch vụ AWS nào sử dụng công nghệ Deep Learning để phân tích và nhận diện khuôn mặt?",
+    "id": "q-se-003",
+    "bankId": "bank-se-arch-01",
+    "content": "Kỹ thuật kiểm thử hộp đen (Black-box Testing) nào chia miền giá trị đầu vào thành các tập hợp con mà tại đó các phần tử có khả năng cao sẽ mang lại cùng một hành vi kết quả của hệ thống?",
+    "type": "SINGLE_CHOICE",
     "options": [
-      "Amazon Comprehend",
-      "Amazon Rekognition",
-      "Amazon Polly",
-      "Amazon Transcribe"
+      "Kiểm thử đường dẫn cơ sở (Basis Path Testing)",
+      "Phân tích giá trị biên (Boundary Value Analysis)",
+      "Phân hoạch tương đương (Equivalence Partitioning)",
+      "Kiểm thử luồng điều khiển (Control Flow Testing)"
     ],
-    "correctIndex": 1,
+    "correctIndex": 2,
+    "correctAnswer": "Phân hoạch tương đương (Equivalence Partitioning)",
     "score": 1,
+    "subject": "Kiến trúc & Phát triển Phần mềm",
+    "topic": "Black-box Testing",
     "difficulty": "EASY",
     "imageUrl": ""
   },
   {
-    "id": "q-aws-005",
-    "bankId": "bank-cloud-01",
-    "content": "Khái niệm Infrastructure as Code (IaC) được triển khai qua công cụ mã nguồn mở phổ biến nào?",
+    "id": "q-se-004",
+    "bankId": "bank-se-arch-01",
+    "content": "Khi xây dựng các hệ thống phân tán trên nền tảng Cloud, giao thức nhắn tin bất đồng bộ (Message Queuing) nào thường được sử dụng phổ biến để giảm sự phụ thuộc giữa các microservices?",
+    "type": "SINGLE_CHOICE",
     "options": [
-      "Terraform",
-      "Docker",
-      "Postman",
-      "Jenkins"
+      "HTTP REST",
+      "RabbitMQ / Kafka",
+      "JDBC Connection",
+      "Secure Shell (SSH)"
+    ],
+    "correctIndex": 1,
+    "correctAnswer": "RabbitMQ / Kafka",
+    "score": 1,
+    "subject": "Kiến trúc & Phát triển Phần mềm",
+    "topic": "Cloud Microservices & Message Queuing",
+    "difficulty": "EASY",
+    "imageUrl": ""
+  },
+  {
+    "id": "q-se-005",
+    "bankId": "bank-se-arch-01",
+    "content": "Trong cơ sở dữ liệu NoSQL dạng tài liệu (như MongoDB), đặc tính nào mô tả việc lưu trữ toàn bộ dữ liệu liên quan vào một tài liệu duy nhất thay vì phân tách ra nhiều bảng như cơ sở dữ liệu quan hệ?",
+    "type": "SINGLE_CHOICE",
+    "options": [
+      "Chuẩn hóa (Normalization)",
+      "Khử chuẩn hóa (Denormalization)",
+      "Toàn vẹn tham chiếu (Foreign Key Constraint)",
+      "Khóa ngoại đa bảng (Multi-table Join)"
+    ],
+    "correctIndex": 1,
+    "correctAnswer": "Khử chuẩn hóa (Denormalization)",
+    "score": 1,
+    "subject": "Kiến trúc & Phát triển Phần mềm",
+    "topic": "NoSQL Database Design",
+    "difficulty": "MEDIUM",
+    "imageUrl": ""
+  },
+  {
+    "id": "q-se-006",
+    "bankId": "bank-se-arch-01",
+    "content": "Trong các phương pháp tối ưu hóa tổ hợp, giải thuật tối ưu bầy đàn nào nổi tiếng với mô phỏng hành vi di chuyển tìm kiếm thức ăn của đàn kiến dựa trên lượng pheromone để giải quyết bài toán người đưa thư (TSP) hoặc Cục bộ?",
+    "type": "SINGLE_CHOICE",
+    "options": [
+      "Thuật toán di truyền (Genetic Algorithm)",
+      "Giải thuật tối ưu đàn kiến (Ant Colony Optimization - ACO)",
+      "Leo đồi (Hill Climbing)",
+      "Tìm kiếm theo chiều rộng (BFS)"
+    ],
+    "correctIndex": 1,
+    "correctAnswer": "Giải thuật tối ưu đàn kiến (Ant Colony Optimization - ACO)",
+    "score": 1,
+    "subject": "Kiến trúc & Phát triển Phần mềm",
+    "topic": "Optimization Algorithms",
+    "difficulty": "HARD",
+    "imageUrl": ""
+  },
+  {
+    "id": "q-se-007",
+    "bankId": "bank-se-arch-01",
+    "content": "Trong quy trình phát triển phần mềm Agile/Scrum, sự kiện nào được tổ chức vào cuối mỗi Sprint để đội ngũ trình bày các tính năng/sản phẩm đã hoàn thành cho các bên liên quan (Stakeholders)?",
+    "type": "SINGLE_CHOICE",
+    "options": [
+      "Sprint Planning",
+      "Daily Standup",
+      "Sprint Review",
+      "Sprint Retrospective"
+    ],
+    "correctIndex": 2,
+    "correctAnswer": "Sprint Review",
+    "score": 1,
+    "subject": "Kiến trúc & Phát triển Phần mềm",
+    "topic": "Agile / Scrum Framework",
+    "difficulty": "EASY",
+    "imageUrl": ""
+  },
+  {
+    "id": "q-se-008",
+    "bankId": "bank-se-arch-01",
+    "content": "Trong các nguyên lý thiết kế hướng đối tượng SOLID, nguyên lý nào phát biểu rằng \"Một class nên chỉ có một lý do duy nhất để thay đổi\" (tập trung vào một trách nhiệm nghiệp vụ)?",
+    "type": "SINGLE_CHOICE",
+    "options": [
+      "Single Responsibility Principle (SRP)",
+      "Open/Closed Principle (OCP)",
+      "Liskov Substitution Principle (LSP)",
+      "Dependency Inversion Principle (DIP)"
     ],
     "correctIndex": 0,
-    "score": 2,
+    "correctAnswer": "Single Responsibility Principle (SRP)",
+    "score": 1,
+    "subject": "Kiến trúc & Phát triển Phần mềm",
+    "topic": "SOLID Principles",
+    "difficulty": "EASY",
+    "imageUrl": ""
+  },
+  {
+    "id": "q-se-009",
+    "bankId": "bank-se-arch-01",
+    "content": "Khi quản lý mã nguồn bằng Git, câu lệnh nào được sử dụng để ghép (áp dụng) một commit cụ thể từ nhánh này sang nhánh hiện tại mà không cần thiết phải hợp nhất (merge) toàn bộ nhánh đó?",
+    "type": "SINGLE_CHOICE",
+    "options": [
+      "git stash",
+      "git rebase",
+      "git cherry-pick",
+      "git reset --soft"
+    ],
+    "correctIndex": 2,
+    "correctAnswer": "git cherry-pick",
+    "score": 1,
+    "subject": "Kiến trúc & Phát triển Phần mềm",
+    "topic": "Git Source Control",
     "difficulty": "MEDIUM",
+    "imageUrl": ""
+  },
+  {
+    "id": "q-se-010",
+    "bankId": "bank-se-arch-01",
+    "content": "Trong hệ thống xác thực người dùng dựa trên token (như JWT), thành phần nào trong cấu trúc token chứa các thông tin định danh (claims) như ID người dùng, email và quyền hạn?",
+    "type": "SINGLE_CHOICE",
+    "options": [
+      "Header",
+      "Payload",
+      "Signature",
+      "Secret Key"
+    ],
+    "correctIndex": 1,
+    "correctAnswer": "Payload",
+    "score": 1,
+    "subject": "Kiến trúc & Phát triển Phần mềm",
+    "topic": "JWT Authentication & Security",
+    "difficulty": "EASY",
     "imageUrl": ""
   }
 ]
-

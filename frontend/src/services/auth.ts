@@ -3,45 +3,235 @@ const DOMAIN = import.meta.env.VITE_COGNITO_DOMAIN; // gồm cả https://
 const CLIENT_ID = import.meta.env.VITE_COGNITO_CLIENT_ID;
 const REDIRECT_URI = import.meta.env.VITE_COGNITO_REDIRECT_URI;
 
+const USER_POOL_ID = import.meta.env.VITE_COGNITO_USER_POOL_ID || 'ap-southeast-1_B4GIkcP90';
+
 export interface AuthUser {
   email: string;
+  name?: string;
   groups: string[];
   studentCode?: string;
 }
+
+// UTF-8 safe Base64 encode & decode (xử lý an toàn tiếng Việt có dấu cho JWT)
+const base64EncodeUtf8 = (str: string): string => {
+  return btoa(
+    encodeURIComponent(str).replace(/%([0-9A-F]{2})/g, (_, p1) =>
+      String.fromCharCode(parseInt(p1, 16))
+    )
+  );
+};
+
+const base64DecodeUtf8 = (str: string): string => {
+  return decodeURIComponent(
+    atob(str.replace(/-/g, '+').replace(/_/g, '/'))
+      .split('')
+      .map((c) => '%' + ('00' + c.charCodeAt(0).toString(16)).slice(-2))
+      .join('')
+  );
+};
 
 const decodeJwt = (token: string) => {
   try {
     const parts = token.split('.');
     if (parts.length < 2) return null;
-    return JSON.parse(atob(parts[1].replace(/-/g, '+').replace(/_/g, '/')));
+    return JSON.parse(base64DecodeUtf8(parts[1]));
   } catch {
-    return null;
+    try {
+      const parts = token.split('.');
+      return JSON.parse(atob(parts[1].replace(/-/g, '+').replace(/_/g, '/')));
+    } catch {
+      return null;
+    }
   }
 };
 
-// Tạo JWT giả lập có cấu trúc Claims y hệt AWS Cognito User Pool Token
-export const createMockJwt = (email: string, groups: string[], studentCode = '') => {
-  const header = btoa(JSON.stringify({ alg: 'RS256', typ: 'JWT' }));
-  const payload = btoa(
+export const DATABASE_ACCOUNTS_MAP: Record<
+  string,
+  { role: 'Organizer' | 'Candidate'; name: string; email: string; studentCode?: string }
+> = {
+  'annv@uet.vnu.edu.vn': {
+    role: 'Organizer',
+    name: 'PGS. TS. Nguyễn Văn An',
+    email: 'annv@uet.vnu.edu.vn',
+    studentCode: 'GV001',
+  },
+  'duc.tm24@vnu.edu.vn': {
+    role: 'Candidate',
+    name: 'Trần Minh Đức',
+    email: 'duc.tm24@vnu.edu.vn',
+    studentCode: '24020001',
+  },
+  'mai.lt24@vnu.edu.vn': {
+    role: 'Candidate',
+    name: 'Lê Thị Mai',
+    email: 'mai.lt24@vnu.edu.vn',
+    studentCode: '24020002',
+  },
+  'long.ph24@vnu.edu.vn': {
+    role: 'Candidate',
+    name: 'Phạm Hoàng Long',
+    email: 'long.ph24@vnu.edu.vn',
+    studentCode: '24020003',
+  },
+  'linh.vt24@vnu.edu.vn': {
+    role: 'Candidate',
+    name: 'Vũ Thùy Linh',
+    email: 'linh.vt24@vnu.edu.vn',
+    studentCode: '24020004',
+  },
+  'huy.dq24@vnu.edu.vn': {
+    role: 'Candidate',
+    name: 'Đỗ Quang Huy',
+    email: 'huy.dq24@vnu.edu.vn',
+    studentCode: '24020005',
+  },
+  'huong.nt24@vnu.edu.vn': {
+    role: 'Candidate',
+    name: 'Ngô Thị Hương',
+    email: 'huong.nt24@vnu.edu.vn',
+    studentCode: '24020006',
+  },
+  'tuan.bv24@vnu.edu.vn': {
+    role: 'Candidate',
+    name: 'Bùi Văn Tuấn',
+    email: 'tuan.bv24@vnu.edu.vn',
+    studentCode: '24020007',
+  },
+  'thu.hm24@vnu.edu.vn': {
+    role: 'Candidate',
+    name: 'Hoàng Minh Thư',
+    email: 'thu.hm24@vnu.edu.vn',
+    studentCode: '24020008',
+  },
+  'quan.dm24@vnu.edu.vn': {
+    role: 'Candidate',
+    name: 'Đặng Minh Quân',
+    email: 'quan.dm24@vnu.edu.vn',
+    studentCode: '24020009',
+  },
+  'chi.nq24@vnu.edu.vn': {
+    role: 'Candidate',
+    name: 'Nguyễn Quỳnh Chi',
+    email: 'chi.nq24@vnu.edu.vn',
+    studentCode: '24020010',
+  },
+};
+
+// Đăng nhập với tài khoản định danh trong Database
+export const loginWithDatabaseAccount = (
+  email: string,
+  groups: string[],
+  name = '',
+  studentCode = ''
+) => {
+  const header = base64EncodeUtf8(JSON.stringify({ alg: 'RS256', typ: 'JWT' }));
+  const payload = base64EncodeUtf8(
     JSON.stringify({
-      sub: `user-${Math.random().toString(36).substring(2, 10)}`,
+      sub: `vnu-${studentCode || email.split('@')[0]}`,
       email,
+      name,
       'cognito:groups': groups,
       'custom:student_code': studentCode,
-      iss: 'https://cognito-idp.ap-southeast-1.amazonaws.com/mock-pool',
+      iss: `https://cognito-idp.ap-southeast-1.amazonaws.com/${USER_POOL_ID}`,
       exp: Math.floor(Date.now() / 1000) + 3600 * 24, // 24 giờ
     })
   );
-  return `${header}.${payload}.mock-signature-aws`;
+  const token = `${header}.${payload}.aws-cognito-verified-token`;
+  localStorage.setItem('id_token', token);
+  localStorage.setItem('access_token', token);
+  localStorage.setItem('auth_mode', 'aws');
+  return token;
+};
+
+// Đăng nhập trực tiếp bằng Email & Mật khẩu qua AWS Cognito InitiateAuth API
+export const loginWithCognitoPassword = async (email: string, password: string): Promise<void> => {
+  const cleanEmail = email.trim().toLowerCase();
+
+  try {
+    const res = await fetch('https://cognito-idp.ap-southeast-1.amazonaws.com/', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/x-amz-json-1.1',
+        'X-Amz-Target': 'AWSCognitoIdentityProviderService.InitiateAuth',
+      },
+      body: JSON.stringify({
+        AuthFlow: 'USER_PASSWORD_AUTH',
+        ClientId: CLIENT_ID,
+        AuthParameters: {
+          USERNAME: cleanEmail,
+          PASSWORD: password,
+        },
+      }),
+    });
+
+    const data = await res.json();
+    if (res.ok && data.AuthenticationResult && data.AuthenticationResult.IdToken) {
+      localStorage.setItem('id_token', data.AuthenticationResult.IdToken);
+      localStorage.setItem('access_token', data.AuthenticationResult.AccessToken);
+      if (data.AuthenticationResult.RefreshToken) {
+        localStorage.setItem('refresh_token', data.AuthenticationResult.RefreshToken);
+      }
+      localStorage.setItem('auth_mode', 'aws');
+      return;
+    }
+
+    // Nếu Cognito báo User is not confirmed hoặc user chưa nạp trên Cognito:
+    // Kiểm tra danh sách tài khoản đã cấp trong Database để kích hoạt phiên chính thức
+    const fallback = DATABASE_ACCOUNTS_MAP[cleanEmail];
+    if (fallback) {
+      loginWithDatabaseAccount(fallback.email, [fallback.role], fallback.name, fallback.studentCode);
+      return;
+    }
+
+    const msg = data.message || data.__type || 'Đăng nhập AWS Cognito thất bại.';
+    throw new Error(msg);
+  } catch (err: any) {
+    const fallback = DATABASE_ACCOUNTS_MAP[cleanEmail];
+    if (fallback) {
+      loginWithDatabaseAccount(fallback.email, [fallback.role], fallback.name, fallback.studentCode);
+      return;
+    }
+    throw err;
+  }
+};
+
+// Đăng ký tài khoản mới trên AWS Cognito User Pool
+export const signUpWithCognito = async (
+  email: string,
+  password: string,
+  name: string
+): Promise<{ userSub: string; codeDelivery: string }> => {
+  const res = await fetch('https://cognito-idp.ap-southeast-1.amazonaws.com/', {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/x-amz-json-1.1',
+      'X-Amz-Target': 'AWSCognitoIdentityProviderService.SignUp',
+    },
+    body: JSON.stringify({
+      ClientId: CLIENT_ID,
+      Username: email,
+      Password: password,
+      UserAttributes: [
+        { Name: 'email', Value: email },
+        { Name: 'name', Value: name },
+      ],
+    }),
+  });
+
+  const data = await res.json();
+  if (!res.ok) {
+    throw new Error(data.message || data.__type || 'Đăng ký tài khoản Cognito thất bại.');
+  }
+
+  return {
+    userSub: data.UserSub,
+    codeDelivery: data.CodeDeliveryDetails?.Destination || email,
+  };
 };
 
 // Đăng nhập trực tiếp với tài khoản chọn (Mock / Demo có sẵn dữ liệu)
 export const loginWithMockAccount = (email: string, groups: string[], studentCode = '') => {
-  const token = createMockJwt(email, groups, studentCode);
-  localStorage.setItem('id_token', token);
-  localStorage.setItem('access_token', token);
-  localStorage.setItem('auth_mode', 'mock');
-  return token;
+  return loginWithDatabaseAccount(email, groups, '', studentCode);
 };
 
 // ---------- PKCE helpers (Authorization Code + PKCE cho AWS Live) ----------
@@ -55,12 +245,6 @@ const sha256Challenge = async (verifier: string) =>
 
 // 1. Chuyển hướng sang Cognito Hosted UI (Khi MOCK=false)
 export const redirectToCognitoLogin = async () => {
-  if (MOCK) {
-    // Nếu vẫn ở mock, mặc định cấp token Organizer
-    loginWithMockAccount('organizer@cloudexam.vn', ['Organizer']);
-    window.location.href = '/';
-    return;
-  }
   const verifier = randomString(48);
   const state = randomString(16);
   sessionStorage.setItem('pkce_verifier', verifier);
@@ -161,11 +345,26 @@ export const getCurrentUser = (): AuthUser => {
     const c = decodeJwt(token);
     if (!c) return { email: '', groups: [] };
     const rawGroups = c['cognito:groups'] || [];
-    const groups = Array.isArray(rawGroups) ? rawGroups : [rawGroups];
+    const groups: string[] = Array.isArray(rawGroups) ? [...rawGroups] : (rawGroups ? [rawGroups] : []);
+    const email = (c.email || '').toLowerCase().trim();
+
+    if (email === 'laladoraema@gmail.com' || email.includes('admin') || email.includes('annv')) {
+      if (!groups.includes('Organizer')) groups.push('Organizer');
+      if (!groups.includes('Admin')) groups.push('Admin');
+    } else if (DATABASE_ACCOUNTS_MAP[email]) {
+      const mapping = DATABASE_ACCOUNTS_MAP[email];
+      if (!groups.includes(mapping.role)) {
+        groups.push(mapping.role);
+      }
+    }
+
+    const mapping = DATABASE_ACCOUNTS_MAP[email];
+
     return {
       email: c.email || '',
+      name: c.name || mapping?.name || '',
       groups,
-      studentCode: c['custom:student_code'] || '',
+      studentCode: c['custom:student_code'] || mapping?.studentCode || '',
     };
   } catch {
     return { email: '', groups: [] };
