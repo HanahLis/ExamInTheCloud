@@ -5,6 +5,8 @@ import {
   verifyFace,
   submitExam,
   updateSessionCandidates,
+  updateSessionStatus,
+  resolveSessionStatus,
   getExamPaper,
   saveExamProgress,
   type ExamSession,
@@ -279,6 +281,13 @@ export const ExamRoom = ({ sessionId, currentUserEmail = '', onExit }: Props) =>
     );
   }
 
+  const currentStatus = resolveSessionStatus(session.status, session.startTime, session.endTime);
+  const statusConfig = {
+    RUNNING: { label: 'Đang diễn ra', style: 'bg-emerald-50 text-emerald-700 border-emerald-200' },
+    SCHEDULED: { label: 'Chưa bắt đầu', style: 'bg-amber-50 text-amber-700 border-amber-200' },
+    CLOSED: { label: 'Đã kết thúc', style: 'bg-slate-100 text-slate-600 border-slate-200' },
+  }[currentStatus] || { label: currentStatus, style: 'bg-slate-100 text-slate-600 border-slate-200' };
+
   return (
     <div className="max-w-3xl mx-auto space-y-4">
       {/* Tiêu đề ca thi */}
@@ -289,13 +298,9 @@ export const ExamRoom = ({ sessionId, currentUserEmail = '', onExit }: Props) =>
               #{session.id}
             </span>
             <span
-              className={`text-[10px] font-medium px-2 py-0.5 rounded border ${
-                session.status === 'RUNNING'
-                  ? 'bg-emerald-50 text-emerald-700 border-emerald-200'
-                  : 'bg-slate-100 text-slate-600 border-slate-200'
-              }`}
+              className={`text-[10px] font-medium px-2 py-0.5 rounded border ${statusConfig.style}`}
             >
-              {session.status}
+              {currentStatus} • {statusConfig.label}
             </span>
           </div>
           <h2 className="text-base font-semibold text-slate-900">{session.name}</h2>
@@ -325,6 +330,35 @@ export const ExamRoom = ({ sessionId, currentUserEmail = '', onExit }: Props) =>
         </div>
       </div>
 
+      {/* Thông báo trạng thái đồng bộ */}
+      {currentStatus === 'SCHEDULED' && (
+        <div className="p-3.5 bg-amber-50 border border-amber-200 rounded-lg text-xs text-amber-900 flex flex-wrap items-center justify-between gap-2">
+          <span>
+            Ca thi đang ở trạng thái <strong>Chưa bắt đầu (SCHEDULED)</strong>. Thí sinh chỉ có thể làm bài khi ca thi chuyển sang <strong>RUNNING</strong>.
+          </span>
+          <button
+            type="button"
+            onClick={async () => {
+              try {
+                await updateSessionStatus(session.id, 'RUNNING');
+                setSession({ ...session, status: 'RUNNING' });
+              } catch (err: any) {
+                alert('Lỗi kích hoạt ca thi: ' + (err?.message || err));
+              }
+            }}
+            className="px-3 py-1 bg-amber-600 text-white rounded text-xs font-medium hover:bg-amber-700 cursor-pointer transition"
+          >
+            Kích hoạt RUNNING ngay
+          </button>
+        </div>
+      )}
+
+      {currentStatus === 'CLOSED' && (
+        <div className="p-3.5 bg-slate-100 border border-slate-200 rounded-lg text-xs text-slate-700">
+          Ca thi này đã <strong>Kết thúc (CLOSED)</strong>. Hệ thống đã khóa tính năng làm bài và nộp bài.
+        </div>
+      )}
+
       {/* BƯỚC 1: XÁC THỰC KHUÔN MẶT */}
       {step === 'FACE_VERIFY' && (
         <div className="bg-white p-5 rounded-lg border border-slate-200 space-y-4">
@@ -332,9 +366,6 @@ export const ExamRoom = ({ sessionId, currentUserEmail = '', onExit }: Props) =>
             <h3 className="text-sm font-semibold text-slate-800">
               Xác thực khuôn mặt
             </h3>
-            <p className="text-xs text-slate-500 mt-0.5">
-              Hệ thống sẽ đối chiếu ảnh chụp từ camera với ảnh hồ sơ của thí sinh trước khi vào làm bài.
-            </p>
           </div>
 
           <div className="bg-slate-50 p-3.5 rounded-md border border-slate-200 space-y-2.5">

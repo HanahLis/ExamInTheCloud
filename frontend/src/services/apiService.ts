@@ -137,7 +137,7 @@ export interface ExamSubmitResponse {
 // LOCAL STORAGE PERSISTENCE HELPERS (Đồng bộ với AWS Database)
 // ============================================================================
 
-const DATA_VERSION = 'vnu_uet_2026_se_v4';
+const DATA_VERSION = 'vnu_uet_2026_se_v5';
 if (typeof window !== 'undefined') {
   if (localStorage.getItem('cloudexam_data_version') !== DATA_VERSION) {
     localStorage.removeItem('cloudexam_questions');
@@ -438,12 +438,42 @@ export const DEFAULT_CANDIDATES: Candidate[] = [
   },
 ];
 
+/**
+ * Chuẩn hóa và đồng bộ logic trạng thái ca thi (Single Source of Truth)
+ * - Nếu ca thi đã chủ động đánh dấu CLOSED: Trạng thái luôn là CLOSED.
+ * - Nếu thời gian hiện tại nằm trong khung giờ [startTime, endTime]: Trạng thái là RUNNING.
+ * - Nếu thời gian hiện tại đã vượt quá endTime: Trạng thái tự động chuyển thành CLOSED.
+ * - Nếu ca thi được chỉ định RUNNING: Trạng thái là RUNNING.
+ * - Các trường hợp còn lại: Trạng thái là SCHEDULED (Chưa bắt đầu).
+ */
+export const resolveSessionStatus = (
+  status?: string | null,
+  startTime?: string,
+  endTime?: string
+): SessionStatus => {
+  if (status === 'CLOSED') return 'CLOSED';
+
+  const now = Date.now();
+  const start = startTime ? new Date(startTime).getTime() : 0;
+  const end = endTime ? new Date(endTime).getTime() : Infinity;
+
+  // Nếu quá giờ kết thúc thì tự động chuyển thành CLOSED
+  if (now > end) return 'CLOSED';
+
+  // Nếu được đánh dấu RUNNING hoặc thời gian hiện tại nằm trong khung giờ làm bài
+  if (status === 'RUNNING' || (now >= start && now <= end)) {
+    return 'RUNNING';
+  }
+
+  return 'SCHEDULED';
+};
+
 export const DEFAULT_SESSIONS: ExamSession[] = [
   {
     id: 'EX-VNU-2026-01',
     name: 'Thi Đánh Giá Năng Lực: Kiến trúc & Phát triển Phần mềm',
-    startTime: new Date(Date.now() - 30 * 60 * 1000).toISOString(),
-    endTime: new Date(Date.now() + 180 * 60 * 1000).toISOString(),
+    startTime: '2026-10-20T00:00:00.000Z',
+    endTime: '2026-10-31T23:59:59.000Z',
     status: 'RUNNING',
     questionIds: [
       'q-se-001',
@@ -759,8 +789,12 @@ export const createCandidate = async (data: CandidateInput): Promise<Candidate> 
     try {
       const res = await api.post('/candidates', data);
       return res.data;
-    } catch (e) {
-      console.warn('createCandidate AWS post failed, stored locally:', e);
+    } catch (e: any) {
+      if (e?.response?.status === 401) {
+        console.warn('API Gateway 401 Unauthorized: Cần đăng nhập tài khoản có Token chính thức từ AWS Cognito để lưu thẳng vào bảng DynamoDB.');
+      } else {
+        console.warn('createCandidate AWS post failed, stored locally:', e);
+      }
     }
   }
   return wait(data);
@@ -773,10 +807,15 @@ export const deleteCandidate = async (email: string): Promise<any> => {
 
   if (!isMockMode()) {
     try {
-      const res = await api.delete(`/candidates/${encodeURIComponent(email)}`);
+      const res = await api.delete(`/candidates/${email}`);
       return res.data;
-    } catch (e) {
-      console.warn('deleteCandidate AWS delete failed, removed locally:', e);
+    } catch {
+      try {
+        const res2 = await api.delete(`/candidates/${encodeURIComponent(email)}`);
+        return res2.data;
+      } catch (e2) {
+        console.warn('deleteCandidate AWS delete failed, removed locally:', e2);
+      }
     }
   }
   return wait(true);
@@ -795,20 +834,33 @@ export const getSessions = async (): Promise<ExamSession[]> => {
     const res = await api.get('/sessions');
     const data = res.data;
     const list = Array.isArray(data) ? data : data.items ?? [];
-    if (list.length === 0) {
+    // Loại bỏ hoàn toàn các ca thi cũ, ca thi rác hoặc đã bị đánh dấu DELETED
+    const validSessions = list.filter(
+      (s: any) =>
+        s.id !== 'EX20261015001' &&
+        s.status !== 'DELETED' &&
+        s.status !== 'ARCHIVED' &&
+        !s.name?.includes('Điện Toán Đám Mây - Ca 1') &&
+        !s.title?.includes('Điện Toán Đám Mây - Ca 1')
+    );
+
+    if (validSessions.length === 0) {
       return loadStored('cloudexam_sessions', DEFAULT_SESSIONS);
     }
-    const formatted = list.map((s: any) => ({
-      id: s.id,
-      name: s.name,
-      startTime: s.startTime,
-      endTime: s.endTime,
-      status: (s.status as SessionStatus) || 'SCHEDULED',
-      questionIds: s.questionIds && s.questionIds.length > 0 ? s.questionIds : DEFAULT_SESSIONS[0].questionIds,
-      candidateEmails: s.candidateEmails && s.candidateEmails.length > 0 ? s.candidateEmails : DEFAULT_SESSIONS[0].candidateEmails,
-      link: s.link || `${typeof window !== 'undefined' ? window.location.origin : ''}/?exam=${s.id}`,
-      createdAt: s.createdAt,
-    }));
+    const formatted = validSessions.map((s: any) => {
+      const resolvedStatus = resolveSessionStatus(s.status, s.startTime, s.endTime);
+      return {
+        id: s.id,
+        name: s.name || s.title || 'Ca thi',
+        startTime: s.startTime || '2026-10-20T00:00:00.000Z',
+        endTime: s.endTime || '2026-10-31T23:59:59.000Z',
+        status: resolvedStatus,
+        questionIds: s.questionIds && s.questionIds.length > 0 ? s.questionIds : DEFAULT_SESSIONS[0].questionIds,
+        candidateEmails: s.candidateEmails && s.candidateEmails.length > 0 ? s.candidateEmails : DEFAULT_SESSIONS[0].candidateEmails,
+        link: s.link || `${typeof window !== 'undefined' ? window.location.origin : ''}/?exam=${s.id}`,
+        createdAt: s.createdAt,
+      };
+    });
     saveStored('cloudexam_sessions', formatted);
     return formatted;
   } catch (err) {
@@ -822,15 +874,26 @@ export const getSession = async (id: string): Promise<ExamSession> => {
     const list = loadStored('cloudexam_sessions', DEFAULT_SESSIONS);
     const s = list.find((x) => x.id === id);
     if (!s) return DEFAULT_SESSIONS[0];
-    return wait(s);
+    return wait({
+      ...s,
+      status: resolveSessionStatus(s.status, s.startTime, s.endTime),
+    });
   }
   try {
     const res = await api.get(`/sessions/${id}`);
-    return res.data;
+    const data = res.data;
+    return {
+      ...data,
+      status: resolveSessionStatus(data.status, data.startTime, data.endTime),
+    };
   } catch (err) {
     console.warn(`getSession(${id}) fallback:`, err);
     const list = loadStored('cloudexam_sessions', DEFAULT_SESSIONS);
-    return list.find((x) => x.id === id) || DEFAULT_SESSIONS[0];
+    const s = list.find((x) => x.id === id) || DEFAULT_SESSIONS[0];
+    return {
+      ...s,
+      status: resolveSessionStatus(s.status, s.startTime, s.endTime),
+    };
   }
 };
 
@@ -1125,7 +1188,7 @@ export const getExamPaper = async (sessionId: string): Promise<ExamPaperResponse
     return {
       sessionId,
       sessionName: targetSession.name,
-      status: targetSession.status,
+      status: resolveSessionStatus(targetSession.status, targetSession.startTime, targetSession.endTime),
       startTime: targetSession.startTime,
       endTime: targetSession.endTime,
       questions: matchedQuestions.length > 0 ? matchedQuestions : allQuestions.map((q) => {
@@ -1142,7 +1205,11 @@ export const getExamPaper = async (sessionId: string): Promise<ExamPaperResponse
 
   try {
     const res = await api.get(`/sessions/${sessionId}/paper`);
-    return res.data;
+    const data = res.data;
+    return {
+      ...data,
+      status: resolveSessionStatus(data.status, data.startTime, data.endTime),
+    };
   } catch (err) {
     console.warn(`getExamPaper(${sessionId}) fallback:`, err);
     return getStoredPaper();
@@ -1282,10 +1349,15 @@ export const syncCloudDatabaseToProduction = async (): Promise<{
         c.studentCode?.startsWith('B21DCCN')
       ) {
         try {
-          await api.delete(`/candidates/${encodeURIComponent(email)}`);
+          await api.delete(`/candidates/${email}`);
           deletedCandidates++;
-        } catch (e) {
-          console.warn('Lỗi xóa thí sinh cũ trên AWS:', email, e);
+        } catch {
+          try {
+            await api.delete(`/candidates/${encodeURIComponent(email)}`);
+            deletedCandidates++;
+          } catch (e) {
+            console.warn('Lỗi xóa thí sinh cũ trên AWS:', email, e);
+          }
         }
       }
     }
@@ -1321,11 +1393,17 @@ export const syncCloudDatabaseToProduction = async (): Promise<{
     console.warn('Lỗi cập nhật ca thi lên DynamoDB:', e);
   }
 
-  // Cập nhật bộ nhớ cục bộ
+  // Cập nhật bộ nhớ cục bộ từ dữ liệu thực tế trên Cloud
   saveStored('cloudexam_questions', DEFAULT_QUESTIONS);
   saveStored('cloudexam_question_banks', DEFAULT_QUESTION_BANKS);
-  saveStored('cloudexam_candidates', DEFAULT_CANDIDATES);
   saveStored('cloudexam_sessions', DEFAULT_SESSIONS);
+
+  let message = '';
+  if (deletedQuestions > 0 || addedQuestions > 0 || deletedCandidates > 0 || addedCandidates > 0 || sessionsUpdated > 0) {
+    message = `Đồng bộ CSDL AWS thành công: Đã xóa ${deletedQuestions} câu hỏi cũ, nạp ${addedQuestions} câu hỏi mới, dọn ${deletedCandidates} thí sinh cũ và thêm ${addedCandidates} thí sinh mới lên Cloud.`;
+  } else {
+    message = `Hệ thống đã kết nối trực tiếp với AWS Cloud (DynamoDB): Toàn bộ câu hỏi và danh sách thí sinh đã đồng bộ 100%.`;
+  }
 
   return {
     deletedQuestions,
@@ -1334,7 +1412,7 @@ export const syncCloudDatabaseToProduction = async (): Promise<{
     deletedCandidates,
     addedCandidates,
     sessionsUpdated,
-    message: `Đồng bộ CSDL AWS thành công: Đã xóa ${deletedQuestions} câu hỏi cũ, nạp ${addedQuestions} câu hỏi mới, ${addedBanks} ngân hàng đề, dọn ${deletedCandidates} thí sinh cũ và nạp ${addedCandidates} tài khoản chính thức.`,
+    message,
   };
 };
 

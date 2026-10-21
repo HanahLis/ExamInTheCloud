@@ -4,6 +4,7 @@ import {
   type Candidate,
   type ExamSession,
   type SessionStatus,
+  resolveSessionStatus,
   sendSessionReport,
 } from '../services/apiService';
 import SessionResultsModal from './SessionResultsModal';
@@ -121,12 +122,7 @@ export const ExamSessionTab = ({
       {/* Form tạo ca thi */}
       <div className="bg-white p-5 rounded-lg border border-slate-200 space-y-4">
         <div className="flex justify-between items-center">
-          <div>
-            <h3 className="text-sm font-semibold text-slate-800">Tạo ca thi mới</h3>
-            <p className="text-xs text-slate-500 mt-0.5">
-              Tự động hóa vòng đời ca thi bằng Step Functions, chọn câu hỏi và gán danh sách thí sinh.
-            </p>
-          </div>
+          <h3 className="text-sm font-semibold text-slate-800">Tạo ca thi mới</h3>
           {onRefresh && (
             <button
               onClick={() => onRefresh()}
@@ -275,7 +271,7 @@ export const ExamSessionTab = ({
 
         <div className="space-y-3">
           {sessions.map((s) => {
-            const currentStatus = s.status || 'SCHEDULED';
+            const currentStatus = resolveSessionStatus(s.status, s.startTime, s.endTime);
             const statusConfig = STATUS_CONFIG[currentStatus] || STATUS_CONFIG.SCHEDULED;
             const examUrl = `${window.location.origin}/?exam=${s.id}`;
 

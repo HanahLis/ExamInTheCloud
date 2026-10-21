@@ -45,6 +45,17 @@ CORS_HEADERS = {
     "Access-Control-Allow-Methods": "POST,OPTIONS"
 }
 
+def parse_iso_datetime(dt_str: str) -> datetime:
+    """Parse chuỗi datetime ISO 8601 sang UTC datetime object"""
+    if not dt_str:
+        return datetime.now(timezone.utc)
+    try:
+        if dt_str.endswith("Z"):
+            dt_str = dt_str[:-1] + "+00:00"
+        return datetime.fromisoformat(dt_str)
+    except Exception:
+        return datetime.now(timezone.utc)
+
 def build_response(status_code: int, body: dict):
     return {
         "statusCode": status_code,
@@ -134,7 +145,14 @@ def lambda_handler(event, context):
         })
 
     session_status = session_item.get("status", "")
-    if session_status != "RUNNING":
+    now_utc = datetime.now(timezone.utc)
+    start_dt = parse_iso_datetime(session_item.get("startTime", ""))
+    end_dt = parse_iso_datetime(session_item.get("endTime", ""))
+
+    is_time_valid = (start_dt <= now_utc <= end_dt)
+    is_running = (session_status == "RUNNING") or (is_time_valid and session_status != "CLOSED")
+
+    if not is_running:
         return build_response(400, {
             "status": "FAIL",
             "verified": False,

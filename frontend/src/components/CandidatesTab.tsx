@@ -77,14 +77,9 @@ export const CandidatesTab = ({
       {/* Form thêm thí sinh */}
       <div className="bg-white p-5 rounded-lg border border-slate-200">
         <div className="flex justify-between items-center mb-3">
-          <div>
-            <h3 className="text-sm font-semibold text-slate-800">
-              Thêm thí sinh
-            </h3>
-            <p className="text-xs text-slate-500 mt-0.5">
-              Ảnh chân dung được dùng để đối chiếu khi thí sinh điểm danh vào phòng thi.
-            </p>
-          </div>
+          <h3 className="text-sm font-semibold text-slate-800">
+            Thêm thí sinh
+          </h3>
           {onRefresh && (
             <button
               onClick={() => onRefresh()}

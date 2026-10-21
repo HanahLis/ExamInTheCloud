@@ -284,7 +284,26 @@ def lambda_handler(event, context):
         elif resource_path == "/sessions":
             if http_method == "GET":
                 scan_res = sessions_table.scan()
-                return build_response(200, scan_res.get("Items", []))
+                raw_items = scan_res.get("Items", [])
+                now_utc = datetime.now(timezone.utc)
+                clean_items = []
+                for s in raw_items:
+                    if s.get("id") == "EX20261015001" or s.get("status") in ["DELETED", "ARCHIVED"]:
+                        continue
+
+                    cur_st = s.get("status")
+                    if cur_st != "CLOSED":
+                        start_dt = parse_iso_datetime(s.get("startTime", ""))
+                        end_dt = parse_iso_datetime(s.get("endTime", ""))
+                        if now_utc > end_dt:
+                            s["status"] = "CLOSED"
+                        elif start_dt <= now_utc <= end_dt or cur_st == "RUNNING":
+                            s["status"] = "RUNNING"
+                        elif not cur_st:
+                            s["status"] = "SCHEDULED"
+
+                    clean_items.append(s)
+                return build_response(200, clean_items)
 
             elif http_method == "POST":
                 session_id = body.get("id") or f"EX{datetime.now().strftime('%Y%m%d%H%M%S')}"
@@ -339,6 +358,19 @@ def lambda_handler(event, context):
                 item = res.get("Item")
                 if not item:
                     return build_response(404, {"error": "Ca thi không tồn tại"})
+
+                now_utc = datetime.now(timezone.utc)
+                cur_st = item.get("status")
+                if cur_st != "CLOSED":
+                    start_dt = parse_iso_datetime(item.get("startTime", ""))
+                    end_dt = parse_iso_datetime(item.get("endTime", ""))
+                    if now_utc > end_dt:
+                        item["status"] = "CLOSED"
+                    elif start_dt <= now_utc <= end_dt or cur_st == "RUNNING":
+                        item["status"] = "RUNNING"
+                    elif not cur_st:
+                        item["status"] = "SCHEDULED"
+
                 return build_response(200, item)
 
             elif http_method == "PUT":
