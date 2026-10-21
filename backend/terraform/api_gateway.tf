@@ -147,6 +147,27 @@ resource "aws_api_gateway_resource" "exam_submit" {
   path_part   = "submit"
 }
 
+# /sessions/{id}/paper
+resource "aws_api_gateway_resource" "session_paper" {
+  rest_api_id = aws_api_gateway_rest_api.main.id
+  parent_id   = aws_api_gateway_resource.session_id.id
+  path_part   = "paper"
+}
+
+# /sessions/{id}/send-report
+resource "aws_api_gateway_resource" "session_send_report" {
+  rest_api_id = aws_api_gateway_rest_api.main.id
+  parent_id   = aws_api_gateway_resource.session_id.id
+  path_part   = "send-report"
+}
+
+# /exam/save-progress
+resource "aws_api_gateway_resource" "exam_save_progress" {
+  rest_api_id = aws_api_gateway_rest_api.main.id
+  parent_id   = aws_api_gateway_resource.exam.id
+  path_part   = "save-progress"
+}
+
 # ==============================================================================
 # 5. CẤU HÌNH TỰ ĐỘNG CORS OPTIONS CHO TẤT CẢ CÁC RESOURCES
 # ==============================================================================
@@ -165,6 +186,9 @@ locals {
     "face_verify"     = aws_api_gateway_resource.face_verify.id
     "exam"            = aws_api_gateway_resource.exam.id
     "exam_submit"     = aws_api_gateway_resource.exam_submit.id
+    "session_paper"   = aws_api_gateway_resource.session_paper.id
+    "session_report"  = aws_api_gateway_resource.session_send_report.id
+    "save_progress"   = aws_api_gateway_resource.exam_save_progress.id
   }
 }
 
@@ -242,7 +266,10 @@ locals {
     { key = "sid_get", resource_id = aws_api_gateway_resource.session_id.id, http_method = "GET" },
     { key = "sid_put", resource_id = aws_api_gateway_resource.session_id.id, http_method = "PUT" },
     { key = "sres_get", resource_id = aws_api_gateway_resource.session_results.id, http_method = "GET" },
-    { key = "sub_post", resource_id = aws_api_gateway_resource.exam_submit.id, http_method = "POST" }
+    { key = "sub_post", resource_id = aws_api_gateway_resource.exam_submit.id, http_method = "POST" },
+    { key = "spaper_get", resource_id = aws_api_gateway_resource.session_paper.id, http_method = "GET" },
+    { key = "sreport_post", resource_id = aws_api_gateway_resource.session_send_report.id, http_method = "POST" },
+    { key = "saveprog_post", resource_id = aws_api_gateway_resource.exam_save_progress.id, http_method = "POST" }
   ]
 }
 

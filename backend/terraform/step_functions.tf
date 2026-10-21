@@ -58,6 +58,12 @@ resource "aws_iam_role_policy" "step_functions_exam_lifecycle_policy" {
           "logs:DescribeLogGroups"
         ]
         Resource = "*"
+      },
+      {
+        Sid = "SNSPublishAlert"
+        Effect = "Allow"
+        Action = ["sns:Publish"]
+        Resource = aws_sns_topic.alerts.arn
       }
     ]
   })
@@ -168,7 +174,17 @@ resource "aws_sfn_state_machine" "exam_lifecycle" {
           }
         }
         ResultPath = "$.closeResult"
-        Next       = "ExamCompleted"
+        Next       = "PublishExamClosedNotification"
+      }
+      PublishExamClosedNotification = {
+        Type     = "Task"
+        Resource = "arn:aws:states:::sns:publish"
+        Parameters = {
+          TopicArn = aws_sns_topic.alerts.arn
+          Subject  = "CloudExam: Ca thi da ket thuc tu dong"
+          "Message.$" = "States.Format('Ca thi {} da duoc he thong dong tu dong vao luc {}. Bang diem da duoc cap nhat day du vao DynamoDB.', $.sessionId, $$.State.EnteredTime)"
+        }
+        Next     = "ExamCompleted"
       }
 
       ExamCompleted = {

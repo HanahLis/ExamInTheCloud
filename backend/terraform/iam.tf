@@ -98,6 +98,18 @@ resource "aws_iam_role_policy" "lambda_core_api_policy" {
           "sqs:GetQueueAttributes"
         ]
         Resource = aws_sqs_queue.exam_submission.arn
+      },
+      {
+        Sid = "StepFunctionsExecution"
+        Effect = "Allow"
+        Action = ["states:StartExecution", "states:DescribeExecution", "states:StopExecution"]
+        Resource = aws_sfn_state_machine.exam_lifecycle.arn
+      },
+      {
+        Sid = "SNSPublishAlerts"
+        Effect = "Allow"
+        Action = ["sns:Publish"]
+        Resource = aws_sns_topic.alerts.arn
       }
     ]
   })
@@ -304,6 +316,18 @@ resource "aws_iam_role_policy" "lambda_grading_worker_policy" {
           "sqs:ChangeMessageVisibility"
         ]
         Resource = aws_sqs_queue.exam_submission.arn
+      },
+      {
+        Sid = "StepFunctionsExecution"
+        Effect = "Allow"
+        Action = ["states:StartExecution", "states:DescribeExecution", "states:StopExecution"]
+        Resource = aws_sfn_state_machine.exam_lifecycle.arn
+      },
+      {
+        Sid = "SNSPublishAlerts"
+        Effect = "Allow"
+        Action = ["sns:Publish"]
+        Resource = aws_sns_topic.alerts.arn
       },
       # 4.3. Quyền đọc câu hỏi từ DynamoDB Questions để đối soát đáp án
       {

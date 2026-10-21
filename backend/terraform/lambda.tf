@@ -24,7 +24,9 @@ resource "aws_lambda_function" "core_api" {
     variables = {
       ENV            = var.environment
       S3_BUCKET_NAME = var.s3_bucket_name
-      SQS_QUEUE_URL  = aws_sqs_queue.exam_submission.url
+      SQS_QUEUE_URL     = aws_sqs_queue.exam_submission.url
+      STATE_MACHINE_ARN = aws_sfn_state_machine.exam_lifecycle.arn
+      SNS_TOPIC_ARN     = aws_sns_topic.alerts.arn
     }
   }
 
