@@ -1,0 +1,9 @@
+[
+  {
+    "id": "bank-se-arch-01",
+    "name": "Bộ Ngân hàng Câu hỏi Ôn tập: Kiến trúc & Phát triển Phần mềm",
+    "subject": "Kiến trúc & Phát triển Phần mềm",
+    "description": "Ngân hàng câu hỏi trắc nghiệm chuyên sâu về Design Patterns, Kiến trúc Lục giác, Kiểm thử, Message Queuing, NoSQL, Tối ưu hóa bầy đàn, Agile/Scrum, SOLID, Git và Token Authentication",
+    "createdAt": "2026-10-21T08:00:00Z"
+  }
+]
