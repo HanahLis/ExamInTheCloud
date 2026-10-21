@@ -1,5 +1,11 @@
 import { useState } from 'react';
-import type { Question, Candidate, ExamSession, SessionStatus } from '../services/apiService';
+import {
+  type Question,
+  type Candidate,
+  type ExamSession,
+  type SessionStatus,
+  sendSessionReport,
+} from '../services/apiService';
 import SessionResultsModal from './SessionResultsModal';
 
 export type { ExamSession };
@@ -40,6 +46,7 @@ export const ExamSessionTab = ({
   const [selectedCandidates, setSelectedCandidates] = useState<string[]>([]);
   const [submitting, setSubmitting] = useState(false);
   const [updatingId, setUpdatingId] = useState<string | null>(null);
+  const [sendingReportId, setSendingReportId] = useState<string | null>(null);
 
   const [viewingResultsSessionId, setViewingResultsSessionId] = useState<string | null>(null);
 
@@ -97,6 +104,18 @@ export const ExamSessionTab = ({
     }
   };
 
+  const handleSendReportSNS = async (sessionId: string) => {
+    setSendingReportId(sessionId);
+    try {
+      const res = await sendSessionReport(sessionId);
+      alert(res.message || 'Đã gửi báo cáo bảng điểm qua Amazon SNS thành công.');
+    } catch (err: any) {
+      alert('Lỗi gửi báo cáo SNS: ' + (err?.response?.data?.error || err?.message || err));
+    } finally {
+      setSendingReportId(null);
+    }
+  };
+
   return (
     <div className="space-y-4">
       {/* Form tạo ca thi */}
@@ -105,7 +124,7 @@ export const ExamSessionTab = ({
           <div>
             <h3 className="text-sm font-semibold text-slate-800">Tạo ca thi mới</h3>
             <p className="text-xs text-slate-500 mt-0.5">
-              Thiết lập thời gian làm bài, chọn câu hỏi và gán danh sách thí sinh dự thi.
+              Tự động hóa vòng đời ca thi bằng Step Functions, chọn câu hỏi và gán danh sách thí sinh.
             </p>
           </div>
           {onRefresh && (
@@ -267,7 +286,8 @@ export const ExamSessionTab = ({
                     <span className="text-xs font-mono font-medium text-slate-500 mr-2">#{s.id}</span>
                     <span className="font-medium text-slate-800 text-sm">{s.name}</span>
                   </div>
-                  <div>
+                  <div className="flex items-center gap-2">
+                    <span className="text-[10px] text-slate-400 font-mono">Vòng đời: Step Functions</span>
                     <span
                       className={`text-[11px] font-medium px-2 py-0.5 rounded border ${statusConfig.style}`}
                     >
@@ -367,6 +387,15 @@ export const ExamSessionTab = ({
                       className="px-2.5 py-1 bg-slate-100 text-slate-700 text-xs rounded hover:bg-slate-200 transition cursor-pointer"
                     >
                       Bảng điểm
+                    </button>
+
+                    <button
+                      onClick={() => handleSendReportSNS(s.id)}
+                      disabled={sendingReportId === s.id}
+                      className="px-2.5 py-1 bg-slate-100 text-slate-700 text-xs rounded hover:bg-slate-200 transition cursor-pointer disabled:text-slate-400"
+                      title="Gửi báo cáo bảng điểm qua Amazon SNS Topic"
+                    >
+                      {sendingReportId === s.id ? 'Đang gửi...' : 'Gửi báo cáo SNS'}
                     </button>
                     
                     {onOpenExam && (

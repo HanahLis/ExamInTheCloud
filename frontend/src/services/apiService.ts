@@ -100,7 +100,6 @@ export interface FaceVerifyRequest {
   capturedImage?: string; // Chuỗi Base64 chụp từ webcam
   capturedS3Key?: string; // Hoặc S3 key
   email?: string;         // Email thí sinh (nếu không lấy từ ID Token)
-  simulateMode?: 'AUTO' | 'FORCE_PASS' | 'FORCE_MISMATCH' | 'FORCE_NO_FACE';
 }
 
 export interface FaceVerifyResponse {
@@ -272,35 +271,35 @@ const DEFAULT_CANDIDATES: Candidate[] = [
     name: 'Phạm Tuấn Phong',
     email: 'phongpt@example.edu.vn',
     className: 'D21CQCN01-B',
-    faceImageUrl: 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=150',
+    faceImageUrl: 'https://cloudexam-storage-409289618109-dev.s3.ap-southeast-1.amazonaws.com/faces/B21DCCN001.jpg',
   },
   {
     studentCode: 'B21DCCN002',
     name: 'Trần Đức Mạnh',
     email: 'manhtd@example.edu.vn',
     className: 'D21CQCN01-B',
-    faceImageUrl: 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=150',
+    faceImageUrl: 'https://cloudexam-storage-409289618109-dev.s3.ap-southeast-1.amazonaws.com/faces/B21DCCN002.jpg',
   },
   {
     studentCode: 'B21DCCN003',
     name: 'Nguyễn Phúc Tấn',
     email: 'tannp@example.edu.vn',
     className: 'D21CQCN01-B',
-    faceImageUrl: 'https://images.unsplash.com/photo-1500648767791-00dcc994a43e?w=150',
+    faceImageUrl: 'https://cloudexam-storage-409289618109-dev.s3.ap-southeast-1.amazonaws.com/faces/B21DCCN003.jpg',
   },
   {
     studentCode: 'B21DCCN004',
     name: 'Nguyễn Thị Thu Hà',
     email: 'hantt@example.edu.vn',
     className: 'D21CQCN01-B',
-    faceImageUrl: 'https://images.unsplash.com/photo-1494790108377-be9c29b29330?w=150',
+    faceImageUrl: 'https://cloudexam-storage-409289618109-dev.s3.ap-southeast-1.amazonaws.com/faces/B21DCCN004.jpg',
   },
   {
     studentCode: 'ORGANIZER-01',
     name: 'Giảng viên CloudExam',
     email: 'organizer@cloudexam.vn',
     className: 'Bộ môn Khoa học Máy tính',
-    faceImageUrl: 'https://images.unsplash.com/photo-1472099645785-5658abf4ff4e?w=150',
+    faceImageUrl: 'https://cloudexam-storage-409289618109-dev.s3.ap-southeast-1.amazonaws.com/faces/B21DCCN001.jpg',
   },
 ];
 
@@ -596,102 +595,44 @@ export const updateSessionCandidates = async (id: string, candidateEmails: strin
 // ============================================================================
 
 export const verifyFace = async (req: FaceVerifyRequest): Promise<FaceVerifyResponse> => {
-  if (isMockMode()) {
-    await wait(null, 1000); // Giả lập độ trễ Rekognition CompareFaces (1 giây)
-
-    const sessions = loadStored('cloudexam_sessions', DEFAULT_SESSIONS);
-    const candidates = loadStored('cloudexam_candidates', DEFAULT_CANDIDATES);
-
-    const session = sessions.find((s) => s.id === req.sessionId);
-    if (!session) {
+  // Điểm danh khuôn mặt 100% qua hạ tầng AWS (API Gateway -> Lambda -> Amazon Rekognition CompareFaces)
+  // Loại bỏ hoàn toàn giả lập hoặc bypass phía client.
+  try {
+    const res = await api.post('/auth/face-verify', {
+      sessionId: req.sessionId,
+      capturedImage: req.capturedImage,
+      email: req.email,
+    });
+    return res.data;
+  } catch (err: any) {
+    if (err?.response?.status === 401) {
       return {
         status: 'FAIL',
         verified: false,
         similarity: 0,
-        message: 'Không tìm thấy ca thi trong cơ sở dữ liệu DynamoDB.',
+        message:
+          'Lỗi xác thực (401 Unauthorized): AWS API Gateway yêu cầu mã JWT ID Token chính thức từ Amazon Cognito. Vui lòng đăng nhập qua Cổng xác thực (Cognito Hosted UI) để kích hoạt phiên AWS.',
       };
     }
 
-    // BƯỚC 1 CỦA LAMBDA: Kiểm tra trạng thái ca thi == RUNNING
-    if (session.status !== 'RUNNING') {
+    const data = err?.response?.data;
+    if (data && typeof data === 'object') {
       return {
-        status: 'FAIL',
-        verified: false,
-        similarity: 0,
-        message: `Ca thi chưa bắt đầu hoặc đã kết thúc (Trạng thái hiện tại: ${session.status}). Theo quy chế AWS Lambda, ca thi bắt buộc phải ở trạng thái RUNNING.`,
+        status: data.status || 'FAIL',
+        verified: Boolean(data.verified),
+        similarity: Number(data.similarity) || 0,
+        candidateName: data.candidateName,
+        message: data.message || data.error || 'Lỗi xử lý từ Amazon Rekognition.',
       };
     }
-
-    // BƯỚC 2 CỦA LAMBDA: Kiểm tra Thí sinh có trong danh sách ca thi không
-    const email = req.email || '';
-    const isAllowed = session.candidateEmails.some(
-      (e) => e.toLowerCase() === email.toLowerCase()
-    );
-    if (!isAllowed) {
-      return {
-        status: 'FAIL',
-        verified: false,
-        similarity: 0,
-        message: `Thí sinh (${email}) không nằm trong danh sách được phép tham gia ca thi này. Vui lòng liên hệ Organizer.`,
-      };
-    }
-
-    // BƯỚC 3 CỦA LAMBDA: Lấy ảnh mẫu gốc của thí sinh từ DynamoDB/S3
-    const candidate = candidates.find((c) => c.email.toLowerCase() === email.toLowerCase());
-    if (!candidate || !candidate.faceImageUrl) {
-      return {
-        status: 'FAIL',
-        verified: false,
-        similarity: 0,
-        message: 'Chưa có ảnh khuôn mặt mẫu của thí sinh trong hồ sơ S3. Vui lòng liên hệ Organizer.',
-      };
-    }
-
-    // BƯỚC 4: Kiểm tra ảnh chụp từ camera
-    if (!req.capturedImage) {
-      return {
-        status: 'FAIL',
-        verified: false,
-        similarity: 0,
-        message: 'Thiếu dữ liệu ảnh khuôn mặt chụp từ webcam.',
-      };
-    }
-
-    // BƯỚC 5 CỦA LAMBDA: Phân tích và So khớp khuôn mặt (Amazon Rekognition CompareFaces)
-    if (req.simulateMode === 'FORCE_NO_FACE') {
-      return {
-        status: 'FAIL',
-        verified: false,
-        similarity: 0,
-        message: 'Amazon Rekognition: Không phát hiện được khuôn mặt trong ảnh webcam. Hãy nhìn thẳng vào camera và bật đủ đèn.',
-      };
-    }
-
-    if (req.simulateMode === 'FORCE_MISMATCH') {
-      const sim = Math.floor(45 + Math.random() * 20); // 45% - 64%
-      return {
-        status: 'FAIL',
-        verified: false,
-        similarity: sim,
-        message: `Xác thực khuôn mặt thất bại. Độ tương đồng (${sim}% < 80%). Khuôn mặt không khớp với hồ sơ thí sinh.`,
-      };
-    }
-
-    // Mặc định hoặc FORCE_PASS: Kết quả tương đồng cao đạt chuẩn
-    const baseSim = 91.5 + (Math.random() * 5.5);
-    const similarity = parseFloat(baseSim.toFixed(1));
 
     return {
-      status: 'PASS',
-      verified: true,
-      similarity,
-      candidateName: candidate.name,
-      message: `Xác thực sinh trắc học thành công (${similarity}% >= 80%). Chào mừng thí sinh ${candidate.name} vào phòng thi!`,
+      status: 'FAIL',
+      verified: false,
+      similarity: 0,
+      message: err?.message || 'Không thể kết nối tới dịch vụ nhận diện khuôn mặt Amazon Rekognition.',
     };
   }
-
-  const res = await api.post('/auth/face-verify', req);
-  return res.data;
 };
 
 // ============================================================================
@@ -832,6 +773,85 @@ export const fetchSessionResults = async (sessionId: string): Promise<SessionRes
   }
 
   const res = await api.get(`/sessions/${sessionId}/results`);
+  return res.data;
+};
+
+// ============================================================================
+// C�C H�M B?O M?T �? THI, LUU TR?NG TH�I NG?M & B�O C�O QUA SNS
+// ============================================================================
+// CAC HAM BAO MAT DE THI, LUU TRANG THAI NGAM & BAO CAO QUA SNS
+// ============================================================================
+
+export interface ExamPaperResponse {
+  sessionId: string;
+  sessionName?: string;
+  status?: SessionStatus;
+  startTime?: string;
+  endTime?: string;
+  questions: Question[];
+  draftAnswers?: Record<string, number>;
+  lastDraftSavedAt?: string;
+}
+
+export const getExamPaper = async (sessionId: string): Promise<ExamPaperResponse> => {
+  if (isMockMode()) {
+    const sessions = loadStored<ExamSession[]>("cloudexam_sessions", []);
+    const targetSession = sessions.find((s) => s.id === sessionId);
+    const allQuestions = loadStored<Question[]>("cloudexam_questions", []);
+    const drafts = loadStored<Record<string, Record<string, number>>>("cloudexam_draft_answers", {});
+
+    const matchedQuestions = allQuestions
+      .filter((q) => targetSession?.questionIds.includes(q.id))
+      .map((q) => {
+        const { correctIndex, correctAnswer, ...safeQuestion } = q;
+        return safeQuestion as Question;
+      });
+
+    return {
+      sessionId,
+      sessionName: targetSession?.name,
+      status: targetSession?.status,
+      startTime: targetSession?.startTime,
+      endTime: targetSession?.endTime,
+      questions: matchedQuestions.length > 0 ? matchedQuestions : allQuestions.map((q) => {
+        const { correctIndex, correctAnswer, ...safeQ } = q;
+        return safeQ as Question;
+      }),
+      draftAnswers: drafts[sessionId] || {},
+    };
+  }
+
+  const res = await api.get("/sessions/" + sessionId + "/paper");
+  return res.data;
+};
+
+export const saveExamProgress = async (
+  sessionId: string,
+  answers: Record<string, number>,
+  candidateEmail?: string
+): Promise<{ saved: boolean; updatedAt: string }> => {
+  if (isMockMode()) {
+    const drafts = loadStored<Record<string, Record<string, number>>>("cloudexam_draft_answers", {});
+    drafts[sessionId] = answers;
+    saveStored("cloudexam_draft_answers", drafts);
+    return { saved: true, updatedAt: new Date().toISOString() };
+  }
+
+  const res = await api.post("/exam/save-progress", {
+    sessionId,
+    candidateEmail,
+    answers,
+  });
+  return res.data;
+};
+
+export const sendSessionReport = async (sessionId: string): Promise<{ message: string }> => {
+  if (isMockMode()) {
+    await new Promise((r) => setTimeout(r, 400));
+    return { message: "Da gui bao cao bang diem ca thi thanh cong qua Amazon SNS." };
+  }
+
+  const res = await api.post("/sessions/" + sessionId + "/send-report");
   return res.data;
 };
 

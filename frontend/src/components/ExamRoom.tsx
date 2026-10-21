@@ -1,17 +1,19 @@
 import { useEffect, useRef, useState } from 'react';
 import {
   getSession,
-  getQuestions,
   getCandidates,
   verifyFace,
   submitExam,
   updateSessionCandidates,
+  getExamPaper,
+  saveExamProgress,
   type ExamSession,
   type Question,
   type Candidate,
   type FaceVerifyResponse,
   type ExamSubmitResult,
 } from '../services/apiService';
+import { isMockSession, redirectToCognitoLogin } from '../services/auth';
 
 interface Props {
   sessionId: string;
@@ -30,7 +32,6 @@ export const ExamRoom = ({ sessionId, currentUserEmail = '', onExit }: Props) =>
 
   const [step, setStep] = useState<ExamStep>('FACE_VERIFY');
   const [candidateEmail, setCandidateEmail] = useState(currentUserEmail);
-  const [simulateMode, setSimulateMode] = useState<'AUTO' | 'FORCE_PASS' | 'FORCE_MISMATCH' | 'FORCE_NO_FACE'>('AUTO');
 
   const videoRef = useRef<HTMLVideoElement | null>(null);
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
@@ -39,7 +40,11 @@ export const ExamRoom = ({ sessionId, currentUserEmail = '', onExit }: Props) =>
   const [isVerifying, setIsVerifying] = useState(false);
   const [verifyResult, setVerifyResult] = useState<FaceVerifyResponse | null>(null);
 
+  // Tiến trình làm bài và lưu ngầm lên Cloud
   const [answers, setAnswers] = useState<Record<string, number>>({});
+  const [lastSavedTime, setLastSavedTime] = useState<string>('');
+  const [isSavingDraft, setIsSavingDraft] = useState(false);
+
   const answersRef = useRef(answers);
   useEffect(() => {
     answersRef.current = answers;
@@ -49,15 +54,16 @@ export const ExamRoom = ({ sessionId, currentUserEmail = '', onExit }: Props) =>
   const [submitResult, setSubmitResult] = useState<ExamSubmitResult | null>(null);
   const [timeLeft, setTimeLeft] = useState<number>(45 * 60);
 
+  // Tải đề thi an toàn (Backend đã ẩn đáp án đúng F12) và nạp lại bài nháp
   useEffect(() => {
     let isMounted = true;
     const loadSessionData = async () => {
       setLoadingSession(true);
       setErrorMsg(null);
       try {
-        const [s, allQuestions, allCandidates] = await Promise.all([
+        const [s, paperData, allCandidates] = await Promise.all([
           getSession(sessionId),
-          getQuestions(),
+          getExamPaper(sessionId).catch(() => null),
           getCandidates(),
         ]);
         if (!isMounted) return;
@@ -70,8 +76,13 @@ export const ExamRoom = ({ sessionId, currentUserEmail = '', onExit }: Props) =>
           }
         }
 
-        const filtered = allQuestions.filter((q) => s.questionIds.includes(q.id));
-        setSessionQuestions(filtered.length > 0 ? filtered : allQuestions);
+        if (paperData && paperData.questions && paperData.questions.length > 0) {
+          setSessionQuestions(paperData.questions);
+          if (paperData.draftAnswers && Object.keys(paperData.draftAnswers).length > 0) {
+            setAnswers(paperData.draftAnswers);
+            setLastSavedTime('Đã khôi phục bài làm từ Cloud');
+          }
+        }
       } catch (err: any) {
         if (!isMounted) return;
         setErrorMsg(err?.response?.data?.error || err?.message || 'Không thể tải thông tin ca thi.');
@@ -86,6 +97,7 @@ export const ExamRoom = ({ sessionId, currentUserEmail = '', onExit }: Props) =>
     };
   }, [sessionId]);
 
+  // Đồng hồ đếm ngược thời gian làm bài
   useEffect(() => {
     if (step !== 'IN_EXAM') return;
     const interval = setInterval(() => {
@@ -100,6 +112,28 @@ export const ExamRoom = ({ sessionId, currentUserEmail = '', onExit }: Props) =>
     }, 1000);
     return () => clearInterval(interval);
   }, [step]);
+
+  // Chọn đáp án và lưu ngầm tức thì lên Cloud (Atomic Updates DynamoDB)
+  const handleSelectOption = (questionId: string, optionIndex: number) => {
+    const updated = { ...answers, [questionId]: optionIndex };
+    setAnswers(updated);
+
+    // Lưu ngầm không gây gián đoạn giao diện
+    setIsSavingDraft(true);
+    saveExamProgress(sessionId, updated, candidateEmail)
+      .then(() => {
+        const now = new Date();
+        setLastSavedTime(
+          `Đã lưu ngầm lúc ${now.toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit', second: '2-digit' })}`
+        );
+      })
+      .catch((err) => {
+        console.warn('Lỗi lưu ngầm lên Cloud:', err);
+      })
+      .finally(() => {
+        setIsSavingDraft(false);
+      });
+  };
 
   const startCamera = async () => {
     try {
@@ -163,7 +197,6 @@ export const ExamRoom = ({ sessionId, currentUserEmail = '', onExit }: Props) =>
         sessionId,
         capturedImage,
         email: candidateEmail,
-        simulateMode,
       });
       setVerifyResult(result);
     } catch (err: any) {
@@ -274,9 +307,13 @@ export const ExamRoom = ({ sessionId, currentUserEmail = '', onExit }: Props) =>
 
         <div className="flex items-center gap-3">
           {step === 'IN_EXAM' && (
-            <div className="bg-slate-50 border border-slate-200 px-3 py-1.5 rounded-md text-center">
-              <span className="block text-[10px] text-slate-400">Thời gian còn lại</span>
-              <span className="text-base font-mono font-semibold text-slate-800">{formatTimer(timeLeft)}</span>
+            <div className="flex items-center gap-3">
+              <div className="text-right">
+                <span className="text-[10px] text-slate-400 block">
+                  {isSavingDraft ? 'Đang lưu ngầm...' : lastSavedTime || 'Đồng bộ Cloud'}
+                </span>
+                <span className="text-base font-mono font-semibold text-slate-800">{formatTimer(timeLeft)}</span>
+              </div>
             </div>
           )}
           <button
@@ -354,18 +391,31 @@ export const ExamRoom = ({ sessionId, currentUserEmail = '', onExit }: Props) =>
               </div>
             )}
 
-            <div className="pt-2 border-t border-slate-200 flex flex-wrap items-center gap-2 text-xs">
-              <span className="text-slate-500">Chế độ kiểm tra:</span>
-              <select
-                value={simulateMode}
-                onChange={(e) => setSimulateMode(e.target.value as any)}
-                className="bg-white border border-slate-200 rounded px-2 py-1 text-xs text-slate-700 outline-none"
-              >
-                <option value="AUTO">Tự động nhận diện</option>
-                <option value="FORCE_PASS">Chấp nhận xác thực</option>
-                <option value="FORCE_MISMATCH">Giả lập không khớp mặt</option>
-                <option value="FORCE_NO_FACE">Giả lập không tìm thấy mặt</option>
-              </select>
+            <div className="pt-2 border-t border-slate-200 space-y-2">
+              <div className="flex flex-wrap items-center justify-between gap-2 text-[11px] text-slate-500">
+                <span className="flex items-center gap-1.5">
+                  <span className="w-1.5 h-1.5 rounded-full bg-emerald-500"></span>
+                  Dịch vụ: <span className="font-mono font-medium text-slate-700">Amazon Rekognition (CompareFaces)</span>
+                </span>
+                <span>
+                  Ngưỡng đối soát: <span className="font-mono font-semibold text-slate-700">&ge; 80%</span>
+                </span>
+              </div>
+
+              {isMockSession() && (
+                <div className="p-2.5 bg-amber-50 border border-amber-200 rounded text-[11px] text-amber-900 flex flex-wrap items-center justify-between gap-2">
+                  <span>
+                    Phiên hiện tại là tài khoản thử nghiệm nhanh (Mock Token). Để AWS API Gateway và Rekognition cho phép điểm danh, vui lòng sử dụng tài khoản Cognito thật.
+                  </span>
+                  <button
+                    type="button"
+                    onClick={redirectToCognitoLogin}
+                    className="px-2.5 py-1 bg-slate-900 text-white rounded text-[11px] hover:bg-slate-800 transition cursor-pointer font-medium"
+                  >
+                    Đăng nhập AWS Cognito
+                  </button>
+                </div>
+              )}
             </div>
           </div>
 
@@ -468,7 +518,7 @@ export const ExamRoom = ({ sessionId, currentUserEmail = '', onExit }: Props) =>
               disabled={!capturedImage || isVerifying}
               className="w-full py-2.5 bg-slate-900 text-white font-medium rounded-md hover:bg-slate-800 disabled:bg-slate-300 disabled:cursor-not-allowed transition cursor-pointer text-xs"
             >
-              {isVerifying ? 'Đang xác thực...' : 'Xác thực khuôn mặt'}
+              {isVerifying ? 'Đang gửi ảnh tới Amazon Rekognition...' : 'Xác thực sinh trắc học qua Amazon Rekognition'}
             </button>
 
             {verifyResult && (
@@ -480,12 +530,12 @@ export const ExamRoom = ({ sessionId, currentUserEmail = '', onExit }: Props) =>
                 }`}
               >
                 <div className="font-semibold mb-1">
-                  {verifyResult.verified ? 'Xác thực thành công' : 'Xác thực không thành công'}
+                  {verifyResult.verified ? 'Xác thực thành công (Amazon Rekognition)' : 'Xác thực không thành công'}
                 </div>
                 <p className="leading-relaxed mb-1 text-slate-600">{verifyResult.message}</p>
                 {verifyResult.similarity > 0 && (
                   <div className="font-mono text-[11px] text-slate-500">
-                    Độ tương đồng: {verifyResult.similarity}% (Yêu cầu tối thiểu 80%)
+                    Độ tương đồng Rekognition: {verifyResult.similarity}% (Yêu cầu &ge; 80%)
                   </div>
                 )}
 
@@ -512,7 +562,7 @@ export const ExamRoom = ({ sessionId, currentUserEmail = '', onExit }: Props) =>
                 Bài thi trắc nghiệm ({sessionQuestions.length} câu)
               </h3>
               <p className="text-xs text-slate-500">
-                Đã trả lời: {Object.keys(answers).length}/{sessionQuestions.length} câu
+                Đã trả lời: {Object.keys(answers).length}/{sessionQuestions.length} câu | {lastSavedTime || 'Đồng bộ tức thì lên Cloud'}
               </p>
             </div>
             <button
@@ -557,6 +607,7 @@ export const ExamRoom = ({ sessionId, currentUserEmail = '', onExit }: Props) =>
                       return (
                         <label
                           key={optIdx}
+                          onClick={() => handleSelectOption(q.id, optIdx)}
                           className={`flex items-center space-x-2.5 p-2 rounded border cursor-pointer text-xs transition ${
                             isChecked
                               ? 'bg-white border-slate-800 font-medium text-slate-900'
@@ -567,7 +618,7 @@ export const ExamRoom = ({ sessionId, currentUserEmail = '', onExit }: Props) =>
                             type="radio"
                             name={`question-${q.id}`}
                             checked={isChecked}
-                            onChange={() => setAnswers((prev) => ({ ...prev, [q.id]: optIdx }))}
+                            onChange={() => handleSelectOption(q.id, optIdx)}
                             className="text-slate-800 focus:ring-slate-400"
                           />
                           <span className="font-semibold text-slate-700">{label}.</span>
@@ -598,7 +649,11 @@ export const ExamRoom = ({ sessionId, currentUserEmail = '', onExit }: Props) =>
         <div className="bg-white p-6 rounded-lg border border-slate-200 text-center space-y-4">
           <div>
             <h3 className="text-lg font-semibold text-slate-800">Nộp bài thi thành công</h3>
-            <p className="text-xs text-slate-500 mt-0.5">Kết quả bài thi đã được lưu vào hệ thống.</p>
+            <p className="text-xs text-slate-500 mt-0.5">
+              {submitResult.status === 'QUEUED'
+                ? 'Bài thi đã được chuyển vào hàng đợi SQS và đang chấm điểm tự động ngầm.'
+                : 'Kết quả bài thi đã được lưu vào hệ thống.'}
+            </p>
           </div>
 
           <div className="max-w-sm mx-auto bg-slate-50 border border-slate-200 p-5 rounded-lg space-y-3">
@@ -621,6 +676,10 @@ export const ExamRoom = ({ sessionId, currentUserEmail = '', onExit }: Props) =>
               <p>
                 <span className="text-slate-400">Thời gian nộp:</span>{' '}
                 {new Date(submitResult.submittedAt).toLocaleString('vi-VN')}
+              </p>
+              <p>
+                <span className="text-slate-400">Trạng thái xử lý:</span>{' '}
+                <span className="font-mono text-emerald-700 font-medium">{submitResult.status}</span>
               </p>
             </div>
           </div>
