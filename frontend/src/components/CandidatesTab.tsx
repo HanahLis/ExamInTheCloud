@@ -100,7 +100,7 @@ export const CandidatesTab = ({
             <label className="block text-xs font-medium text-slate-700 mb-1">Mã sinh viên *</label>
             <input
               type="text"
-              placeholder="Ví dụ: B21DCCN001"
+              placeholder="Ví dụ: 24020001"
               value={studentCode}
               onChange={(e) => setStudentCode(e.target.value)}
               className="w-full p-2 border border-slate-200 rounded-md outline-none focus:border-slate-400 text-xs"
@@ -193,8 +193,14 @@ export const CandidatesTab = ({
                   alt={c.name}
                   className="h-10 w-10 rounded-full object-cover border border-slate-200 bg-slate-100 shrink-0"
                   onError={(e) => {
-                    (e.target as HTMLImageElement).src =
-                      'https://ui-avatars.com/api/?name=' + encodeURIComponent(c.name) + '&background=e2e8f0&color=334155';
+                    const img = e.target as HTMLImageElement;
+                    const fileBase = c.studentCode === 'GV001' ? 'annv' : c.studentCode;
+                    const fallbackUrl = `/sample_faces/${fileBase}.jpg`;
+                    if (!img.src.includes(fallbackUrl)) {
+                      img.src = fallbackUrl;
+                    } else {
+                      img.src = 'https://ui-avatars.com/api/?name=' + encodeURIComponent(c.name) + '&background=e2e8f0&color=334155';
+                    }
                   }}
                 />
                 <div className="min-w-0">

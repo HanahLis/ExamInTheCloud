@@ -432,10 +432,20 @@ export const ExamRoom = ({ sessionId, currentUserEmail = '', onExit }: Props) =>
                     alt="Ảnh hồ sơ"
                     className="w-full h-full object-cover"
                     onError={(e) => {
-                      (e.target as HTMLImageElement).src =
-                        'https://ui-avatars.com/api/?name=' +
-                        encodeURIComponent(currentCandidateObj.name) +
-                        '&background=e2e8f0&color=334155&size=256';
+                      const img = e.target as HTMLImageElement;
+                      const fileBase =
+                        currentCandidateObj.studentCode === 'GV001'
+                          ? 'annv'
+                          : currentCandidateObj.studentCode;
+                      const fallbackUrl = `/sample_faces/${fileBase}.jpg`;
+                      if (!img.src.includes(fallbackUrl)) {
+                        img.src = fallbackUrl;
+                      } else {
+                        img.src =
+                          'https://ui-avatars.com/api/?name=' +
+                          encodeURIComponent(currentCandidateObj.name) +
+                          '&background=e2e8f0&color=334155&size=256';
+                      }
                     }}
                   />
                 ) : (

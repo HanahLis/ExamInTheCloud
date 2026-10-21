@@ -1,23 +1,35 @@
 [
   {
-    "id": "EX20261015001",
-    "name": "Thi Cuối Kỳ Điện Toán Đám Mây - Ca 1",
-    "startTime": "2026-10-15T08:00:00.000Z",
-    "endTime": "2026-10-15T09:00:00.000Z",
+    "id": "EX-VNU-2026-01",
+    "name": "Thi Đánh Giá Năng Lực: Kiến trúc & Phát triển Phần mềm",
+    "startTime": "2026-10-21T00:00:00.000Z",
+    "endTime": "2026-10-22T23:59:59.000Z",
+    "status": "RUNNING",
     "questionIds": [
-      "q-aws-001",
-      "q-aws-002",
-      "q-aws-003",
-      "q-aws-004",
-      "q-aws-005"
+      "q-se-001",
+      "q-se-002",
+      "q-se-003",
+      "q-se-004",
+      "q-se-005",
+      "q-se-006",
+      "q-se-007",
+      "q-se-008",
+      "q-se-009",
+      "q-se-010"
     ],
     "candidateEmails": [
-      "phongpt@example.edu.vn",
-      "manhtd@example.edu.vn",
-      "tannp@example.edu.vn",
-      "hantt@example.edu.vn"
+      "annv@uet.vnu.edu.vn",
+      "duc.tm24@vnu.edu.vn",
+      "mai.lt24@vnu.edu.vn",
+      "long.ph24@vnu.edu.vn",
+      "linh.vt24@vnu.edu.vn",
+      "huy.dq24@vnu.edu.vn",
+      "huong.nt24@vnu.edu.vn",
+      "tuan.bv24@vnu.edu.vn",
+      "thu.hm24@vnu.edu.vn",
+      "quan.dm24@vnu.edu.vn",
+      "chi.nq24@vnu.edu.vn"
     ],
-    "link": "https://cloudexam.vn/exam/EX20261015001"
+    "link": "https://cloudexam.vn/exam/EX-VNU-2026-01"
   }
 ]
-

@@ -6,6 +6,7 @@ import {
   deleteQuestion,
   getQuestionBanks,
   createQuestionBank,
+  DEFAULT_QUESTION_BANKS,
   type Question,
   type Difficulty,
   type QuestionType,
@@ -40,11 +41,11 @@ export const QuestionBankTab = ({ questions, onRefresh }: Props) => {
   const [creatingBank, setCreatingBank] = useState(false);
 
   const [editingId, setEditingId] = useState<string | null>(null);
-  const [bankId, setBankId] = useState<string>('bank-cloud-01');
+  const [bankId, setBankId] = useState<string>('bank-se-arch-01');
   const [content, setContent] = useState('');
   const [type, setType] = useState<QuestionType>('SINGLE_CHOICE');
-  const [subject, setSubject] = useState('Điện toán đám mây');
-  const [topic, setTopic] = useState('AWS Serverless');
+  const [subject, setSubject] = useState('Kiến trúc & Phát triển Phần mềm');
+  const [topic, setTopic] = useState('Design Patterns & Architecture');
   const [options, setOptions] = useState<string[]>(['', '', '', '']);
   const [correctIndex, setCorrectIndex] = useState(0);
   const [score, setScore] = useState(1);
@@ -58,12 +59,17 @@ export const QuestionBankTab = ({ questions, onRefresh }: Props) => {
   const loadBanks = async () => {
     try {
       const list = await getQuestionBanks();
-      setBanks(list);
-      if (list.length > 0 && !bankId) {
-        setBankId(list[0].id);
+      const banksList = list && list.length > 0 ? list : DEFAULT_QUESTION_BANKS;
+      setBanks(banksList);
+      if (banksList.length > 0 && !bankId) {
+        setBankId(banksList[0].id);
+        if (banksList[0].subject) setSubject(banksList[0].subject);
       }
     } catch (e) {
       console.error('Lỗi tải ngân hàng câu hỏi:', e);
+      setBanks(DEFAULT_QUESTION_BANKS);
+      setBankId(DEFAULT_QUESTION_BANKS[0].id);
+      if (DEFAULT_QUESTION_BANKS[0].subject) setSubject(DEFAULT_QUESTION_BANKS[0].subject);
     }
   };
 
@@ -119,11 +125,11 @@ export const QuestionBankTab = ({ questions, onRefresh }: Props) => {
 
   const startEdit = (q: Question) => {
     setEditingId(q.id);
-    setBankId(q.bankId || (banks[0]?.id ?? 'bank-cloud-01'));
+    setBankId(q.bankId || (banks[0]?.id ?? 'bank-se-arch-01'));
     setContent(q.content);
     setType(q.type || 'SINGLE_CHOICE');
-    setSubject(q.subject || 'Điện toán đám mây');
-    setTopic(q.topic || 'AWS Core Services');
+    setSubject(q.subject || 'Kiến trúc & Phát triển Phần mềm');
+    setTopic(q.topic || 'Software Architecture');
     setOptions([0, 1, 2, 3].map((i) => q.options[i] ?? ''));
     setCorrectIndex(q.correctIndex ?? 0);
     setScore(q.score ?? 1);

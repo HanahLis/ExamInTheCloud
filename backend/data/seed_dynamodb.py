@@ -47,9 +47,19 @@ def seed_sessions():
         table.put_item(Item=item)
     print("    [Xong] Nạp ca thi thành công.")
 
+def seed_question_banks():
+    table_name = f"CloudExam_QuestionBanks_{ENV}"
+    table = dynamodb.Table(table_name)
+    data = load_json("question_banks_seed.json")
+    print(f"--> Đang nạp {len(data)} ngân hàng câu hỏi vào bảng {table_name}...")
+    for item in data:
+        table.put_item(Item=item)
+    print("    [Xong] Nạp ngân hàng câu hỏi thành công.")
+
 if __name__ == "__main__":
     print(f"=== Bắt đầu nạp dữ liệu mẫu vào DynamoDB (Region: {REGION}, Env: {ENV}) ===")
     try:
+        seed_question_banks()
         seed_questions()
         seed_candidates()
         seed_sessions()

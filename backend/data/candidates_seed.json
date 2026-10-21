@@ -1,30 +1,79 @@
 [
   {
-    "studentCode": "B21DCCN001",
-    "name": "Phạm Tuấn Phong",
-    "email": "phongpt@example.edu.vn",
-    "className": "D21CQCN01-B",
-    "faceImageUrl": "https://cloudexam-storage-409289618109-dev.s3.ap-southeast-1.amazonaws.com/faces/B21DCCN001.jpg"
+    "studentCode": "GV001",
+    "name": "PGS. TS. Nguyễn Văn An",
+    "email": "annv@uet.vnu.edu.vn",
+    "className": "Khoa Công nghệ Thông tin - ĐH Công nghệ (UET)",
+    "faceImageUrl": "https://cloudexam-storage-409289618109-dev.s3.ap-southeast-1.amazonaws.com/faces/annv.jpg"
   },
   {
-    "studentCode": "B21DCCN002",
-    "name": "Trần Đức Mạnh",
-    "email": "manhtd@example.edu.vn",
-    "className": "D21CQCN01-B",
-    "faceImageUrl": "https://cloudexam-storage-409289618109-dev.s3.ap-southeast-1.amazonaws.com/faces/B21DCCN002.jpg"
+    "studentCode": "24020001",
+    "name": "Trần Minh Đức",
+    "email": "duc.tm24@vnu.edu.vn",
+    "className": "K69 - Khoa CNTT - UET",
+    "faceImageUrl": "https://cloudexam-storage-409289618109-dev.s3.ap-southeast-1.amazonaws.com/faces/24020001.jpg"
   },
   {
-    "studentCode": "B21DCCN003",
-    "name": "Nguyễn Phúc Tấn",
-    "email": "tannp@example.edu.vn",
-    "className": "D21CQCN01-B",
-    "faceImageUrl": "https://cloudexam-storage-409289618109-dev.s3.ap-southeast-1.amazonaws.com/faces/B21DCCN003.jpg"
+    "studentCode": "24020002",
+    "name": "Lê Thị Mai",
+    "email": "mai.lt24@vnu.edu.vn",
+    "className": "K69 - Khoa CNTT - UET",
+    "faceImageUrl": "https://cloudexam-storage-409289618109-dev.s3.ap-southeast-1.amazonaws.com/faces/24020002.jpg"
   },
   {
-    "studentCode": "B21DCCN004",
-    "name": "Nguyễn Thị Thu Hà",
-    "email": "hantt@example.edu.vn",
-    "className": "D21CQCN01-B",
-    "faceImageUrl": "https://cloudexam-storage-409289618109-dev.s3.ap-southeast-1.amazonaws.com/faces/B21DCCN004.jpg"
+    "studentCode": "24020003",
+    "name": "Phạm Hoàng Long",
+    "email": "long.ph24@vnu.edu.vn",
+    "className": "K69 - Khoa CNTT - UET",
+    "faceImageUrl": "https://cloudexam-storage-409289618109-dev.s3.ap-southeast-1.amazonaws.com/faces/24020003.jpg"
+  },
+  {
+    "studentCode": "24020004",
+    "name": "Vũ Thùy Linh",
+    "email": "linh.vt24@vnu.edu.vn",
+    "className": "K69 - Khoa CNTT - UET",
+    "faceImageUrl": "https://cloudexam-storage-409289618109-dev.s3.ap-southeast-1.amazonaws.com/faces/24020004.jpg"
+  },
+  {
+    "studentCode": "24020005",
+    "name": "Đỗ Quang Huy",
+    "email": "huy.dq24@vnu.edu.vn",
+    "className": "K69 - Khoa CNTT - UET",
+    "faceImageUrl": "https://cloudexam-storage-409289618109-dev.s3.ap-southeast-1.amazonaws.com/faces/24020005.jpg"
+  },
+  {
+    "studentCode": "24020006",
+    "name": "Ngô Thị Hương",
+    "email": "huong.nt24@vnu.edu.vn",
+    "className": "K69 - Khoa CNTT - UET",
+    "faceImageUrl": "https://cloudexam-storage-409289618109-dev.s3.ap-southeast-1.amazonaws.com/faces/24020006.jpg"
+  },
+  {
+    "studentCode": "24020007",
+    "name": "Bùi Văn Tuấn",
+    "email": "tuan.bv24@vnu.edu.vn",
+    "className": "K69 - Khoa CNTT - UET",
+    "faceImageUrl": "https://cloudexam-storage-409289618109-dev.s3.ap-southeast-1.amazonaws.com/faces/24020007.jpg"
+  },
+  {
+    "studentCode": "24020008",
+    "name": "Hoàng Minh Thư",
+    "email": "thu.hm24@vnu.edu.vn",
+    "className": "K69 - Khoa CNTT - UET",
+    "faceImageUrl": "https://cloudexam-storage-409289618109-dev.s3.ap-southeast-1.amazonaws.com/faces/24020008.jpg"
+  },
+  {
+    "studentCode": "24020009",
+    "name": "Đặng Minh Quân",
+    "email": "quan.dm24@vnu.edu.vn",
+    "className": "K69 - Khoa CNTT - UET",
+    "faceImageUrl": "https://cloudexam-storage-409289618109-dev.s3.ap-southeast-1.amazonaws.com/faces/24020009.jpg"
+  },
+  {
+    "studentCode": "24020010",
+    "name": "Nguyễn Quỳnh Chi",
+    "email": "chi.nq24@vnu.edu.vn",
+    "className": "K69 - Khoa CNTT - UET",
+    "faceImageUrl": "https://cloudexam-storage-409289618109-dev.s3.ap-southeast-1.amazonaws.com/faces/24020010.jpg"
   }
 ]
