@@ -20,8 +20,8 @@ const DIFFICULTY_LABEL: Record<Difficulty, string> = {
 };
 
 const TYPE_LABEL: Record<QuestionType, string> = {
-  SINGLE_CHOICE: 'Trắc nghiệm 1 đáp án',
-  MULTIPLE_CHOICE: 'Trắc nghiệm nhiều lựa chọn',
+  SINGLE_CHOICE: 'Một đáp án',
+  MULTIPLE_CHOICE: 'Nhiều lựa chọn',
 };
 
 interface Props {
@@ -30,18 +30,15 @@ interface Props {
 }
 
 export const QuestionBankTab = ({ questions, onRefresh }: Props) => {
-  // Question banks state
   const [banks, setBanks] = useState<QuestionBank[]>([]);
   const [selectedBankFilter, setSelectedBankFilter] = useState<string>('ALL');
   const [showCreateBankModal, setShowCreateBankModal] = useState(false);
 
-  // New bank form
   const [newBankName, setNewBankName] = useState('');
   const [newBankSubject, setNewBankSubject] = useState('');
   const [newBankDesc, setNewBankDesc] = useState('');
   const [creatingBank, setCreatingBank] = useState(false);
 
-  // Question form state
   const [editingId, setEditingId] = useState<string | null>(null);
   const [bankId, setBankId] = useState<string>('bank-cloud-01');
   const [content, setContent] = useState('');
@@ -58,7 +55,6 @@ export const QuestionBankTab = ({ questions, onRefresh }: Props) => {
   const [uploadStatus, setUploadStatus] = useState<string>('');
   const fileInput = useRef<HTMLInputElement>(null);
 
-  // Tải danh sách ngân hàng câu hỏi
   const loadBanks = async () => {
     try {
       const list = await getQuestionBanks();
@@ -75,7 +71,6 @@ export const QuestionBankTab = ({ questions, onRefresh }: Props) => {
     loadBanks();
   }, []);
 
-  // Đổi ngân hàng trong form -> tự cập nhật gợi ý môn học
   const handleBankChange = (newBankId: string) => {
     setBankId(newBankId);
     const found = banks.find((b) => b.id === newBankId);
@@ -101,7 +96,6 @@ export const QuestionBankTab = ({ questions, onRefresh }: Props) => {
       setNewBankSubject('');
       setNewBankDesc('');
       setShowCreateBankModal(false);
-      alert(`Đã tạo thành công ngân hàng câu hỏi: "${created.name}"`);
     } catch (err) {
       alert('Lỗi tạo ngân hàng câu hỏi: ' + err);
     } finally {
@@ -150,9 +144,9 @@ export const QuestionBankTab = ({ questions, onRefresh }: Props) => {
     try {
       let imageUrl = existingImage;
       if (file) {
-        setUploadStatus('Đang xin Presigned URL & upload S3...');
+        setUploadStatus('Đang tải ảnh...');
         imageUrl = await uploadQuestionImage(file);
-        setUploadStatus('Upload S3 thành công!');
+        setUploadStatus('Tải ảnh thành công');
       }
 
       const correctAnswer = options[correctIndex]?.trim() || '';
@@ -198,64 +192,56 @@ export const QuestionBankTab = ({ questions, onRefresh }: Props) => {
     }
   };
 
-  // Filter questions theo ngân hàng đã chọn
   const filteredQuestions =
     selectedBankFilter === 'ALL'
       ? questions
       : questions.filter((q) => q.bankId === selectedBankFilter);
 
   return (
-    <div className="space-y-6">
-      {/* 1. THANH QUẢN LÝ NGÂN HÀNG CÂU HỎI (PHASE 1 SPEC) */}
-      <div className="bg-white p-5 rounded-xl shadow-sm border border-slate-200">
-        <div className="flex flex-wrap items-center justify-between gap-4">
+    <div className="space-y-4">
+      {/* Thanh lọc & Quản lý ngân hàng */}
+      <div className="bg-white p-4 rounded-lg border border-slate-200">
+        <div className="flex flex-wrap items-center justify-between gap-3">
           <div>
-            <div className="flex items-center gap-2">
-              <h3 className="text-base font-bold text-slate-900">
-                📁 Quản lý Ngân hàng Câu hỏi
-              </h3>
-              <span className="text-[11px] font-semibold px-2 py-0.5 rounded-full bg-blue-100 text-blue-800">
-                Giai đoạn 1
-              </span>
-            </div>
+            <h3 className="text-sm font-semibold text-slate-800">
+              Ngân hàng câu hỏi
+            </h3>
             <p className="text-xs text-slate-500 mt-0.5">
-              Tạo và phân loại câu hỏi theo từng ngân hàng, môn học, chủ đề & độ khó.
+              Quản lý danh sách câu hỏi phân loại theo môn học và mức độ.
             </p>
           </div>
 
-          <div className="flex items-center gap-3">
+          <div className="flex items-center gap-2">
             <button
               onClick={() => setShowCreateBankModal(true)}
-              className="px-3.5 py-2 bg-blue-600 text-white text-xs font-bold rounded-lg hover:bg-blue-700 transition flex items-center gap-1.5 shadow-sm"
+              className="px-3 py-1.5 bg-slate-900 text-white text-xs font-medium rounded-md hover:bg-slate-800 transition cursor-pointer"
             >
-              <span>➕</span>
-              <span>Tạo ngân hàng mới</span>
+              + Tạo ngân hàng mới
             </button>
           </div>
         </div>
 
-        {/* Danh sách ngân hàng & Bộ lọc */}
-        <div className="mt-4 pt-4 border-t border-slate-100 flex flex-wrap items-center justify-between gap-3">
+        <div className="mt-3 pt-3 border-t border-slate-100 flex flex-wrap items-center justify-between gap-3">
           <div className="flex items-center gap-2">
-            <span className="text-xs font-semibold text-slate-600">Lọc theo ngân hàng:</span>
+            <span className="text-xs text-slate-500">Lọc theo ngân hàng:</span>
             <select
               value={selectedBankFilter}
               onChange={(e) => setSelectedBankFilter(e.target.value)}
-              className="text-xs p-2 border rounded-lg bg-slate-50 font-medium text-slate-800 focus:ring-2 focus:ring-blue-500 outline-none"
+              className="text-xs p-1.5 border border-slate-200 rounded-md bg-white text-slate-700 outline-none"
             >
-              <option value="ALL">Tất cả ngân hàng ({questions.length} câu)</option>
+              <option value="ALL">Tất cả ({questions.length} câu)</option>
               {banks.map((b) => {
                 const count = questions.filter((q) => q.bankId === b.id).length;
                 return (
                   <option key={b.id} value={b.id}>
-                    {b.name} ({count} câu) - Môn: {b.subject}
+                    {b.name} ({count} câu)
                   </option>
                 );
               })}
             </select>
           </div>
 
-          <div className="flex flex-wrap gap-2 text-xs">
+          <div className="flex flex-wrap gap-1.5 text-xs">
             {banks.map((b) => {
               const count = questions.filter((q) => q.bankId === b.id).length;
               const isSelected = selectedBankFilter === b.id;
@@ -263,14 +249,14 @@ export const QuestionBankTab = ({ questions, onRefresh }: Props) => {
                 <button
                   key={b.id}
                   onClick={() => setSelectedBankFilter(isSelected ? 'ALL' : b.id)}
-                  className={`px-2.5 py-1 rounded-lg border text-xs font-medium transition flex items-center gap-1.5 ${
+                  className={`px-2.5 py-1 rounded-md border text-xs transition flex items-center gap-1.5 cursor-pointer ${
                     isSelected
-                      ? 'bg-blue-50 border-blue-300 text-blue-700 font-bold'
+                      ? 'bg-slate-900 text-white border-slate-900 font-medium'
                       : 'bg-white border-slate-200 text-slate-600 hover:bg-slate-50'
                   }`}
                 >
-                  <span>📚 {b.name}</span>
-                  <span className="px-1.5 py-0.2 rounded-full bg-slate-100 text-slate-600 text-[10px]">
+                  <span>{b.name}</span>
+                  <span className={`text-[10px] px-1 rounded ${isSelected ? 'bg-slate-700 text-white' : 'bg-slate-100 text-slate-600'}`}>
                     {count}
                   </span>
                 </button>
@@ -280,36 +266,36 @@ export const QuestionBankTab = ({ questions, onRefresh }: Props) => {
         </div>
       </div>
 
-      {/* MODAL TẠO NGÂN HÀNG CÂU HỎI MỚI */}
+      {/* Modal tạo ngân hàng mới */}
       {showCreateBankModal && (
-        <div className="fixed inset-0 bg-black/40 z-50 flex items-center justify-center p-4">
-          <div className="bg-white rounded-2xl p-6 max-w-md w-full shadow-2xl border border-slate-200">
-            <div className="flex justify-between items-center mb-4">
-              <h4 className="text-base font-bold text-slate-800">➕ Tạo Ngân hàng câu hỏi mới</h4>
+        <div className="fixed inset-0 bg-black/30 z-50 flex items-center justify-center p-4">
+          <div className="bg-white rounded-lg p-5 max-w-md w-full border border-slate-200 shadow-sm">
+            <div className="flex justify-between items-center mb-3">
+              <h4 className="text-sm font-semibold text-slate-800">Tạo ngân hàng câu hỏi mới</h4>
               <button
                 onClick={() => setShowCreateBankModal(false)}
-                className="text-slate-400 hover:text-slate-600 text-sm font-bold"
+                className="text-slate-400 hover:text-slate-600 text-sm cursor-pointer"
               >
                 ✕
               </button>
             </div>
-            <form onSubmit={handleCreateBank} className="space-y-4">
+            <form onSubmit={handleCreateBank} className="space-y-3">
               <div>
-                <label className="block text-xs font-semibold text-slate-700 mb-1">
-                  Tên ngân hàng câu hỏi *
+                <label className="block text-xs font-medium text-slate-700 mb-1">
+                  Tên ngân hàng *
                 </label>
                 <input
                   type="text"
                   value={newBankName}
                   onChange={(e) => setNewBankName(e.target.value)}
-                  placeholder="Ví dụ: Ngân hàng Kiến trúc AWS & Serverless"
-                  className="w-full p-2.5 border rounded-lg text-xs outline-none focus:ring-2 focus:ring-blue-500"
+                  placeholder="Ví dụ: Đề thi Điện toán đám mây"
+                  className="w-full p-2 border border-slate-200 rounded-md text-xs outline-none focus:border-slate-400"
                   required
                 />
               </div>
 
               <div>
-                <label className="block text-xs font-semibold text-slate-700 mb-1">
+                <label className="block text-xs font-medium text-slate-700 mb-1">
                   Môn học *
                 </label>
                 <input
@@ -317,21 +303,21 @@ export const QuestionBankTab = ({ questions, onRefresh }: Props) => {
                   value={newBankSubject}
                   onChange={(e) => setNewBankSubject(e.target.value)}
                   placeholder="Ví dụ: Điện toán đám mây"
-                  className="w-full p-2.5 border rounded-lg text-xs outline-none focus:ring-2 focus:ring-blue-500"
+                  className="w-full p-2 border border-slate-200 rounded-md text-xs outline-none focus:border-slate-400"
                   required
                 />
               </div>
 
               <div>
-                <label className="block text-xs font-semibold text-slate-700 mb-1">
+                <label className="block text-xs font-medium text-slate-700 mb-1">
                   Mô tả
                 </label>
                 <textarea
                   value={newBankDesc}
                   onChange={(e) => setNewBankDesc(e.target.value)}
-                  placeholder="Mô tả mục tiêu ngân hàng câu hỏi..."
+                  placeholder="Mô tả nội dung ngân hàng câu hỏi..."
                   rows={2}
-                  className="w-full p-2.5 border rounded-lg text-xs outline-none focus:ring-2 focus:ring-blue-500"
+                  className="w-full p-2 border border-slate-200 rounded-md text-xs outline-none focus:border-slate-400"
                 />
               </div>
 
@@ -339,16 +325,16 @@ export const QuestionBankTab = ({ questions, onRefresh }: Props) => {
                 <button
                   type="button"
                   onClick={() => setShowCreateBankModal(false)}
-                  className="px-4 py-2 border rounded-lg text-xs text-slate-600 hover:bg-slate-50"
+                  className="px-3 py-1.5 border border-slate-200 rounded-md text-xs text-slate-600 hover:bg-slate-50 cursor-pointer"
                 >
                   Hủy
                 </button>
                 <button
                   type="submit"
                   disabled={creatingBank}
-                  className="px-4 py-2 bg-blue-600 text-white text-xs font-bold rounded-lg hover:bg-blue-700 disabled:bg-gray-400 cursor-pointer"
+                  className="px-3 py-1.5 bg-slate-900 text-white text-xs font-medium rounded-md hover:bg-slate-800 disabled:bg-slate-400 cursor-pointer"
                 >
-                  {creatingBank ? 'Đang tạo...' : 'Xác nhận tạo'}
+                  {creatingBank ? 'Đang tạo...' : 'Tạo ngân hàng'}
                 </button>
               </div>
             </form>
@@ -356,30 +342,29 @@ export const QuestionBankTab = ({ questions, onRefresh }: Props) => {
         </div>
       )}
 
-      {/* 2. FORM THÊM / SỬA CÂU HỎI VỚI ĐẦY ĐỦ METADATA THEO SPEC */}
-      <div className="bg-white p-6 rounded-xl shadow-sm border border-slate-200">
-        <div className="flex justify-between items-center mb-4">
-          <h3 className="text-base font-bold text-slate-800">
-            {editingId ? '✏️ Chỉnh sửa câu hỏi' : '➕ Thêm câu hỏi mới vào ngân hàng'}
+      {/* Form thêm / sửa câu hỏi */}
+      <div className="bg-white p-5 rounded-lg border border-slate-200">
+        <div className="flex justify-between items-center mb-3">
+          <h3 className="text-sm font-semibold text-slate-800">
+            {editingId ? 'Chỉnh sửa câu hỏi' : 'Thêm câu hỏi mới'}
           </h3>
           {editingId && (
-            <span className="text-xs px-2 py-0.5 rounded bg-amber-100 text-amber-800 font-mono">
+            <span className="text-[11px] px-2 py-0.5 rounded bg-slate-100 text-slate-600 font-mono">
               ID: {editingId}
             </span>
           )}
         </div>
 
-        <form onSubmit={handleSubmit} className="space-y-4">
-          {/* Hàng chọn ngân hàng, môn học, chủ đề, loại câu hỏi */}
-          <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-3 bg-slate-50 p-3.5 rounded-xl border border-slate-100">
+        <form onSubmit={handleSubmit} className="space-y-3.5">
+          <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-2.5 bg-slate-50 p-3 rounded-md border border-slate-100">
             <div>
-              <label className="block text-xs font-semibold text-slate-700 mb-1">
-                Ngân hàng câu hỏi (bankId)
+              <label className="block text-xs font-medium text-slate-600 mb-1">
+                Ngân hàng câu hỏi
               </label>
               <select
                 value={bankId}
                 onChange={(e) => handleBankChange(e.target.value)}
-                className="w-full p-2 border rounded-lg text-xs focus:ring-2 focus:ring-blue-500 bg-white"
+                className="w-full p-1.5 border border-slate-200 rounded text-xs bg-white text-slate-700 outline-none"
                 required
               >
                 {banks.map((b) => (
@@ -391,35 +376,35 @@ export const QuestionBankTab = ({ questions, onRefresh }: Props) => {
             </div>
 
             <div>
-              <label className="block text-xs font-semibold text-slate-700 mb-1">Môn học (subject)</label>
+              <label className="block text-xs font-medium text-slate-600 mb-1">Môn học</label>
               <input
                 type="text"
                 value={subject}
                 onChange={(e) => setSubject(e.target.value)}
                 placeholder="Ví dụ: Điện toán đám mây"
-                className="w-full p-2 border rounded-lg text-xs focus:ring-2 focus:ring-blue-500 bg-white"
+                className="w-full p-1.5 border border-slate-200 rounded text-xs bg-white outline-none"
                 required
               />
             </div>
 
             <div>
-              <label className="block text-xs font-semibold text-slate-700 mb-1">Chủ đề (topic)</label>
+              <label className="block text-xs font-medium text-slate-600 mb-1">Chủ đề</label>
               <input
                 type="text"
                 value={topic}
                 onChange={(e) => setTopic(e.target.value)}
-                placeholder="Ví dụ: AWS Lambda / DynamoDB"
-                className="w-full p-2 border rounded-lg text-xs focus:ring-2 focus:ring-blue-500 bg-white"
+                placeholder="Ví dụ: Serverless"
+                className="w-full p-1.5 border border-slate-200 rounded text-xs bg-white outline-none"
                 required
               />
             </div>
 
             <div>
-              <label className="block text-xs font-semibold text-slate-700 mb-1">Loại câu hỏi (type)</label>
+              <label className="block text-xs font-medium text-slate-600 mb-1">Hình thức</label>
               <select
                 value={type}
                 onChange={(e) => setType(e.target.value as QuestionType)}
-                className="w-full p-2 border rounded-lg text-xs focus:ring-2 focus:ring-blue-500 bg-white"
+                className="w-full p-1.5 border border-slate-200 rounded text-xs bg-white text-slate-700 outline-none"
               >
                 <option value="SINGLE_CHOICE">Trắc nghiệm 1 đáp án</option>
                 <option value="MULTIPLE_CHOICE">Trắc nghiệm nhiều lựa chọn</option>
@@ -427,37 +412,35 @@ export const QuestionBankTab = ({ questions, onRefresh }: Props) => {
             </div>
           </div>
 
-          {/* Nội dung câu hỏi */}
           <div>
-            <label className="block text-xs font-semibold text-slate-700 mb-1">
-              Nội dung câu hỏi (content) *
+            <label className="block text-xs font-medium text-slate-700 mb-1">
+              Nội dung câu hỏi *
             </label>
             <textarea
               value={content}
               onChange={(e) => setContent(e.target.value)}
-              className="w-full p-3 border rounded-lg focus:ring-2 focus:ring-blue-500 outline-none text-xs"
+              className="w-full p-2.5 border border-slate-200 rounded-md outline-none focus:border-slate-400 text-xs"
               rows={3}
               placeholder="Nhập nội dung câu hỏi..."
               required
             />
           </div>
 
-          {/* 4 phương án trả lời */}
           <div>
-            <div className="flex justify-between items-center mb-2">
-              <label className="block text-xs font-semibold text-slate-700">
-                Các phương án trả lời (options) & Đánh dấu đáp án đúng (correctAnswer) *
+            <div className="flex justify-between items-center mb-1.5">
+              <label className="block text-xs font-medium text-slate-700">
+                Các lựa chọn trả lời và đánh dấu đáp án đúng *
               </label>
-              <span className="text-[11px] text-slate-500">
-                Click vào nút tròn để chọn đáp án đúng
+              <span className="text-[11px] text-slate-400">
+                Chọn nút tròn để chỉ định đáp án đúng
               </span>
             </div>
-            <div className="space-y-2">
+            <div className="space-y-1.5">
               {options.map((opt, i) => (
                 <div
                   key={i}
-                  className={`flex items-center gap-3 p-1.5 rounded-lg border transition ${
-                    correctIndex === i ? 'border-green-400 bg-green-50/40' : 'border-slate-200'
+                  className={`flex items-center gap-2.5 p-1.5 rounded-md border transition ${
+                    correctIndex === i ? 'border-emerald-300 bg-emerald-50/40' : 'border-slate-200'
                   }`}
                 >
                   <input
@@ -465,12 +448,12 @@ export const QuestionBankTab = ({ questions, onRefresh }: Props) => {
                     name="correct"
                     checked={correctIndex === i}
                     onChange={() => setCorrectIndex(i)}
-                    className="ml-2 w-4 h-4 text-green-600 focus:ring-green-500 cursor-pointer"
+                    className="ml-2 w-3.5 h-3.5 text-emerald-600 cursor-pointer"
                     aria-label={`Đáp án ${LABELS[i]} là đáp án đúng`}
                   />
                   <span
-                    className={`w-5 font-bold text-xs ${
-                      correctIndex === i ? 'text-green-700' : 'text-slate-600'
+                    className={`w-4 font-semibold text-xs ${
+                      correctIndex === i ? 'text-emerald-700' : 'text-slate-600'
                     }`}
                   >
                     {LABELS[i]}
@@ -481,13 +464,13 @@ export const QuestionBankTab = ({ questions, onRefresh }: Props) => {
                     onChange={(e) =>
                       setOptions((prev) => prev.map((o, idx) => (idx === i ? e.target.value : o)))
                     }
-                    placeholder={`Nội dung đáp án ${LABELS[i]}...`}
-                    className="flex-1 p-2 text-xs border rounded-lg focus:ring-2 focus:ring-blue-500 outline-none bg-white"
+                    placeholder={`Nội dung lựa chọn ${LABELS[i]}...`}
+                    className="flex-1 p-1.5 text-xs border border-slate-200 rounded outline-none focus:border-slate-400 bg-white"
                     required
                   />
                   {correctIndex === i && (
-                    <span className="text-[11px] font-bold text-green-600 px-2 py-0.5 rounded bg-green-100 mr-1">
-                      ĐÁP ÁN ĐÚNG
+                    <span className="text-[10px] font-medium text-emerald-700 px-2 py-0.5 rounded bg-emerald-100 mr-1">
+                      Đáp án đúng
                     </span>
                   )}
                 </div>
@@ -495,26 +478,25 @@ export const QuestionBankTab = ({ questions, onRefresh }: Props) => {
             </div>
           </div>
 
-          {/* Độ khó, Điểm số, Upload ảnh qua S3 Presigned URL */}
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4 pt-2">
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-3 pt-1">
             <div>
-              <label className="block text-xs font-semibold text-slate-700 mb-1">
-                Mức độ (difficulty)
+              <label className="block text-xs font-medium text-slate-700 mb-1">
+                Mức độ
               </label>
               <select
                 value={difficulty}
                 onChange={(e) => setDifficulty(e.target.value as Difficulty)}
-                className="w-full p-2.5 border rounded-lg text-xs focus:ring-2 focus:ring-blue-500"
+                className="w-full p-2 border border-slate-200 rounded-md text-xs bg-white text-slate-700 outline-none"
               >
-                <option value="EASY">Dễ (EASY)</option>
-                <option value="MEDIUM">Trung bình (MEDIUM)</option>
-                <option value="HARD">Khó (HARD)</option>
+                <option value="EASY">Dễ</option>
+                <option value="MEDIUM">Trung bình</option>
+                <option value="HARD">Khó</option>
               </select>
             </div>
 
             <div>
-              <label className="block text-xs font-semibold text-slate-700 mb-1">
-                Điểm câu hỏi (score)
+              <label className="block text-xs font-medium text-slate-700 mb-1">
+                Điểm số
               </label>
               <input
                 type="number"
@@ -522,109 +504,98 @@ export const QuestionBankTab = ({ questions, onRefresh }: Props) => {
                 step={0.25}
                 value={score}
                 onChange={(e) => setScore(Number(e.target.value))}
-                className="w-full p-2.5 border rounded-lg text-xs focus:ring-2 focus:ring-blue-500"
+                className="w-full p-2 border border-slate-200 rounded-md text-xs outline-none focus:border-slate-400"
                 required
               />
             </div>
 
             <div>
-              <div className="flex justify-between items-center mb-1">
-                <label className="block text-xs font-semibold text-slate-700">
-                  Ảnh đính kèm (imageUrl)
-                </label>
-                <span className="text-[10px] text-blue-600 font-mono">S3 Presigned URL</span>
-              </div>
+              <label className="block text-xs font-medium text-slate-700 mb-1">
+                Ảnh minh họa (tùy chọn)
+              </label>
               <input
                 ref={fileInput}
                 type="file"
                 accept="image/*"
                 onChange={(e) => setFile(e.target.files?.[0] || null)}
-                className="w-full text-xs text-slate-500 file:mr-3 file:py-1.5 file:px-3 file:rounded-lg file:border-0 file:bg-blue-50 file:text-blue-700 hover:file:bg-blue-100"
+                className="w-full text-xs text-slate-500 file:mr-2 file:py-1.5 file:px-2.5 file:rounded file:border-0 file:bg-slate-100 file:text-slate-700 hover:file:bg-slate-200"
               />
             </div>
           </div>
 
-          {/* Upload Status / Image preview */}
           {uploadStatus && (
-            <p className="text-xs text-blue-600 font-medium italic animate-pulse">
-              ⏳ {uploadStatus}
+            <p className="text-xs text-slate-600 font-medium">
+              {uploadStatus}
             </p>
           )}
 
           {existingImage && !file && (
-            <div className="flex items-center gap-3 p-2 bg-slate-50 rounded-lg border border-slate-200">
+            <div className="flex items-center gap-3 p-2 bg-slate-50 rounded-md border border-slate-200">
               <img
                 src={existingImage}
-                alt="Ảnh hiện tại"
-                className="h-16 w-16 object-cover rounded border"
+                alt="Ảnh đính kèm"
+                className="h-12 w-12 object-cover rounded border"
               />
               <div className="flex-1 min-w-0">
-                <span className="text-[11px] font-mono text-slate-600 block truncate">
+                <span className="text-[11px] font-mono text-slate-500 block truncate">
                   {existingImage}
-                </span>
-                <span className="text-[10px] text-green-600 font-medium">
-                  ✓ Đã lưu trên Amazon S3
                 </span>
               </div>
               <button
                 type="button"
                 onClick={() => setExistingImage('')}
-                className="text-xs text-red-600 hover:underline px-2 py-1 font-semibold"
+                className="text-xs text-rose-600 hover:underline px-2 py-1 cursor-pointer"
               >
-                Bỏ ảnh
+                Gỡ ảnh
               </button>
             </div>
           )}
 
-          {/* Submit buttons */}
-          <div className="flex gap-3 pt-2">
+          <div className="flex gap-2 pt-1">
             <button
               type="submit"
               disabled={loading}
-              className="px-6 py-2.5 bg-blue-600 text-white font-bold rounded-lg text-xs hover:bg-blue-700 disabled:bg-gray-400 transition shadow-sm"
+              className="px-4 py-2 bg-slate-900 text-white font-medium rounded-md text-xs hover:bg-slate-800 disabled:bg-slate-400 transition cursor-pointer"
             >
-              {loading ? 'Đang xử lý...' : editingId ? 'Lưu thay đổi câu hỏi' : 'Lưu câu hỏi mới'}
+              {loading ? 'Đang lưu...' : editingId ? 'Cập nhật câu hỏi' : 'Lưu câu hỏi'}
             </button>
             {editingId && (
               <button
                 type="button"
                 onClick={resetForm}
-                className="px-6 py-2.5 border rounded-lg text-slate-700 text-xs font-semibold hover:bg-slate-50"
+                className="px-4 py-2 border border-slate-200 rounded-md text-slate-600 text-xs font-medium hover:bg-slate-50 cursor-pointer"
               >
-                Hủy sửa
+                Hủy bỏ
               </button>
             )}
           </div>
         </form>
       </div>
 
-      {/* 3. DANH SÁCH CÂU HỎI TRONG NGÂN HÀNG (FULL SCHEMA DISPLAY) */}
-      <div className="bg-white p-6 rounded-xl shadow-sm border border-slate-200">
-        <div className="flex flex-wrap justify-between items-center mb-4 gap-2">
+      {/* Danh sách câu hỏi */}
+      <div className="bg-white p-5 rounded-lg border border-slate-200">
+        <div className="flex flex-wrap justify-between items-center mb-3 gap-2">
           <div>
-            <h3 className="text-base font-bold text-slate-800">
+            <h3 className="text-sm font-semibold text-slate-800">
               Danh sách câu hỏi ({filteredQuestions.length})
             </h3>
             <p className="text-xs text-slate-500">
               {selectedBankFilter === 'ALL'
-                ? 'Đang hiển thị toàn bộ câu hỏi trong tất cả ngân hàng.'
-                : `Đang lọc theo ngân hàng: ${
+                ? 'Tất cả câu hỏi hiện có.'
+                : `Ngân hàng: ${
                     banks.find((b) => b.id === selectedBankFilter)?.name ?? selectedBankFilter
                   }`}
             </p>
           </div>
           <span className="text-xs text-slate-400">
-            Tổng điểm: {filteredQuestions.reduce((sum, q) => sum + (q.score || 0), 0)} pts
+            Tổng điểm: {filteredQuestions.reduce((sum, q) => sum + (q.score || 0), 0)}
           </span>
         </div>
 
         {filteredQuestions.length === 0 && (
-          <div className="text-center py-12 border-2 border-dashed rounded-xl border-slate-200">
-            <p className="text-sm text-slate-400">
-              Chưa có câu hỏi nào trong ngân hàng này.
-            </p>
-            <p className="text-xs text-slate-400 mt-1">
-              Thêm câu hỏi đầu tiên bằng form ở phía trên.
+          <div className="text-center py-8 border border-dashed rounded-md border-slate-200">
+            <p className="text-xs text-slate-400">
+              Chưa có câu hỏi nào.
             </p>
           </div>
         )}
@@ -633,52 +604,51 @@ export const QuestionBankTab = ({ questions, onRefresh }: Props) => {
           {filteredQuestions.map((q, index) => {
             const bank = banks.find((b) => b.id === q.bankId);
             return (
-              <div key={q.id} className="py-4 flex justify-between items-start gap-4 hover:bg-slate-50/50 p-2 rounded-lg transition">
+              <div key={q.id} className="py-3.5 flex justify-between items-start gap-3">
                 <div className="flex-1 space-y-2">
-                  <div className="flex flex-wrap items-center gap-2">
-                    <span className="text-xs font-bold text-slate-400 font-mono">
+                  <div className="flex flex-wrap items-center gap-1.5">
+                    <span className="text-xs font-mono font-medium text-slate-400">
                       #{index + 1}
                     </span>
-                    <span className="text-[11px] font-mono px-2 py-0.5 rounded bg-slate-100 text-slate-600">
+                    <span className="text-[10px] font-mono px-1.5 py-0.5 rounded bg-slate-100 text-slate-600">
                       ID: {q.id}
                     </span>
-                    <span className="text-[11px] font-semibold px-2 py-0.5 rounded bg-blue-50 text-blue-700 border border-blue-200">
-                      📁 {bank?.name || q.bankId || 'Ngân hàng chung'}
+                    <span className="text-[10px] px-1.5 py-0.5 rounded bg-slate-100 text-slate-700">
+                      {bank?.name || q.bankId}
                     </span>
-                    <span className="text-[11px] px-2 py-0.5 rounded bg-purple-50 text-purple-700">
-                      📖 {q.subject || 'Chung'} • {q.topic || 'Chủ đề chung'}
+                    <span className="text-[10px] px-1.5 py-0.5 rounded bg-slate-100 text-slate-600">
+                      {q.subject || 'Chung'}
                     </span>
-                    <span className="text-[10px] px-1.5 py-0.5 rounded bg-slate-100 text-slate-600 font-mono">
+                    <span className="text-[10px] px-1.5 py-0.5 rounded bg-slate-100 text-slate-500 font-mono">
                       {TYPE_LABEL[q.type] || q.type}
                     </span>
                   </div>
 
-                  <p className="font-semibold text-slate-800 text-sm">{q.content}</p>
+                  <p className="font-medium text-slate-800 text-sm">{q.content}</p>
 
-                  {/* Danh sách 4 options */}
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 text-xs">
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-1.5 text-xs">
                     {q.options.map((opt, i) => {
                       const isCorrect = i === q.correctIndex;
                       return (
                         <div
                           key={i}
-                          className={`p-2 rounded-lg border flex items-center gap-2 ${
+                          className={`p-2 rounded border flex items-center gap-2 ${
                             isCorrect
-                              ? 'border-green-300 bg-green-50 text-green-800 font-bold'
-                              : 'border-slate-100 bg-white text-slate-600'
+                              ? 'border-emerald-200 bg-emerald-50/60 text-emerald-900 font-medium'
+                              : 'border-slate-100 bg-slate-50/40 text-slate-600'
                           }`}
                         >
                           <span
-                            className={`w-5 h-5 rounded-full flex items-center justify-center text-[10px] font-bold ${
-                              isCorrect ? 'bg-green-600 text-white' : 'bg-slate-200 text-slate-600'
+                            className={`w-4 h-4 rounded-full flex items-center justify-center text-[10px] font-semibold ${
+                              isCorrect ? 'bg-emerald-600 text-white' : 'bg-slate-200 text-slate-600'
                             }`}
                           >
                             {LABELS[i]}
                           </span>
-                          <span className="flex-1">{opt}</span>
+                          <span className="flex-1 truncate">{opt}</span>
                           {isCorrect && (
-                            <span className="text-[10px] uppercase font-bold text-green-700">
-                              ✓ Đúng
+                            <span className="text-[9px] font-semibold text-emerald-700">
+                              Đúng
                             </span>
                           )}
                         </div>
@@ -686,54 +656,47 @@ export const QuestionBankTab = ({ questions, onRefresh }: Props) => {
                     })}
                   </div>
 
-                  {/* Metadata tags */}
-                  <div className="flex flex-wrap items-center gap-2 text-xs pt-1">
+                  <div className="flex flex-wrap items-center gap-2 text-xs pt-0.5">
                     <span
-                      className={`px-2 py-0.5 rounded text-[11px] font-bold border ${
+                      className={`px-1.5 py-0.5 rounded text-[10px] font-medium border ${
                         q.difficulty === 'HARD'
-                          ? 'bg-red-50 text-red-700 border-red-200'
+                          ? 'bg-rose-50 text-rose-700 border-rose-200'
                           : q.difficulty === 'MEDIUM'
                           ? 'bg-amber-50 text-amber-700 border-amber-200'
-                          : 'bg-green-50 text-green-700 border-green-200'
+                          : 'bg-emerald-50 text-emerald-700 border-emerald-200'
                       }`}
                     >
                       {DIFFICULTY_LABEL[q.difficulty] ?? q.difficulty}
                     </span>
-                    <span className="px-2 py-0.5 rounded bg-slate-100 text-slate-700 font-bold text-[11px]">
+                    <span className="text-slate-500 text-[11px]">
                       {q.score} điểm
                     </span>
 
                     {q.imageUrl && (
-                      <div className="flex items-center gap-1.5 ml-2">
-                        <img
-                          src={q.imageUrl}
-                          alt="Đính kèm"
-                          className="h-6 w-6 object-cover rounded border"
-                        />
+                      <div className="flex items-center gap-1 ml-2">
                         <a
                           href={q.imageUrl}
                           target="_blank"
                           rel="noreferrer"
-                          className="text-xs text-blue-600 hover:underline font-medium"
+                          className="text-xs text-slate-600 hover:text-slate-900 underline"
                         >
-                          Xem ảnh S3
+                          Xem ảnh
                         </a>
                       </div>
                     )}
                   </div>
                 </div>
 
-                {/* Nút hành động */}
-                <div className="flex flex-col gap-1.5 text-xs">
+                <div className="flex flex-col gap-1 text-xs shrink-0">
                   <button
                     onClick={() => startEdit(q)}
-                    className="px-3 py-1 bg-slate-100 hover:bg-slate-200 text-slate-700 font-medium rounded transition"
+                    className="px-2.5 py-1 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded transition cursor-pointer"
                   >
                     Sửa
                   </button>
                   <button
                     onClick={() => handleDelete(q)}
-                    className="px-3 py-1 bg-red-50 hover:bg-red-100 text-red-600 font-medium rounded transition"
+                    className="px-2.5 py-1 text-rose-600 hover:bg-rose-50 rounded transition cursor-pointer"
                   >
                     Xóa
                   </button>

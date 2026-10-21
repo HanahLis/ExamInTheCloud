@@ -15,13 +15,13 @@ export interface AppTheme {
 export const defaultTheme: AppTheme = {
   id: 'default',
   name: 'default',
-  countryName: 'Chuẩn Quốc Tế',
-  flag: '🌐',
+  countryName: 'Quốc tế',
+  flag: '',
   colors: {
-    primary: '#2563EB', // Blue 600
-    primaryHover: '#1D4ED8', // Blue 700
-    accent: '#4F46E5', // Indigo 600
-    badgeBg: '#DBEAFE', // Blue 100
-    badgeText: '#1E40AF', // Blue 800
+    primary: '#1e293b', // Slate 800 - thanh lịch, nhã nhặn
+    primaryHover: '#0f172a',
+    accent: '#475569',
+    badgeBg: '#f1f5f9',
+    badgeText: '#334155',
   },
 };
