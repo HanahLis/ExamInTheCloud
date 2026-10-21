@@ -13,10 +13,13 @@ export const Callback = () => {
   if (error) {
     return (
       <div className="flex justify-center items-center h-screen bg-slate-50 p-4">
-        <div className="bg-white p-8 rounded-2xl shadow-md max-w-md w-full text-center space-y-4">
-          <h1 className="text-xl font-bold text-red-600">Đăng nhập thất bại</h1>
-          <p className="text-sm text-slate-600 break-words">{error}</p>
-          <a href="/" className="inline-block px-5 py-2.5 bg-blue-600 text-white rounded-lg hover:bg-blue-700">
+        <div className="bg-white p-6 rounded-lg border border-slate-200 shadow-sm max-w-sm w-full text-center space-y-3">
+          <h1 className="text-base font-semibold text-rose-600">Đăng nhập không thành công</h1>
+          <p className="text-xs text-slate-600 break-words">{error}</p>
+          <a
+            href="/"
+            className="inline-block px-4 py-2 bg-slate-900 text-white text-xs font-medium rounded-md hover:bg-slate-800 transition"
+          >
             Quay lại trang đăng nhập
           </a>
         </div>
@@ -27,8 +30,7 @@ export const Callback = () => {
   return (
     <div className="flex justify-center items-center h-screen bg-slate-50">
       <div className="text-center">
-        <div className="animate-spin rounded-full h-10 w-10 border-b-2 border-blue-600 mx-auto mb-4"></div>
-        <p className="text-gray-600 font-medium">Đang xác thực tài khoản qua AWS Cognito...</p>
+        <p className="text-xs text-slate-500">Đang xử lý đăng nhập...</p>
       </div>
     </div>
   );

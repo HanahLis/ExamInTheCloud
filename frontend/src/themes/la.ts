@@ -4,13 +4,13 @@ export const laTheme: AppTheme = {
   ...defaultTheme,
   id: 'la',
   name: 'la',
-  countryName: 'Lào (Lao PDR)',
-  flag: '🇱🇦',
+  countryName: 'Lào',
+  flag: '',
   colors: {
-    primary: '#0284C7', // Sky 600
-    primaryHover: '#0369A1', // Sky 700
-    accent: '#DC2626', // Red 600
-    badgeBg: '#E0F2FE', // Sky 100
-    badgeText: '#075985', // Sky 800
+    primary: '#0f172a',
+    primaryHover: '#1e293b',
+    accent: '#334155',
+    badgeBg: '#f8fafc',
+    badgeText: '#0f172a',
   },
 };
