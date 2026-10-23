@@ -22,11 +22,15 @@ resource "aws_lambda_function" "core_api" {
 
   environment {
     variables = {
-      ENV            = var.environment
-      S3_BUCKET_NAME = var.s3_bucket_name
-      SQS_QUEUE_URL     = aws_sqs_queue.exam_submission.url
-      STATE_MACHINE_ARN = aws_sfn_state_machine.exam_lifecycle.arn
-      SNS_TOPIC_ARN     = aws_sns_topic.alerts.arn
+      ENV                             = var.environment
+      S3_BUCKET_NAME                  = var.s3_bucket_name
+      SQS_QUEUE_URL                   = aws_sqs_queue.exam_submission.url
+      STATE_MACHINE_ARN               = aws_sfn_state_machine.exam_lifecycle.arn
+      SNS_TOPIC_ARN                   = aws_sns_topic.alerts.arn
+      GEMINI_API_KEY                  = var.gemini_api_key
+      UPSTASH_REDIS_REST_URL          = var.upstash_redis_rest_url
+      UPSTASH_REDIS_REST_TOKEN        = var.upstash_redis_rest_token
+      CLOUDFLARE_TURNSTILE_SECRET_KEY = var.cloudflare_turnstile_secret_key
     }
   }
 
@@ -74,8 +78,10 @@ resource "aws_lambda_function" "grading_worker" {
 
   environment {
     variables = {
-      ENV            = var.environment
-      S3_BUCKET_NAME = var.s3_bucket_name
+      ENV                      = var.environment
+      S3_BUCKET_NAME           = var.s3_bucket_name
+      UPSTASH_REDIS_REST_URL   = var.upstash_redis_rest_url
+      UPSTASH_REDIS_REST_TOKEN = var.upstash_redis_rest_token
     }
   }
 
