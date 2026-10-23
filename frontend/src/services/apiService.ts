@@ -804,7 +804,7 @@ export const fetchSessionResults = async (sessionId: string): Promise<SessionRes
   try {
     const res = await api.get(`/sessions/${sessionId}/results`);
     return res.data;
-  } catch (err: any) {
+  } catch {
     // Nếu API Gateway trả về lỗi quyền/sub-resource, truy vấn trực tiếp session object từ DynamoDB
     const [sessRes, candRes] = await Promise.all([
       api.get(`/sessions/${sessionId}`).catch(() => null),
@@ -868,7 +868,7 @@ export const getExamPaper = async (sessionId: string): Promise<ExamPaperResponse
     const matchedQuestions = allQuestions
       .filter((q) => sessionQIds.includes(q.id || (q as any).questionId))
       .map((q) => {
-        const { correctIndex, correctAnswer, ...safeQuestion } = q;
+        const { correctIndex: _ci, correctAnswer: _ca, ...safeQuestion } = q as any;
         return safeQuestion as Question;
       });
 
@@ -915,10 +915,10 @@ export const syncCloudDatabaseToProduction = async (): Promise<{
   sessionsUpdated: number;
   message: string;
 }> => {
-  let deletedQuestions = 0;
+  const deletedQuestions = 0;
   let addedQuestions = 0;
   let addedBanks = 0;
-  let deletedCandidates = 0;
+  const deletedCandidates = 0;
   let addedCandidates = 0;
   let sessionsUpdated = 0;
 
