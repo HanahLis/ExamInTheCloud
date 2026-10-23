@@ -69,3 +69,37 @@ variable "waf_rate_limit" {
   type        = number
   default     = 100
 }
+
+# ==============================================================================
+# CẤU HÌNH ĐA ĐÁM MÂY (MULTI-CLOUD): GOOGLE GEMINI, UPSTASH REDIS & CLOUDFLARE
+# Phụ trách: Phạm Tuấn Phong (24021596) — Task P-01
+# ==============================================================================
+
+variable "gemini_api_key" {
+  description = "Google Gemini 1.5 Flash API Key từ Google AI Studio (miễn phí 1,500 req/ngày, 0 USD)"
+  type        = string
+  default     = ""
+  sensitive   = true
+}
+
+variable "upstash_redis_rest_url" {
+  description = "Upstash Serverless Redis REST URL cho Live Leaderboard"
+  type        = string
+  default     = ""
+}
+
+variable "upstash_redis_rest_token" {
+  description = "Upstash Serverless Redis REST Token cho Live Leaderboard"
+  type        = string
+  default     = ""
+  sensitive   = true
+}
+
+variable "cloudflare_turnstile_secret_key" {
+  description = "Cloudflare Turnstile Secret Key để xác thực chống bot tại Lambda"
+  type        = string
+  default     = ""
+  sensitive   = true
+}
+
+
