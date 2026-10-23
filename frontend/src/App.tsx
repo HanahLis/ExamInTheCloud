@@ -327,8 +327,8 @@ export default function App() {
                 required
                 autoComplete="current-password"
               />
-              <p className="text-[11px] text-slate-400 mt-1">
-                Mật khẩu mặc định: <span className="font-mono text-slate-600 font-medium">12345678</span>
+              <p className="text-[11px] text-slate-500 mt-1">
+                Tài khoản Giảng viên: <span className="font-mono text-slate-700 font-medium">annv@uet.vnu.edu.vn</span> (MK: <span className="font-mono text-slate-700 font-medium">12345678</span>)
               </p>
             </div>
 
@@ -337,16 +337,16 @@ export default function App() {
               disabled={loginLoading}
               className="w-full py-2 bg-slate-900 text-white text-xs font-medium rounded-md hover:bg-slate-800 disabled:bg-slate-400 transition cursor-pointer"
             >
-              {loginLoading ? 'Đang xác thực...' : 'Đăng nhập với AWS Cognito'}
+              {loginLoading ? 'Đang xác thực với AWS...' : 'Đăng nhập với AWS Cognito'}
             </button>
 
             <div className="pt-2 text-center border-t border-slate-100">
               <button
                 type="button"
                 onClick={redirectToCognitoLogin}
-                className="text-[11px] text-slate-500 hover:text-slate-800 cursor-pointer underline"
+                className="text-[11px] text-indigo-600 hover:text-indigo-800 cursor-pointer font-medium"
               >
-                Đăng nhập qua AWS Cognito Hosted UI
+                Cổng Thí sinh / Đăng ký qua AWS Cognito Hosted UI &rarr;
               </button>
             </div>
           </form>

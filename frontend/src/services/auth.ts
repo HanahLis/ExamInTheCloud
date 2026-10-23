@@ -1,9 +1,6 @@
-const MOCK = import.meta.env.VITE_USE_MOCK === 'true';
 const DOMAIN = import.meta.env.VITE_COGNITO_DOMAIN; // gồm cả https://
 const CLIENT_ID = import.meta.env.VITE_COGNITO_CLIENT_ID;
 const REDIRECT_URI = import.meta.env.VITE_COGNITO_REDIRECT_URI;
-
-const USER_POOL_ID = import.meta.env.VITE_COGNITO_USER_POOL_ID || 'ap-southeast-1_B4GIkcP90';
 
 export interface AuthUser {
   email: string;
@@ -12,15 +9,7 @@ export interface AuthUser {
   studentCode?: string;
 }
 
-// UTF-8 safe Base64 encode & decode (xử lý an toàn tiếng Việt có dấu cho JWT)
-const base64EncodeUtf8 = (str: string): string => {
-  return btoa(
-    encodeURIComponent(str).replace(/%([0-9A-F]{2})/g, (_, p1) =>
-      String.fromCharCode(parseInt(p1, 16))
-    )
-  );
-};
-
+// UTF-8 safe Base64 decode (xử lý an toàn tiếng Việt có dấu cho JWT)
 const base64DecodeUtf8 = (str: string): string => {
   return decodeURIComponent(
     atob(str.replace(/-/g, '+').replace(/_/g, '/'))
@@ -117,89 +106,72 @@ export const DATABASE_ACCOUNTS_MAP: Record<
   },
 };
 
-// Đăng nhập với tài khoản định danh trong Database
-export const loginWithDatabaseAccount = (
-  email: string,
-  groups: string[],
-  name = '',
-  studentCode = ''
-) => {
-  const header = base64EncodeUtf8(JSON.stringify({ alg: 'RS256', typ: 'JWT' }));
-  const payload = base64EncodeUtf8(
-    JSON.stringify({
-      sub: `vnu-${studentCode || email.split('@')[0]}`,
-      email,
-      name,
-      'cognito:groups': groups,
-      'custom:student_code': studentCode,
-      iss: `https://cognito-idp.ap-southeast-1.amazonaws.com/${USER_POOL_ID}`,
-      exp: Math.floor(Date.now() / 1000) + 3600 * 24, // 24 giờ
-    })
-  );
-  const token = `${header}.${payload}.aws-cognito-verified-token`;
-  localStorage.setItem('id_token', token);
-  localStorage.setItem('access_token', token);
-  localStorage.setItem('auth_mode', 'aws');
-  return token;
-};
-
-// Đăng nhập trực tiếp bằng Email & Mật khẩu (1 Giáo viên + 10 Sinh viên, mật khẩu: 12345678)
+/**
+ * Đăng nhập trực tiếp bằng Email & Mật khẩu qua AWS Cognito (USER_PASSWORD_AUTH)
+ * Nhận ID Token và Access Token thật có chữ ký số RSA từ AWS Cognito User Pool
+ */
 export const loginWithCognitoPassword = async (email: string, password: string): Promise<void> => {
   const cleanEmail = email.trim().toLowerCase();
 
-  const account = DATABASE_ACCOUNTS_MAP[cleanEmail];
-  if (!account) {
-    throw new Error('Tài khoản không tồn tại trong hệ thống. Vui lòng nhập đúng email được cấp.');
+  // Danh sách mật khẩu tương thích cho tài khoản quản trị viên demo
+  const passwordsToTry = [password];
+  if (password === '12345678') {
+    passwordsToTry.push('CloudExam@2026');
   }
 
-  if (password !== '12345678' && password !== 'CloudExam@2026') {
-    throw new Error('Mật khẩu không chính xác. Vui lòng nhập mật khẩu 12345678.');
-  }
+  let lastError = '';
 
-  // 1. Nếu là tài khoản Quản trị / Giảng viên (annv@uet.vnu.edu.vn, laladoraema@gmail.com):
-  // Thực hiện xác thực trực tiếp với AWS Cognito qua API InitiateAuth (USER_PASSWORD_AUTH) để nhận Token thật có chữ ký RSA
-  if (cleanEmail === 'annv@uet.vnu.edu.vn' || cleanEmail === 'laladoraema@gmail.com') {
+  for (const pwd of passwordsToTry) {
     try {
-      const passwordsToTry = [password, 'CloudExam@2026'];
-      for (const pwd of passwordsToTry) {
-        try {
-          const res = await fetch('https://cognito-idp.ap-southeast-1.amazonaws.com/', {
-            method: 'POST',
-            headers: {
-              'Content-Type': 'application/x-amz-json-1.1',
-              'X-Amz-Target': 'AWSCognitoIdentityProviderService.InitiateAuth',
-            },
-            body: JSON.stringify({
-              AuthFlow: 'USER_PASSWORD_AUTH',
-              ClientId: CLIENT_ID,
-              AuthParameters: {
-                USERNAME: cleanEmail,
-                PASSWORD: pwd,
-              },
-            }),
-          });
-          if (res.ok) {
-            const data = await res.json();
-            if (data.AuthenticationResult) {
-              const { IdToken, AccessToken, RefreshToken } = data.AuthenticationResult;
-              localStorage.setItem('id_token', IdToken);
-              localStorage.setItem('access_token', AccessToken);
-              if (RefreshToken) localStorage.setItem('refresh_token', RefreshToken);
-              localStorage.setItem('auth_mode', 'aws');
-              return;
-            }
-          }
-        } catch {
-          // Thử tiếp
-        }
+      const res = await fetch('https://cognito-idp.ap-southeast-1.amazonaws.com/', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/x-amz-json-1.1',
+          'X-Amz-Target': 'AWSCognitoIdentityProviderService.InitiateAuth',
+        },
+        body: JSON.stringify({
+          AuthFlow: 'USER_PASSWORD_AUTH',
+          ClientId: CLIENT_ID,
+          AuthParameters: {
+            USERNAME: cleanEmail,
+            PASSWORD: pwd,
+          },
+        }),
+      });
+
+      const data = await res.json();
+
+      if (res.ok && data.AuthenticationResult) {
+        const { IdToken, AccessToken, RefreshToken } = data.AuthenticationResult;
+        localStorage.setItem('id_token', IdToken);
+        localStorage.setItem('access_token', AccessToken);
+        if (RefreshToken) localStorage.setItem('refresh_token', RefreshToken);
+        localStorage.setItem('auth_mode', 'aws');
+        return;
       }
-    } catch (e) {
-      console.warn('InitiateAuth warning:', e);
+
+      if (data.__type === 'UserNotConfirmedException') {
+        throw new Error(
+          'Tài khoản này chưa được xác thực email trên AWS Cognito. Vui lòng bấm "Đăng nhập qua AWS Cognito Hosted UI" để hoàn tất xác thực mã code, hoặc đăng nhập tài khoản Giảng viên: annv@uet.vnu.edu.vn.'
+        );
+      }
+
+      if (data.__type === 'NotAuthorizedException') {
+        lastError = 'Mật khẩu hoặc Email không chính xác trên AWS Cognito.';
+      } else if (data.__type === 'UserNotFoundException') {
+        lastError = 'Tài khoản không tồn tại trên AWS Cognito. Vui lòng đăng ký mới qua Hosted UI hoặc dùng tài khoản: annv@uet.vnu.edu.vn.';
+      } else {
+        lastError = data.message || data.__type || 'Đăng nhập với AWS Cognito thất bại.';
+      }
+    } catch (e: any) {
+      if (e.message && e.message.includes('AWS Cognito')) {
+        throw e;
+      }
+      lastError = e?.message || 'Không thể kết nối đến AWS Cognito Identity Provider.';
     }
   }
 
-  // 2. Khởi tạo phiên làm việc cho thí sinh theo chuẩn CSDL AWS
-  loginWithDatabaseAccount(account.email, [account.role], account.name, account.studentCode);
+  throw new Error(lastError || 'Đăng nhập với AWS Cognito thất bại. Vui lòng kiểm tra lại thông tin.');
 };
 
 // Đăng ký tài khoản mới trên AWS Cognito User Pool
@@ -236,11 +208,6 @@ export const signUpWithCognito = async (
   };
 };
 
-// Đăng nhập trực tiếp với tài khoản chọn (Mock / Demo có sẵn dữ liệu)
-export const loginWithMockAccount = (email: string, groups: string[], studentCode = '') => {
-  return loginWithDatabaseAccount(email, groups, '', studentCode);
-};
-
 // ---------- PKCE helpers (Authorization Code + PKCE cho AWS Live) ----------
 const base64Url = (bytes: Uint8Array) =>
   btoa(String.fromCharCode(...bytes)).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
@@ -250,7 +217,7 @@ const randomString = (size = 32) => base64Url(crypto.getRandomValues(new Uint8Ar
 const sha256Challenge = async (verifier: string) =>
   base64Url(new Uint8Array(await crypto.subtle.digest('SHA-256', new TextEncoder().encode(verifier))));
 
-// 1. Chuyển hướng sang Cognito Hosted UI (Khi MOCK=false)
+// 1. Chuyển hướng sang Cognito Hosted UI
 export const redirectToCognitoLogin = async () => {
   const verifier = randomString(48);
   const state = randomString(16);
@@ -313,14 +280,9 @@ export const handleAuthCallback = (): Promise<void> => {
   return pendingCallback;
 };
 
-// 3. Phân biệt phiên đăng nhập: Tài khoản thử nghiệm (Mock) vs Tài khoản AWS Cloud Live
+// 3. Toàn bộ phiên hiện tại là AWS Cloud Live (Đã gỡ bỏ Mock)
 export const isMockSession = (): boolean => {
-  const mode = localStorage.getItem('auth_mode');
-  if (mode === 'aws') return false;
-  if (mode === 'mock') return true;
-  const token = localStorage.getItem('id_token');
-  if (!token) return true;
-  return token.endsWith('.mock-signature-aws') || token.startsWith('mock-');
+  return false;
 };
 
 // 4. Kiểm tra đã đăng nhập và token chưa hết hạn
@@ -344,7 +306,7 @@ export const isLoggedIn = (): boolean => {
   }
 };
 
-// 4. Thông tin hiển thị trên header (giải mã Claims từ JWT)
+// 5. Thông tin hiển thị trên header (giải mã Claims từ JWT thật của Cognito)
 export const getCurrentUser = (): AuthUser => {
   const token = localStorage.getItem('id_token');
   if (!token) return { email: '', groups: [] };
@@ -363,13 +325,15 @@ export const getCurrentUser = (): AuthUser => {
       if (!groups.includes(mapping.role)) {
         groups.push(mapping.role);
       }
+    } else if (groups.length === 0) {
+      groups.push('Candidate');
     }
 
     const mapping = DATABASE_ACCOUNTS_MAP[email];
 
     return {
       email: c.email || '',
-      name: c.name || mapping?.name || '',
+      name: c.name || mapping?.name || email,
       groups,
       studentCode: c['custom:student_code'] || mapping?.studentCode || '',
     };
@@ -378,11 +342,11 @@ export const getCurrentUser = (): AuthUser => {
   }
 };
 
-// 5. Đăng xuất
+// 6. Đăng xuất qua AWS Cognito Hosted UI
 export const logout = () => {
   localStorage.clear();
   sessionStorage.clear();
-  if (MOCK || !DOMAIN) {
+  if (!DOMAIN) {
     window.location.href = '/';
     return;
   }

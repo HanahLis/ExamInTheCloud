@@ -87,7 +87,7 @@ def lambda_handler(event, context):
         return build_response(200, {"message": "CORS preflight OK"})
 
     claims = get_auth_claims(event)
-    user_email = claims.get("email")
+    caller_email = claims.get("email", "").strip().lower()
 
     try:
         body = json.loads(event.get("body") or "{}")
@@ -104,9 +104,14 @@ def lambda_handler(event, context):
     captured_image_b64 = body.get("capturedImage")  # Base64 chuỗi ảnh chụp từ webcam
     captured_s3_key = body.get("capturedS3Key")      # Hoặc S3 key nếu upload trước
 
-    # Nếu không có email từ Cognito Token, lấy từ request body (hỗ trợ kiểm thử)
-    if not user_email:
-        user_email = body.get("email")
+    # Ưu tiên email thí sinh truyền trong body (hỗ trợ Giảng viên điểm danh cho thí sinh)
+    requested_email = body.get("email")
+    if requested_email:
+        user_email = requested_email.strip().lower()
+    elif caller_email:
+        user_email = caller_email
+    else:
+        user_email = "" 
 
     if not user_email or not session_id:
         return build_response(400, {
@@ -395,12 +400,12 @@ def lambda_handler(event, context):
                     "message": user_friendly_msg
                 })
 
-            return build_response(400, {
+            return build_response(200, {
                 "status": "FAIL",
                 "verified": False,
                 "similarity": 0.0,
-                "errorCode": "INVALID_IMAGE_PARAMETER",
-                "message": f"Tham số ảnh chụp không hợp lệ: {error_msg}"
+                "errorCode": "NO_FACE_DETECTED",
+                "message": "Amazon Rekognition: Không phát hiện khuôn mặt hợp lệ trong ảnh thẻ hồ sơ thí sinh hoặc ảnh chụp webcam. Vui lòng kiểm tra lại ảnh thẻ và nhìn thẳng vào camera."
             })
 
         # Trường hợp 2: Định dạng ảnh không được Rekognition hỗ trợ
