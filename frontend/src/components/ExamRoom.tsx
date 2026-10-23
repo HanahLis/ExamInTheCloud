@@ -15,7 +15,6 @@ import {
   type FaceVerifyResponse,
   type ExamSubmitResult,
 } from '../services/apiService';
-import { isMockSession, redirectToCognitoLogin } from '../services/auth';
 
 interface Props {
   sessionId: string;
@@ -71,6 +70,11 @@ export const ExamRoom = ({ sessionId, currentUserEmail = '', onExit }: Props) =>
         if (!isMounted) return;
         setSession(s);
         setCandidates(allCandidates);
+
+        // Đảm bảo trạng thái trên AWS DynamoDB luôn là RUNNING khi vào phòng thi
+        if (s.status !== 'CLOSED') {
+          updateSessionStatus(sessionId, 'RUNNING').catch(() => {});
+        }
 
         if (s.candidateEmails && s.candidateEmails.length > 0) {
           if (!candidateEmail || !s.candidateEmails.some((e) => e.toLowerCase() === candidateEmail.toLowerCase())) {
@@ -240,7 +244,7 @@ export const ExamRoom = ({ sessionId, currentUserEmail = '', onExit }: Props) =>
     const updatedEmails = Array.from(new Set([...session.candidateEmails, email]));
     try {
       await updateSessionCandidates(session.id, updatedEmails);
-      setSession({ ...session, candidateEmails: updatedEmails });
+      setSession({ ...session, candidateEmails: updatedEmails, status: 'RUNNING' });
       setCandidateEmail(email);
       setVerifyResult(null);
     } catch (e: any) {
@@ -432,21 +436,6 @@ export const ExamRoom = ({ sessionId, currentUserEmail = '', onExit }: Props) =>
                   Ngưỡng đối soát: <span className="font-mono font-semibold text-slate-700">&ge; 80%</span>
                 </span>
               </div>
-
-              {isMockSession() && (
-                <div className="p-2.5 bg-amber-50 border border-amber-200 rounded text-[11px] text-amber-900 flex flex-wrap items-center justify-between gap-2">
-                  <span>
-                    Phiên hiện tại là tài khoản thử nghiệm nhanh (Mock Token). Để AWS API Gateway và Rekognition cho phép điểm danh, vui lòng sử dụng tài khoản Cognito thật.
-                  </span>
-                  <button
-                    type="button"
-                    onClick={redirectToCognitoLogin}
-                    className="px-2.5 py-1 bg-slate-900 text-white rounded text-[11px] hover:bg-slate-800 transition cursor-pointer font-medium"
-                  >
-                    Đăng nhập AWS Cognito
-                  </button>
-                </div>
-              )}
             </div>
           </div>
 
