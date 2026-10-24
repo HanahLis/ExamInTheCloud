@@ -107,6 +107,65 @@ export interface ExamSubmitRequest {
   sessionId: string;
   answers: Record<string, number>; // { [questionId]: chosenIndex }
   candidateEmail?: string;
+  turnstileToken?: string;
+}
+
+export interface LeaderboardEntry {
+  rank: number;
+  candidateEmail: string;
+  email?: string;
+  name?: string;
+  score: number;
+}
+
+export interface LeaderboardResponse {
+  sessionId: string;
+  topCount: number;
+  leaderboard: LeaderboardEntry[];
+  source: string;
+}
+
+export interface ParseDocRequest {
+  fileBase64?: string;
+  fileContent?: string;
+  text?: string;
+  docText?: string;
+  bankId?: string;
+  subject?: string;
+  topic?: string;
+  autoSave?: boolean;
+}
+
+export interface ParseDocResponse {
+  message: string;
+  count: number;
+  bankId: string;
+  saved: boolean;
+  source: string;
+  questions: Question[];
+}
+
+export interface ExplainAnswerRequest {
+  questionId?: string;
+  content?: string;
+  questionContent?: string;
+  options?: string[];
+  chosenIndex?: number;
+  userAnswerIndex?: number;
+  correctIndex?: number;
+  chosenAnswer?: string;
+  userAnswer?: string;
+  correctAnswer?: string;
+  subject?: string;
+}
+
+export interface ExplainAnswerResponse {
+  questionId?: string;
+  explanation: string;
+  source: string;
+  chosenAnswer?: string;
+  correctAnswer?: string;
+  isCorrect?: boolean;
 }
 
 export interface ExamSubmitResult {
@@ -793,6 +852,25 @@ export const verifyFace = async (req: FaceVerifyRequest): Promise<FaceVerifyResp
 
 export const submitExam = async (req: ExamSubmitRequest): Promise<ExamSubmitResponse> => {
   const res = await api.post('/exam/submit', req);
+  return res.data;
+};
+
+// ============================================================================
+// 7.1. MULTI-CLOUD APIS: WORD DOC PARSING, LIVE LEADERBOARD & AI TUTOR
+// ============================================================================
+
+export const parseQuestionsFromDoc = async (payload: ParseDocRequest): Promise<ParseDocResponse> => {
+  const res = await api.post('/questions/parse-doc', payload);
+  return res.data;
+};
+
+export const fetchLeaderboard = async (sessionId: string): Promise<LeaderboardResponse> => {
+  const res = await api.get(`/sessions/${sessionId}/leaderboard`);
+  return res.data;
+};
+
+export const explainAnswerWithAI = async (payload: ExplainAnswerRequest): Promise<ExplainAnswerResponse> => {
+  const res = await api.post('/exam/explain-answers', payload);
   return res.data;
 };
 

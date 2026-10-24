@@ -69,3 +69,34 @@ variable "waf_rate_limit" {
   type        = number
   default     = 100
 }
+
+# ==============================================================================
+# CẤU HÌNH ĐA ĐÁM MÂY (MULTI-CLOUD INTEGRATIONS)
+# ==============================================================================
+
+variable "gemini_api_key" {
+  description = "Google Gemini API Key (Google AI Studio) cho tính năng bóc tách đề thi và gia sư ảo"
+  type        = string
+  default     = ""
+  sensitive   = true
+}
+
+variable "upstash_redis_rest_url" {
+  description = "REST URL của Upstash Serverless Redis cho Live Leaderboard"
+  type        = string
+  default     = ""
+}
+
+variable "upstash_redis_rest_token" {
+  description = "REST Token của Upstash Serverless Redis cho Live Leaderboard"
+  type        = string
+  default     = ""
+  sensitive   = true
+}
+
+variable "cloudflare_turnstile_secret_key" {
+  description = "Secret Key của Cloudflare Turnstile phục vụ xác thực người thật chống bot"
+  type        = string
+  default     = ""
+  sensitive   = true
+}

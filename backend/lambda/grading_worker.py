@@ -8,13 +8,16 @@ Sau 3 lần retry thất bại, SQS tự động chuyển bản ghi vào Dead Le
 
 import json
 import os
+import urllib.request
 import boto3
 from decimal import Decimal
 from datetime import datetime, timezone
 
-# Khởi tạo DynamoDB Resource
+# Khởi tạo DynamoDB Resource & Biến môi trường Multi-Cloud
 REGION = os.getenv("AWS_REGION", "ap-southeast-1")
 ENV = os.getenv("ENV", "dev")
+UPSTASH_REDIS_REST_URL = os.getenv("UPSTASH_REDIS_REST_URL", "").strip().rstrip("/")
+UPSTASH_REDIS_REST_TOKEN = os.getenv("UPSTASH_REDIS_REST_TOKEN", "").strip()
 
 dynamodb = boto3.resource("dynamodb", region_name=REGION)
 questions_table = dynamodb.Table(f"CloudExam_Questions_{ENV}")
@@ -22,6 +25,37 @@ sessions_table = dynamodb.Table(f"CloudExam_Sessions_{ENV}")
 
 # Bộ nhớ đệm tạm thời cho câu hỏi trong vòng đời container Lambda (tiết kiệm DynamoDB RCU)
 _QUESTIONS_CACHE = {}
+
+
+def push_to_upstash_leaderboard(session_id: str, candidate_email: str, score: float) -> bool:
+    """
+    Cập nhật điểm số vào Upstash Serverless Redis Sorted Set:
+    ZADD leaderboard:{sessionId} {score} {candidateEmail}
+    Phục vụ truy vấn bảng xếp hạng trực tiếp với độ trễ < 5ms.
+    """
+    if not UPSTASH_REDIS_REST_URL or not UPSTASH_REDIS_REST_TOKEN:
+        print("[WARN] Upstash Redis chưa được cấu hình, bỏ qua cập nhật bảng xếp hạng trực tiếp.")
+        return False
+
+    try:
+        command = ["ZADD", f"leaderboard:{session_id}", str(score), candidate_email]
+        req_data = json.dumps(command).encode("utf-8")
+        req = urllib.request.Request(
+            UPSTASH_REDIS_REST_URL,
+            data=req_data,
+            headers={
+                "Authorization": f"Bearer {UPSTASH_REDIS_REST_TOKEN}",
+                "Content-Type": "application/json"
+            },
+            method="POST"
+        )
+        with urllib.request.urlopen(req, timeout=3) as resp:
+            resp_data = json.loads(resp.read().decode("utf-8"))
+            print(f"[UPSTASH] Đã cập nhật điểm vào Redis: {command} -> {resp_data}")
+            return True
+    except Exception as e:
+        print(f"[WARN] Lỗi khi cập nhật Upstash Redis: {str(e)}")
+        return False
 
 
 def get_question_item(question_id: str):
@@ -106,6 +140,12 @@ def grade_submission(submission: dict) -> dict:
             ExpressionAttributeNames={"#email": candidate_email},
             ExpressionAttributeValues={":res": submission_result}
         )
+
+    # Đẩy điểm số tức thì vào Upstash Serverless Redis cho Live Leaderboard
+    try:
+        push_to_upstash_leaderboard(session_id, candidate_email, float(total_score))
+    except Exception as redis_err:
+        print(f"[WARN] Lỗi không chặn khi cập nhật Upstash Redis: {str(redis_err)}")
 
     print(
         f"[SUCCESS] Đã chấm bài thi thành công: Session={session_id} | "
