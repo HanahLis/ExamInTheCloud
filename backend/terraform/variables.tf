@@ -69,3 +69,55 @@ variable "waf_rate_limit" {
   type        = number
   default     = 100
 }
+
+# ==============================================================================
+# CẤU HÌNH ĐA ĐÁM MÂY (MULTI-CLOUD): GOOGLE GEMINI, UPSTASH REDIS & CLOUDFLARE
+# Phụ trách: Phạm Tuấn Phong (24021596) — Task P-01
+# ==============================================================================
+
+variable "gemini_api_key" {
+  description = "Google Gemini 1.5 Flash API Key từ Google AI Studio (miễn phí 1,500 req/ngày, 0 USD)"
+  type        = string
+  default     = ""
+  sensitive   = true
+}
+
+variable "upstash_redis_rest_url" {
+  description = "Upstash Serverless Redis REST URL cho Live Leaderboard"
+  type        = string
+  default     = ""
+}
+
+variable "upstash_redis_rest_token" {
+  description = "Upstash Serverless Redis REST Token cho Live Leaderboard"
+  type        = string
+  default     = ""
+  sensitive   = true
+}
+
+variable "cloudflare_turnstile_secret_key" {
+  description = "Cloudflare Turnstile Secret Key để xác thực chống bot tại Lambda"
+  type        = string
+  default     = ""
+  sensitive   = true
+}
+
+# ==============================================================================
+# CẤU HÌNH FINOPS & AWS BUDGETS (0 USD CLOUD)
+# Phụ trách: Phạm Tuấn Phong (24021596) — Task P-03
+# ==============================================================================
+
+variable "budget_limit_amount" {
+  description = "Hạn mức ngân sách AWS Budget cảnh báo (USD)"
+  type        = string
+  default     = "0.50"
+}
+
+variable "budget_alert_emails" {
+  description = "Danh sách email nhận thông báo cảnh báo ngân sách AWS Budget"
+  type        = list(string)
+  default     = ["phongpt@example.edu.vn", "cloudexam-admin@example.com"]
+}
+
+
+
