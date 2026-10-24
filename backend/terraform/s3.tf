@@ -48,7 +48,7 @@ resource "aws_s3_bucket_cors_configuration" "image_storage_cors" {
       "https://*.amplifyapp.com",
       "*"
     ]
-    expose_headers  = [
+    expose_headers = [
       "ETag",
       "x-amz-server-side-encryption",
       "x-amz-request-id",
@@ -72,7 +72,7 @@ resource "aws_s3_bucket_policy" "image_storage_read_policy" {
         Effect    = "Allow"
         Principal = "*"
         Action    = "s3:GetObject"
-        Resource  = [
+        Resource = [
           "${aws_s3_bucket.image_storage.arn}/questions/*",
           "${aws_s3_bucket.image_storage.arn}/faces/*"
         ]
@@ -80,4 +80,38 @@ resource "aws_s3_bucket_policy" "image_storage_read_policy" {
     ]
   })
 }
+
+# ------------------------------------------------------------------------------
+# 6. Cấu hình Vòng đời S3 (S3 Lifecycle Rules) dọn dẹp ảnh tạm sau 24h
+# Phụ trách: Phạm Tuấn Phong (24021596) — Task P-05
+# Chiến lược FinOps: Giữ dung lượng lưu trữ bucket luôn dưới 5GB Free Tier
+# ------------------------------------------------------------------------------
+resource "aws_s3_bucket_lifecycle_configuration" "image_storage_lifecycle" {
+  bucket = aws_s3_bucket.image_storage.id
+
+  rule {
+    id     = "cleanup-temp-and-snapshots-after-24h"
+    status = "Enabled"
+
+    filter {
+      prefix = "temp/"
+    }
+
+    expiration {
+      days = 1 # Tự động xóa file tạm sau 24 giờ
+    }
+  }
+
+  rule {
+    id     = "abort-incomplete-multipart-uploads-1day"
+    status = "Enabled"
+
+    filter {}
+
+    abort_incomplete_multipart_upload {
+      days_after_initiation = 1
+    }
+  }
+}
+
 
