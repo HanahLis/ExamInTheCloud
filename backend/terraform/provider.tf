@@ -18,9 +18,12 @@ provider "aws" {
 
   default_tags {
     tags = {
-      Project   = "CloudExam"
-      ManagedBy = "Terraform"
-      Owner     = "TuanPhong"
+      Project     = "CloudExam"
+      Environment = var.environment
+      ManagedBy   = "Terraform"
+      Tenant      = "MultiTenant"
+      CostCenter  = "FinOps-0USD"
+      Owner       = "TuanPhong"
     }
   }
 }
