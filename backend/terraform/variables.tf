@@ -102,4 +102,22 @@ variable "cloudflare_turnstile_secret_key" {
   sensitive   = true
 }
 
+# ==============================================================================
+# CẤU HÌNH FINOPS & AWS BUDGETS (0 USD CLOUD)
+# Phụ trách: Phạm Tuấn Phong (24021596) — Task P-03
+# ==============================================================================
+
+variable "budget_limit_amount" {
+  description = "Hạn mức ngân sách AWS Budget cảnh báo (USD)"
+  type        = string
+  default     = "0.50"
+}
+
+variable "budget_alert_emails" {
+  description = "Danh sách email nhận thông báo cảnh báo ngân sách AWS Budget"
+  type        = list(string)
+  default     = ["phongpt@example.edu.vn", "cloudexam-admin@example.com"]
+}
+
+
 
