@@ -77,6 +77,13 @@ resource "aws_api_gateway_resource" "question_image_upload" {
   path_part   = "image-upload"
 }
 
+# /questions/parse-doc (Trích xuất đề thi Word bằng Google Gemini AI)
+resource "aws_api_gateway_resource" "questions_parse_doc" {
+  rest_api_id = aws_api_gateway_rest_api.main.id
+  parent_id   = aws_api_gateway_resource.questions.id
+  path_part   = "parse-doc"
+}
+
 # /question-banks (Quản lý Ngân hàng câu hỏi)
 resource "aws_api_gateway_resource" "question_banks" {
   rest_api_id = aws_api_gateway_rest_api.main.id
@@ -119,6 +126,13 @@ resource "aws_api_gateway_resource" "session_results" {
   path_part   = "results"
 }
 
+# /sessions/{id}/leaderboard (Bảng xếp hạng trực tiếp Top 5 từ Upstash Redis)
+resource "aws_api_gateway_resource" "session_leaderboard" {
+  rest_api_id = aws_api_gateway_rest_api.main.id
+  parent_id   = aws_api_gateway_resource.session_id.id
+  path_part   = "leaderboard"
+}
+
 # /auth
 resource "aws_api_gateway_resource" "auth" {
   rest_api_id = aws_api_gateway_rest_api.main.id
@@ -147,6 +161,13 @@ resource "aws_api_gateway_resource" "exam_submit" {
   path_part   = "submit"
 }
 
+# /exam/explain-answers (AI Gia sư ảo phân tích câu sai bằng Google Gemini)
+resource "aws_api_gateway_resource" "exam_explain_answers" {
+  rest_api_id = aws_api_gateway_rest_api.main.id
+  parent_id   = aws_api_gateway_resource.exam.id
+  path_part   = "explain-answers"
+}
+
 # /sessions/{id}/paper
 resource "aws_api_gateway_resource" "session_paper" {
   rest_api_id = aws_api_gateway_rest_api.main.id
@@ -173,22 +194,25 @@ resource "aws_api_gateway_resource" "exam_save_progress" {
 # ==============================================================================
 locals {
   all_resources = {
-    "questions"       = aws_api_gateway_resource.questions.id
-    "question_id"     = aws_api_gateway_resource.question_id.id
-    "question_img"    = aws_api_gateway_resource.question_image_upload.id
-    "question_banks"  = aws_api_gateway_resource.question_banks.id
-    "candidates"      = aws_api_gateway_resource.candidates.id
-    "candidate_email" = aws_api_gateway_resource.candidate_email.id
-    "sessions"        = aws_api_gateway_resource.sessions.id
-    "session_id"      = aws_api_gateway_resource.session_id.id
-    "session_results" = aws_api_gateway_resource.session_results.id
-    "auth"            = aws_api_gateway_resource.auth.id
-    "face_verify"     = aws_api_gateway_resource.face_verify.id
-    "exam"            = aws_api_gateway_resource.exam.id
-    "exam_submit"     = aws_api_gateway_resource.exam_submit.id
-    "session_paper"   = aws_api_gateway_resource.session_paper.id
-    "session_report"  = aws_api_gateway_resource.session_send_report.id
-    "save_progress"   = aws_api_gateway_resource.exam_save_progress.id
+    "questions"            = aws_api_gateway_resource.questions.id
+    "question_id"          = aws_api_gateway_resource.question_id.id
+    "question_img"         = aws_api_gateway_resource.question_image_upload.id
+    "questions_parse_doc"  = aws_api_gateway_resource.questions_parse_doc.id
+    "question_banks"       = aws_api_gateway_resource.question_banks.id
+    "candidates"           = aws_api_gateway_resource.candidates.id
+    "candidate_email"      = aws_api_gateway_resource.candidate_email.id
+    "sessions"             = aws_api_gateway_resource.sessions.id
+    "session_id"           = aws_api_gateway_resource.session_id.id
+    "session_results"      = aws_api_gateway_resource.session_results.id
+    "session_leaderboard"  = aws_api_gateway_resource.session_leaderboard.id
+    "auth"                 = aws_api_gateway_resource.auth.id
+    "face_verify"          = aws_api_gateway_resource.face_verify.id
+    "exam"                 = aws_api_gateway_resource.exam.id
+    "exam_submit"          = aws_api_gateway_resource.exam_submit.id
+    "exam_explain_answers" = aws_api_gateway_resource.exam_explain_answers.id
+    "session_paper"        = aws_api_gateway_resource.session_paper.id
+    "session_report"       = aws_api_gateway_resource.session_send_report.id
+    "save_progress"        = aws_api_gateway_resource.exam_save_progress.id
   }
 }
 
@@ -252,6 +276,7 @@ locals {
     { key = "q_get", resource_id = aws_api_gateway_resource.questions.id, http_method = "GET" },
     { key = "q_post", resource_id = aws_api_gateway_resource.questions.id, http_method = "POST" },
     { key = "q_img_post", resource_id = aws_api_gateway_resource.question_image_upload.id, http_method = "POST" },
+    { key = "q_parsedoc_post", resource_id = aws_api_gateway_resource.questions_parse_doc.id, http_method = "POST" },
     { key = "qb_get", resource_id = aws_api_gateway_resource.question_banks.id, http_method = "GET" },
     { key = "qb_post", resource_id = aws_api_gateway_resource.question_banks.id, http_method = "POST" },
     { key = "qid_get", resource_id = aws_api_gateway_resource.question_id.id, http_method = "GET" },
@@ -266,10 +291,12 @@ locals {
     { key = "sid_get", resource_id = aws_api_gateway_resource.session_id.id, http_method = "GET" },
     { key = "sid_put", resource_id = aws_api_gateway_resource.session_id.id, http_method = "PUT" },
     { key = "sres_get", resource_id = aws_api_gateway_resource.session_results.id, http_method = "GET" },
+    { key = "s_leaderboard_get", resource_id = aws_api_gateway_resource.session_leaderboard.id, http_method = "GET" },
     { key = "sub_post", resource_id = aws_api_gateway_resource.exam_submit.id, http_method = "POST" },
     { key = "spaper_get", resource_id = aws_api_gateway_resource.session_paper.id, http_method = "GET" },
     { key = "sreport_post", resource_id = aws_api_gateway_resource.session_send_report.id, http_method = "POST" },
-    { key = "saveprog_post", resource_id = aws_api_gateway_resource.exam_save_progress.id, http_method = "POST" }
+    { key = "saveprog_post", resource_id = aws_api_gateway_resource.exam_save_progress.id, http_method = "POST" },
+    { key = "exam_explain_post", resource_id = aws_api_gateway_resource.exam_explain_answers.id, http_method = "POST" }
   ]
 }
 
@@ -339,10 +366,13 @@ resource "aws_api_gateway_deployment" "main" {
   triggers = {
     redeployment = sha1(jsonencode([
       aws_api_gateway_resource.questions.id,
+      aws_api_gateway_resource.questions_parse_doc.id,
       aws_api_gateway_resource.candidates.id,
       aws_api_gateway_resource.sessions.id,
+      aws_api_gateway_resource.session_leaderboard.id,
       aws_api_gateway_resource.face_verify.id,
       aws_api_gateway_resource.exam_submit.id,
+      aws_api_gateway_resource.exam_explain_answers.id,
       aws_api_gateway_authorizer.cognito_authorizer.id,
       local.core_api_methods
     ]))

@@ -94,3 +94,40 @@ resource "aws_dynamodb_table" "exam_sessions" {
   }
 }
 
+# 5. Bảng Bài nộp & Kết quả thi (Submissions)
+# Phục vụ Kiến trúc Tối ưu NoSQL & Sparse GSI SessionResultsIndex (Task 24)
+# Triệt tiêu Hot Partition và giới hạn kích thước 400KB khi lưu dồn vào Sessions
+resource "aws_dynamodb_table" "submissions" {
+  name         = "CloudExam_Submissions_${var.environment}"
+  billing_mode = "PAY_PER_REQUEST" # $0 idle cost
+  hash_key     = "id"              # Định dạng: {sessionId}#{candidateEmail}
+
+  attribute {
+    name = "id"
+    type = "S"
+  }
+
+  attribute {
+    name = "sessionId"
+    type = "S"
+  }
+
+  attribute {
+    name = "score"
+    type = "N"
+  }
+
+  # Sparse GSI SessionResultsIndex: Query theo sessionId và sắp xếp giảm dần theo điểm số
+  # Đảm bảo độ trễ truy vấn < 10ms (No Table Scan)
+  global_secondary_index {
+    name            = "SessionResultsIndex"
+    hash_key        = "sessionId"
+    range_key       = "score"
+    projection_type = "ALL"
+  }
+
+  tags = {
+    Name        = "CloudExam-Submissions"
+    Environment = var.environment
+  }
+}

@@ -62,6 +62,19 @@ resource "aws_cognito_user_pool" "main" {
     mutable             = true
   }
 
+  # Custom claim custom:tenant_id phục vụ đa quốc gia (cloudexam.vn vs edulao.la) - Task 5
+  schema {
+    name                     = "tenant_id"
+    attribute_data_type      = "String"
+    required                 = false
+    mutable                  = true
+    developer_only_attribute = false
+    string_attribute_constraints {
+      min_length = "1"
+      max_length = "20"
+    }
+  }
+
   tags = {
     Name        = "${var.project_name}-user-pool"
     Environment = var.environment

@@ -69,7 +69,9 @@ resource "aws_iam_role_policy" "lambda_core_api_policy" {
           aws_dynamodb_table.candidates.arn,
           "${aws_dynamodb_table.candidates.arn}/index/*",
           aws_dynamodb_table.exam_sessions.arn,
-          aws_dynamodb_table.question_banks.arn
+          aws_dynamodb_table.question_banks.arn,
+          aws_dynamodb_table.submissions.arn,
+          "${aws_dynamodb_table.submissions.arn}/index/*"
         ]
       },
 
@@ -342,15 +344,21 @@ resource "aws_iam_role_policy" "lambda_grading_worker_policy" {
           "${aws_dynamodb_table.questions.arn}/index/*"
         ]
       },
-      # 4.4. Quyền cập nhật kết quả thi vào DynamoDB Sessions
+      # 4.4. Quyền cập nhật kết quả thi vào DynamoDB Sessions & Submissions
       {
         Sid    = "DynamoDBUpdateSessions"
         Effect = "Allow"
         Action = [
           "dynamodb:GetItem",
-          "dynamodb:UpdateItem"
+          "dynamodb:UpdateItem",
+          "dynamodb:PutItem",
+          "dynamodb:Query"
         ]
-        Resource = aws_dynamodb_table.exam_sessions.arn
+        Resource = [
+          aws_dynamodb_table.exam_sessions.arn,
+          aws_dynamodb_table.submissions.arn,
+          "${aws_dynamodb_table.submissions.arn}/index/*"
+        ]
       }
     ]
   })

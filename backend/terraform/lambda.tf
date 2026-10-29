@@ -15,6 +15,7 @@ resource "aws_lambda_function" "core_api" {
   role             = aws_iam_role.lambda_core_api.arn
   handler          = "api_handler.lambda_handler"
   runtime          = "python3.11"
+  architectures    = ["arm64"] # Graviton2 arm64 theo đặc tả Task 11 (tiết kiệm 20% chi phí điện toán)
   timeout          = 15
   memory_size      = 256
   filename         = data.archive_file.lambda_payload.output_path
@@ -46,6 +47,7 @@ resource "aws_lambda_function" "face_verify" {
   role             = aws_iam_role.lambda_face_verify.arn
   handler          = "face_verify_handler.lambda_handler"
   runtime          = "python3.11"
+  architectures    = ["arm64"] # Graviton2 arm64 (Task 11)
   timeout          = 30
   memory_size      = 512
   filename         = data.archive_file.lambda_payload.output_path
@@ -71,6 +73,7 @@ resource "aws_lambda_function" "grading_worker" {
   role             = aws_iam_role.lambda_grading_worker.arn
   handler          = "grading_worker.lambda_handler"
   runtime          = "python3.11"
+  architectures    = ["arm64"] # Graviton2 arm64 (Task 11)
   timeout          = 30
   memory_size      = 256
   filename         = data.archive_file.lambda_payload.output_path
@@ -93,14 +96,14 @@ resource "aws_lambda_function" "grading_worker" {
   }
 }
 
-# 5. SQS Event Source Mapping cho Lambda Grading Worker (Batch Size = 10)
+# 5. SQS Event Source Mapping cho Lambda Grading Worker (Batch Size = 10, Window = 2s)
 # Phụ trách: Nguyễn Thị Ngọc Hà (24020115) — Trưởng nhóm
-# Task H-02: Cấu hình Event Source Mapping kết nối SQS với Lambda grading_worker (Batch size = 10)
+# Task H-02 / Task 20: Event Source Mapping kết nối SQS với Lambda grading_worker (Batch size = 10, BatchWindow = 2s)
 resource "aws_lambda_event_source_mapping" "sqs_to_grading_worker" {
   event_source_arn                   = aws_sqs_queue.exam_submission.arn
   function_name                      = aws_lambda_function.grading_worker.arn
   batch_size                         = 10
-  maximum_batching_window_in_seconds = 5
+  maximum_batching_window_in_seconds = 2
   function_response_types            = ["ReportBatchItemFailures"]
   enabled                            = true
 }
