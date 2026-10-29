@@ -1,0 +1,60 @@
+// ==============================================================================
+// QUY TRÌNH A: QUẢN TRỊ NGÂN HÀNG ĐỀ, THÍ SINH & TẠO CA THI TRỰC TUYẾN
+// Cú pháp: Eraser.io Diagram-as-Code (Flowchart)
+// ==============================================================================
+
+direction down
+
+Start [shape: oval, label: "Bắt đầu"]
+Step1 [shape: rectangle, label: "Bước 1: Đăng nhập Cognito Hosted UI (OAuth 2.0 PKCE)"]
+CheckAuth [shape: diamond, label: "Đăng nhập thành công?"]
+AuthFail [shape: rectangle, label: "Thông báo lỗi tài khoản (Sai email/mật khẩu)"]
+
+CheckRole [shape: diamond, label: "Có quyền Giảng viên / Admin?"]
+AccessDenied [shape: rectangle, label: "Từ chối truy cập (HTTP 403 Forbidden)"]
+Step3 [shape: rectangle, label: "Bước 3: Tạo Ngân hàng câu hỏi (POST /question-banks)"]
+DDBBanks [icon: aws-dynamodb, label: "Bảng CloudExam_QuestionBanks_dev"]
+
+InputMethod [shape: diamond, label: "Cách nhập câu hỏi?"]
+ManualInput [shape: rectangle, label: "Nhập tay: Text + 4 đáp án A-B-C-D"]
+ImageInput [shape: rectangle, label: "Có ảnh: Xin Presigned URL (TTL 300s) -> Upload S3"]
+AIInput [shape: rectangle, label: "Dùng AI: Upload Word/PDF -> Gemini 1.5 Flash bóc tách"]
+
+SaveQuestions [shape: rectangle, label: "Bước 5: Lưu câu hỏi vào CSDL"]
+DDBQuestions [icon: aws-dynamodb, label: "Bảng CloudExam_Questions_dev"]
+
+Step6 [shape: rectangle, label: "Bước 6: Thêm thí sinh & Upload ảnh thẻ gốc S3 faces/"]
+DDBCandidates [icon: aws-dynamodb, label: "Bảng CloudExam_Candidates_dev"]
+
+Step7 [shape: rectangle, label: "Bước 7: Tạo ca thi & Gán danh sách thí sinh (POST /sessions)"]
+DDBSessions [icon: aws-dynamodb, label: "Bảng CloudExam_Sessions_dev (status: SCHEDULED)"]
+
+Step8 [shape: rectangle, label: "Bước 8: Step Functions hẹn giờ mở ca thi & Gửi link phòng thi"]
+End [shape: oval, label: "Kết thúc: Sẵn sàng kỳ thi"]
+
+Start > Step1
+Step1 > CheckAuth
+CheckAuth > AuthFail: "Không"
+AuthFail > Step1: "Thử lại"
+CheckAuth > CheckRole: "Có"
+
+CheckRole > AccessDenied: "Không"
+CheckRole > Step3: "Có"
+Step3 > DDBBanks: "Lưu ngân hàng đề"
+Step3 > InputMethod
+
+InputMethod > ManualInput: "Tự nhập chữ"
+InputMethod > ImageInput: "Có ảnh sơ đồ"
+InputMethod > AIInput: "Bóc tách AI"
+
+ManualInput > SaveQuestions
+ImageInput > SaveQuestions
+AIInput > SaveQuestions
+
+SaveQuestions > DDBQuestions: "batch_write_item"
+SaveQuestions > Step6
+Step6 > DDBCandidates: "Lưu hồ sơ thí sinh"
+Step6 > Step7
+Step7 > DDBSessions: "Tạo ca thi mới"
+Step7 > Step8
+Step8 > End

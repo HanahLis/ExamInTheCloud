@@ -1,0 +1,148 @@
+// ==============================================================================
+// HỆ THỐNG CLOUDEXAM - KIẾN TRÚC TRIỂN KHAI HẠ TẦNG (DEPLOYMENT ARCHITECTURE)
+// Cú pháp: Eraser Diagram-as-Code (https://app.eraser.io)
+// Mô hình: Serverless Multi-Region (Singapore - Jakarta) & Multi-Cloud ($0 Cost)
+// ==============================================================================
+
+// ------------------------------------------------------------------------------
+// 1. VÙNG TRUY CẬP NGƯỜI DÙNG & BIÊN PHÒNG THỦ (CLIENT & EDGE ZONE)
+// ------------------------------------------------------------------------------
+"CLIENT & EDGE ZONE" [color: blue] {
+  Users [icon: users, label: "Thí sinh / Giảng viên (Đa Quốc Gia)"]
+  TurnstileWidget [icon: shield, label: "Cloudflare Turnstile (Invisible CAPTCHA)"]
+  Route53 [icon: aws-route-53, label: "Amazon Route 53 (DNS Failover & Geo)"]
+  CloudFront [icon: aws-cloudfront, label: "Amazon CloudFront (Edge CDN Cache)"]
+  CFFunctions [icon: aws-lambda, label: "CloudFront Functions (Tenant Resolver)"]
+  WAFv2 [icon: aws-waf, label: "AWS WAFv2 (Web ACL Rules)"]
+}
+
+// ------------------------------------------------------------------------------
+// 2. VÙNG ĐỊNH DANH & BẢO MẬT TRUNG TÂM (IDENTITY & ACCESS MANAGEMENT)
+// ------------------------------------------------------------------------------
+"IDENTITY & SECURITY" [color: cyan] {
+  Cognito [icon: aws-cognito, label: "Amazon Cognito (User Pool OAuth2 PKCE)"]
+  IAMRoles [icon: aws-iam, label: "AWS IAM (Least-Privilege Execution Roles)"]
+}
+
+// ------------------------------------------------------------------------------
+// 3. VÙNG CHÍNH: AWS PRIMARY REGION - ap-southeast-1 (SINGAPORE)
+// ------------------------------------------------------------------------------
+"PRIMARY REGION: ap-southeast-1 (SINGAPORE)" [color: amber] {
+  APIGateway [icon: aws-api-gateway, label: "Amazon API Gateway (Regional REST)"]
+  
+  // Nhóm hàm tính toán Serverless
+  LambdaCore [icon: aws-lambda, label: "Lambda Core API (api_handler.py)"]
+  LambdaFace [icon: aws-lambda, label: "Lambda Face Verify (face_verify_handler.py)"]
+  LambdaGrading [icon: aws-lambda, label: "Lambda Grading Worker (grading_worker.py)"]
+  
+  // Thị giác AI & Điều phối vòng đời
+  Rekognition [icon: aws-rekognition, label: "Amazon Rekognition (CompareFaces >= 80%)"]
+  StepFunctions [icon: aws-step-functions, label: "AWS Step Functions (Ca thi Lifecycle)"]
+  
+  // Bộ đệm bất đồng bộ
+  SQSQueue [icon: aws-sqs, label: "Amazon SQS (Submission Buffer Queue)"]
+  SQSDLQ [icon: aws-sqs, label: "Amazon SQS (Dead-Letter Queue)"]
+  
+  // Lưu trữ dữ liệu chính
+  DynamoDBPrimary [icon: aws-dynamodb, label: "Amazon DynamoDB (4 Tables On-Demand)"]
+  S3Primary [icon: aws-s3, label: "Amazon S3 Media (faces/ & questions/)"]
+}
+
+// ------------------------------------------------------------------------------
+// 4. VÙNG DỰ PHÒNG: AWS DISASTER RECOVERY REGION - ap-southeast-3 (JAKARTA)
+// ------------------------------------------------------------------------------
+"DR REGION: ap-southeast-3 (JAKARTA)" [color: green] {
+  DynamoDBReplica [icon: aws-dynamodb, label: "DynamoDB Global Tables (Sync < 1s)"]
+  S3Replica [icon: aws-s3, label: "Amazon S3 Replica (Cross-Region Repl)"]
+  APIGWBackup [icon: aws-api-gateway, label: "API Gateway DR Backup Target"]
+}
+
+// ------------------------------------------------------------------------------
+// 5. CÁC VỆ TINH ĐA ĐÁM MÂY (EXTERNAL MULTI-CLOUD SATELLITES - $0 TIER)
+// ------------------------------------------------------------------------------
+"MULTI-CLOUD SATELLITES ($0 TIER)" [color: orange] {
+  GoogleGemini [icon: cloud, label: "Google AI Studio (Gemini 1.5 Flash API)"]
+  UpstashRedis [icon: database, label: "Upstash Serverless Redis (Live Leaderboard)"]
+  CloudflareAPI [icon: shield, label: "Cloudflare Turnstile Verify API"]
+}
+
+// ------------------------------------------------------------------------------
+// 6. TẦNG QUẢN TRỊ, GIÁM SÁT & FINOPS (OBSERVABILITY & FINOPS)
+// ------------------------------------------------------------------------------
+"OBSERVABILITY & FINOPS" [color: purple] {
+  CloudWatch [icon: aws-cloudwatch, label: "Amazon CloudWatch (Logs & Metric Alarms)"]
+  Budgets [icon: aws-cloudwatch, label: "AWS Budgets (Cảnh báo ngưỡng 0.50 USD)"]
+  Terraform [icon: terraform, label: "HashiCorp Terraform (Multi-Provider IaC)"]
+}
+
+// ==============================================================================
+// ĐỊNH TUYẾN GIAO THỨC & LUỒNG TƯƠNG TÁC HỆ THỐNG
+// ==============================================================================
+
+// 1. Luồng Người Dùng & Phân phối Biên Đa Quốc Gia
+Users > Route53: "1. HTTPS (cloudexam.vn / edulao.la)"
+Users > TurnstileWidget: "Lấy Token bảo mật 0.1s"
+Route53 > WAFv2: "Lọc IP độc hại & Rate Limit"
+WAFv2 > CloudFront: "Web ACL Clean Traffic"
+CloudFront > CFFunctions: "Viewer Request"
+CFFunctions > CloudFront: "Inject x-tenant-id (VN/LA)"
+CloudFront > Users: "Phân phối React Web SPA Caching (< 20ms)"
+
+// 2. Xác thực Danh tính Cognito PKCE
+Users > Cognito: "2. Đăng nhập Hosted UI PKCE"
+Cognito > Users: "Cấp phát Bearer JWT (ID Token)"
+Cognito > APIGateway: "Xác thực chữ ký số JWKS"
+
+// 3. Cổng API Gateway tiếp nhận Request
+Users > APIGateway: "3. Gọi REST API (Bearer JWT + Tenant Header)"
+
+// 4. Luồng Nghiệp vụ Điểm danh AI Khuôn mặt
+APIGateway > LambdaFace: "POST /auth/face-verify"
+LambdaFace > S3Primary: "Đọc ảnh thẻ hồ sơ (faces/)"
+LambdaFace > Rekognition: "CompareFaces (1:1)"
+Rekognition > LambdaFace: "Độ tương đồng >= 80%"
+LambdaFace > DynamoDBPrimary: "Cập nhật CHECKED_IN"
+
+// 5. Luồng Quản trị Đề thi & Tải ảnh Direct Upload
+APIGateway > LambdaCore: "CRUD Đề, Ca thi & Thí sinh"
+LambdaCore > S3Primary: "Sinh S3 Presigned URL (TTL 300s)"
+Users > S3Primary: "PUT Upload ảnh trực tiếp lên S3"
+LambdaCore > DynamoDBPrimary: "Lưu bản ghi (TENANT#{CODE}#...)"
+
+// 6. Luồng Tích hợp Google Gemini AI Bóc tách File Word
+APIGateway > LambdaCore: "POST /questions/parse-doc"
+LambdaCore > GoogleGemini: "Gửi văn bản thô qua HTTPS"
+GoogleGemini > LambdaCore: "JSON Câu hỏi trắc nghiệm A-B-C-D"
+LambdaCore > DynamoDBPrimary: "Lưu vào Ngân hàng câu hỏi"
+
+// 7. Luồng Nộp bài Bất đồng bộ SQS & Xác thực Cloudflare
+Users > APIGateway: "POST /exam/submit (Kèm Turnstile Token)"
+APIGateway > LambdaCore: "Proxy Submit"
+LambdaCore > CloudflareAPI: "Verify Turnstile Token"
+CloudflareAPI > LambdaCore: "Token Hợp lệ (Người thật)"
+LambdaCore > SQSQueue: "Enqueue Bài thi (Phản hồi < 50ms)"
+LambdaCore > Users: "HTTP 200 OK: Đã nhận bài an toàn"
+
+// 8. Chấm điểm Tự động & Đẩy Live Leaderboard
+SQSQueue > LambdaGrading: "Tiêu thụ Message (Batch Size = 10)"
+LambdaGrading > DynamoDBPrimary: "Đối soát đáp án & Lưu điểm số"
+LambdaGrading > UpstashRedis: "ZADD Live Leaderboard (< 5ms)"
+LambdaGrading > SQSDLQ: "Retry thất bại 3 lần"
+Users > APIGateway: "GET /sessions/{id}/leaderboard"
+APIGateway > LambdaCore: "Đọc Top 5 từ Upstash Redis"
+LambdaCore > Users: "Bảng điểm Real-time nhảy tức thì"
+
+// 9. Điều phối Ca thi tự động
+StepFunctions > DynamoDBPrimary: "Cập nhật trạng thái: SCHEDULED -> RUNNING -> CLOSED"
+
+// 10. Phục hồi Thảm họa Đa Vùng Tự động (Zero-ClickOps Multi-Region DR)
+DynamoDBPrimary <> DynamoDBReplica: "Đồng bộ 2 chiều Global Tables (< 1s)"
+S3Primary > S3Replica: "S3 Cross-Region Replication (CRR)"
+Route53 .> APIGWBackup: "Tự động Failover sang Jakarta khi Singapore Unhealthy"
+
+// 11. Giám sát & Quản trị FinOps
+LambdaCore > CloudWatch: "Structured Logs & Tracing"
+LambdaFace > CloudWatch: "Biometric Match Metrics"
+LambdaGrading > CloudWatch: "Grading Latency Logs"
+CloudWatch > Budgets: "Kích hoạt cảnh báo khi cước > 0.50 USD"
+Terraform > IAMRoles: "Tự động khởi tạo và gán quyền"

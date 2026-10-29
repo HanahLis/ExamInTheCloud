@@ -1,0 +1,48 @@
+// ==============================================================================
+// QUY TRÌNH B: ĐIỂM DANH SINH TRẮC HỌC & KIỂM SOÁT TƯ CÁCH THÍ SINH (AI REKOGNITION)
+// Cú pháp: Eraser.io Diagram-as-Code (Flowchart)
+// ==============================================================================
+
+direction down
+
+Start [shape: oval, label: "Bắt đầu"]
+Step1 [shape: rectangle, label: "Bước 1: Thí sinh vào link ca thi (/?exam={sessionId}) & Nhập Email + Mật khẩu"]
+Step2 [shape: rectangle, label: "Bước 2: Kích hoạt Webcam HTML5, chụp chân dung & Mã hóa Base64"]
+Step3 [shape: rectangle, label: "Bước 3: Gửi yêu cầu POST /auth/face-verify lên API Gateway"]
+CheckSession [shape: diamond, label: "Ca thi đang ở trạng thái RUNNING?"]
+SessionError [shape: rectangle, label: "Thông báo lỗi: Ca thi chưa mở hoặc đã kết thúc"]
+
+CheckList [shape: diamond, label: "Thí sinh có tên trong danh sách ca thi?"]
+ListError [shape: rectangle, label: "Từ chối: Thí sinh không thuộc ca thi này"]
+
+Step5 [shape: rectangle, label: "Bước 5: Lambda tải ảnh thẻ gốc từ S3 faces/{MSSV}.jpg"]
+Step6 [shape: rectangle, label: "Bước 6: Thực thi Amazon Rekognition compare_faces (Threshold >= 80%)"]
+CheckMatch [shape: diamond, label: "Độ tương đồng >= 80% (Khớp khuôn mặt)?"]
+
+FailResult [shape: rectangle, label: "Trả mã HTTP 403 Forbidden & Phát cảnh báo gian lận qua SNS tới Giám thị"]
+ProctorAlert [icon: aws-sns, label: "Giám thị nhận email cảnh báo"]
+
+SuccessResult [shape: rectangle, label: "Cập nhật trạng thái CHECKED_IN vào DynamoDB Sessions"]
+Step7 [shape: rectangle, label: "HTTP 200 OK: Cấp quyền chuyển tiếp vào phòng thi"]
+End [shape: oval, label: "Bắt đầu làm bài thi"]
+
+Start > Step1
+Step1 > Step2
+Step2 > Step3
+Step3 > CheckSession
+
+CheckSession > SessionError: "Không"
+CheckSession > CheckList: "Có"
+
+CheckList > ListError: "Không"
+CheckList > Step5: "Có"
+
+Step5 > Step6
+Step6 > CheckMatch
+
+CheckMatch > FailResult: "Không (<80%)"
+FailResult > ProctorAlert
+CheckMatch > SuccessResult: "Có (>=80%)"
+
+SuccessResult > Step7
+Step7 > End

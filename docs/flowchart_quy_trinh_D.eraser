@@ -1,0 +1,44 @@
+// ==============================================================================
+// QUY TRÌNH D: NỘP BÀI, ĐỆM TẢI SQS & CHẤM ĐIỂM TỰ ĐỘNG THEO LÔ
+// Phiên bản chuẩn hóa · Tinh gọn CSDL DynamoDB · Cú pháp: Eraser.io Flowchart
+// ==============================================================================
+
+direction down
+
+Start [shape: oval, label: "Bắt đầu nộp bài"]
+Step1 [shape: rectangle, label: "Bước 1: Thí sinh bấm xác nhận nộp bài HOẶC Cưỡng chế nộp khi hết giờ"]
+Step2 [shape: rectangle, label: "Bước 2: Gửi POST /exam/submit (Answers + Cloudflare Turnstile Token)"]
+SQSBuffer [icon: aws-sqs, label: "Hàng đợi đệm Amazon SQS (ExamSubmissionQueue)"]
+ACKResponse [shape: rectangle, label: "Phản hồi HTTP 200 OK: 'Nộp bài an toàn' (< 50ms, chống sập mạng)"]
+
+Step3 [shape: rectangle, label: "Bước 3: Lambda Grading Worker rút bài theo lô (BatchSize = 10 messages)"]
+Step4 [shape: rectangle, label: "Bước 4: Đối soát đáp án chuẩn gốc từ DynamoDB CloudExam_Questions_dev"]
+Step5 [shape: rectangle, label: "Bước 5: So sánh phương án thí sinh chọn với đáp án chuẩn, tính điểm thang 10"]
+
+CheckGrading [shape: diamond, label: "Chấm điểm thành công không lỗi?"]
+DLQRoute [shape: rectangle, label: "Redrive Policy (Retry > 3 lần): Chuyển vào SQS Dead-Letter Queue (DLQ)"]
+DLQQueue [icon: aws-sqs, label: "Amazon SQS DLQ (Bảo toàn 100% bài lỗi để đối soát thủ công)"]
+
+SaveScore [shape: rectangle, label: "Bước 6: Ghi điểm số, submittedAt & chuyển status: COMPLETED vào DynamoDB"]
+
+Step7 [shape: rectangle, label: "Bước 7: AWS Step Functions khóa ca thi khi hết giờ & Kích hoạt Amazon SNS"]
+SNSEmail [icon: aws-sns, label: "Amazon SNS tự động phát Email bảng điểm ca thi tới Giảng viên"]
+End [shape: oval, label: "Kết thúc ca thi"]
+
+Start > Step1
+Step1 > Step2
+Step2 > SQSBuffer: "Enqueue bài nộp"
+SQSBuffer > ACKResponse: "Phản hồi tức thì"
+SQSBuffer > Step3: "Event Source Mapping"
+
+Step3 > Step4
+Step4 > Step5
+Step5 > CheckGrading
+
+CheckGrading > DLQRoute: "Gặp sự cố lỗi"
+DLQRoute > DLQQueue
+CheckGrading > SaveScore: "Thành công"
+
+SaveScore > Step7
+Step7 > SNSEmail
+SNSEmail > End

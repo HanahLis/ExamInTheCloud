@@ -1,0 +1,70 @@
+// ==============================================================================
+// CLOUDEXAM — HÌNH 2.6: PHÂN HỆ ĐIỀU PHỐI CA THI, DR ĐA VÙNG & FINOPS (TÍNH NĂNG 8 & SPRINT 3)
+// Phiên bản chuẩn hóa v3.0 · Tên chuẩn CloudExam · Đánh số nhãn tham chiếu [L-xx]
+// Cú pháp: Eraser.io Diagram-as-Code (https://app.eraser.io)
+// ==============================================================================
+
+direction right
+
+// ------------------------------------------------------------------------------
+// CỘT 1: ĐỊNH TUYẾN TOÀN CẦU & ĐIỀU PHỐI VÒNG ĐỜI CA THI (CONTROL PLANE)
+// ------------------------------------------------------------------------------
+"1. ĐỊNH TUYẾN & VÒNG ĐỜI CA THI" [color: blue] {
+  GlobalDNS [icon: aws-route-53, label: "CloudExam Global Latency Router\n(Amazon Route 53 · Health Check)"]
+  ExamStateMachine [icon: aws-step-functions, label: "CloudExam Exam State Machine\n(AWS Step Functions)"]
+  NotificationTopic [icon: aws-sns, label: "CloudExam Notification Topic\n(Amazon SNS Topic)"]
+}
+
+// ------------------------------------------------------------------------------
+// CỘT 2: VÙNG CHÍNH VÀ DỰ PHÒNG DR ĐA VÙNG (MULTI-REGION SERVERLESS DATA & COMPUTE)
+// ------------------------------------------------------------------------------
+"2. VÙNG CHÍNH VÀ DỰ PHÒNG DR" [color: amber] {
+  "Singapore (Primary Region: ap-southeast-1)" {
+    PrimaryAPIGW [icon: aws-api-gateway, label: "CloudExam Primary API Gateway\n(Singapore Active Endpoint)"]
+    PrimaryCompute [icon: aws-lambda, label: "CloudExam Primary Compute Server\n(Core API & Grading Workers)"]
+    PrimaryDB [icon: aws-dynamodb, label: "CloudExam Primary Datastore\n(DynamoDB Global Tables)"]
+    PrimaryStorage [icon: aws-s3, label: "CloudExam Primary Media Storage\n(Amazon S3 Bucket)"]
+  }
+
+  "Jakarta (Disaster Recovery: ap-southeast-3)" {
+    BackupAPIGW [icon: aws-api-gateway, label: "CloudExam Secondary API Gateway\n(Jakarta Standby Target)"]
+    BackupCompute [icon: aws-lambda, label: "CloudExam DR Compute Server\n(Zero Idle Cost · Auto-Scale)"]
+    ReplicaDB [icon: aws-dynamodb, label: "CloudExam Replica Datastore\n(DynamoDB Global · RPO < 1s)"]
+    ReplicaStorage [icon: aws-s3, label: "CloudExam Replica Storage\n(S3 CRR Nhân bản ngầm)"]
+  }
+}
+
+// ------------------------------------------------------------------------------
+// CỘT 3: GIÁM SÁT VẬN HÀNH & FINOPS (OBSERVABILITY & GOVERNANCE)
+// ------------------------------------------------------------------------------
+"3. GIÁM SÁT VẬN HÀNH & FINOPS" [color: purple] {
+  TelemetryEngine [icon: aws-cloudwatch, label: "CloudExam Observability Engine\n(Amazon CloudWatch Logs & Alarms)"]
+  BudgetGuard [icon: aws-cloudwatch, label: "CloudExam FinOps Budget Guard\n(AWS Budgets · Ngưỡng 0.50 USD)"]
+  IAMSecurity [icon: aws-iam, label: "CloudExam Least-Privilege Controller\n(AWS IAM Execution Roles)"]
+}
+
+// ==============================================================================
+// LUỒNG TƯƠNG TÁC TÍNH NĂNG
+// ==============================================================================
+
+// 1. Tự động hóa vòng đời ca thi bằng Step Functions
+ExamStateMachine > PrimaryDB: "[L-23] Tự động kích hoạt: SCHEDULED -> RUNNING"
+ExamStateMachine > PrimaryDB: "Cưỡng chế khóa đề: RUNNING -> CLOSED"
+ExamStateMachine > NotificationTopic: "[L-24] sns:Publish (Phát bảng điểm tổng kết tới Giảng viên)"
+
+// 2. Đồng bộ dữ liệu đa vùng (Singapore <-> Jakarta)
+PrimaryDB <> ReplicaDB: "DynamoDB Global Tables Sync 2 chiều (RPO < 1s)"
+PrimaryStorage > ReplicaStorage: "S3 Cross-Region Replication (CRR)"
+
+// 3. Cơ chế định tuyến và chuyển đổi dự phòng (Failover)
+GlobalDNS > PrimaryAPIGW: "Định tuyến lưu lượng bình thường (Primary Active)"
+GlobalDNS .> BackupAPIGW: "Tự động chuyển tiếp traffic sang Jakarta khi sự cố"
+PrimaryAPIGW > PrimaryCompute: "Forward In-Region Traffic"
+BackupAPIGW > BackupCompute: "Kích hoạt DR Compute khi có traffic chuyển vùng"
+BackupCompute > ReplicaDB: "Bảo đảm nghiệp vụ ca thi không bị gián đoạn (RTO < 2m)"
+
+// 4. Giám sát độ trễ và quản trị ngân sách 0 USD
+PrimaryAPIGW > TelemetryEngine: "Access Logs & Latency P99"
+PrimaryCompute > TelemetryEngine: "Execution Metrics & Error Traces"
+TelemetryEngine > BudgetGuard: "Trigger Email cảnh báo khi chi phí > 0.50 USD"
+IAMSecurity > PrimaryCompute: "Cấp quyền thực thi tối thiểu (Least Privilege)"

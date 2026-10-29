@@ -1,0 +1,60 @@
+// ==============================================================================
+// CLOUDEXAM — HÌNH 2.2: PHÂN HỆ CỔNG BIÊN, ĐA QUỐC GIA & ĐỊNH DANH TẬP TRUNG (TÍNH NĂNG 1 & 9)
+// Phiên bản chuẩn hóa v4.0 · Bổ sung toàn diện mã luồng [L-xx] & Giao thức bảo mật OAC/WAFv2
+// Cú pháp: Eraser.io Diagram-as-Code (https://app.eraser.io)
+// ==============================================================================
+
+direction right
+
+// ------------------------------------------------------------------------------
+// CỘT 1: TRUY CẬP ĐA QUỐC GIA & ĐỊNH TUYẾN TOÀN CẦU (GLOBAL INGRESS)
+// ------------------------------------------------------------------------------
+"1. TRUY CẬP & ĐỊNH TUYẾN TOÀN CẦU" [color: blue] {
+  VNCandidate [icon: users, label: "CloudExam VN Candidates\n(Domain: cloudexam.vn)"]
+  LACandidate [icon: users, label: "CloudExam LA Candidates\n(Domain: edulao.la)"]
+  GlobalDNS [icon: aws-route-53, label: "CloudExam Global DNS\n(Amazon Route 53 Anycast)"]
+}
+
+// ------------------------------------------------------------------------------
+// CỘT 2: PHÂN PHỐI NỘI DUNG TẠI BIÊN & ĐA THUÊ BAO (EDGE MULTI-TENANCY)
+// ------------------------------------------------------------------------------
+"2. PHÂN PHỐI BIÊN & ĐA THUÊ BAO" [color: amber] {
+  EdgeCDN [icon: aws-cloudfront, label: "CloudExam Edge Distribution\n(Amazon CloudFront Global)"]
+  EdgeFunction [icon: aws-lambda, label: "CloudExam Edge Tenant Resolver\n(CloudFront Functions)"]
+  SPAStorage [icon: aws-s3, label: "CloudExam Static Web Hosting Bucket\n(Amazon S3 Static Bucket)"]
+  ThemedClient [icon: react, label: "CloudExam Multi-Tenant Web Client\n(React 18 · VI / LA Themes)"]
+}
+
+// ------------------------------------------------------------------------------
+// CỘT 3: BẢO VỆ TƯỜNG LỬA, ĐỊNH DANH & CỔNG API (SECURITY & ACCESS CONTROL)
+// ------------------------------------------------------------------------------
+"3. AN NINH, ĐỊNH DANH & CỔNG API" [color: green] {
+  CognitoPool [icon: aws-cognito, label: "CloudExam Auth Server\n(Amazon Cognito · PKCE Flow)"]
+  WAFShield [icon: aws-waf, label: "CloudExam Application Firewall\n(AWS WAFv2 · Anti-DDoS)"]
+  APIGateway [icon: aws-api-gateway, label: "CloudExam Central API Gateway\n(Cognito JWT Authorizer)"]
+  CoreAPIHandler [icon: aws-lambda, label: "CloudExam Core API Server\n(AWS Lambda · api_handler.py)"]
+}
+
+// ==============================================================================
+// LUỒNG TƯƠNG TÁC TÍNH NĂNG ĐẦY ĐỦ MÃ ĐỊNH DANH [L-xx] & GIAO THỨC CHUẨN
+// ==============================================================================
+
+// 1. Phân giải DNS và định tuyến Edge
+VNCandidate > GlobalDNS: "[L-01a] DNS Query (UDP/TCP 53) - cloudexam.vn"
+LACandidate > GlobalDNS: "[L-01b] DNS Query (UDP/TCP 53) - edulao.la"
+GlobalDNS > EdgeCDN: "[L-01c] Anycast Edge Ingress (HTTPS / TLS 1.3 - Port 443)"
+
+// 2. Multi-tenant Header Injection & Cung cấp Web tĩnh qua OAC
+EdgeCDN > EdgeFunction: "[L-02a] CloudFront Viewer Request Hook (Edge Event)"
+EdgeFunction > EdgeCDN: "[L-02b] Inject Header: x-tenant-id (vn / la)"
+EdgeCDN > SPAStorage: "[L-02c] S3 Origin Access Control (OAC) over HTTPS (SigV4)"
+EdgeCDN > ThemedClient: "[L-02d] Phục vụ React SPA (HTML/JS/CSS Assets)"
+
+// 3. Đăng nhập phân quyền OAuth 2.0 PKCE
+ThemedClient <> CognitoPool: "[L-03] HTTPS POST (OAuth 2.0 PKCE / Authorization Code Flow)"
+
+// 4. Kiểm soát an ninh và truy cập API Gateway
+ThemedClient > WAFShield: "[L-04a] HTTPS REST Requests (Port 443 + Bearer JWT)"
+WAFShield > APIGateway: "[L-04b] AWS WAFv2 Web ACL Inspection & Rate Limit"
+APIGateway > APIGateway: "[L-04c] Cognito Authorizer (Verify JWT Signature & Claims)"
+APIGateway > CoreAPIHandler: "[L-05] AWS Lambda Proxy Integration (SigV4)"

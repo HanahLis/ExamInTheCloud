@@ -1,0 +1,292 @@
+<mxfile host="app.diagrams.net" modified="2026-10-27T22:45:00.000Z" agent="CloudExam Architecture Generator" version="21.0.0" type="device">
+  <diagram id="CloudExam-Detailed-Architecture" name="Kiến Trúc Chức Năng Chi Tiết CloudExam">
+    <mxGraphModel dx="1420" dy="880" grid="1" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" page="1" pageScale="1" pageWidth="1650" pageHeight="1100" background="#FFFFFF">
+      <root>
+        <mxCell id="0"/>
+        <mxCell id="1" parent="0"/>
+
+        <!-- ============================================================================== -->
+        <!-- 1. VÙNG TRUY CẬP NGƯỜI DÙNG & BIÊN PHÒNG THỦ (CLIENT & EDGE SECURITY ZONE)      -->
+        <!-- ============================================================================== -->
+        <mxCell id="zone_client" value="VÙNG TRUY CẬP NGƯỜI DÙNG &amp; BIÊN MẠNG (CLIENT &amp; EDGE ZONE)" style="swimlane;whiteSpace=wrap;html=1;fillColor=#F0F7FF;strokeColor=#0066CC;strokeWidth=2;fontStyle=1;fontSize=13;fontColor=#003366;dashed=0;rounded=1;arcSize=4;" vertex="1" parent="1">
+          <mxGeometry x="30" y="40" width="310" height="980" as="geometry"/>
+        </mxCell>
+
+        <mxCell id="node_users" value="&lt;b&gt;CloudExam Multi-Country Users&lt;/b&gt;&lt;br&gt;&lt;font style='font-size:11px;' color='#555555'&gt;Thí sinh &amp;amp; Giảng viên (VN, Lào, Quốc tế)&lt;br&gt;Tên miền: cloudexam.vn / edulao.la&lt;/font&gt;" style="shape=mxgraph.aws4.users;whiteSpace=wrap;html=1;fillColor=#FFFFFF;strokeColor=#0066CC;strokeWidth=1.5;align=center;verticalAlign=bottom;spacingBottom=6;fontColor=#003366;" vertex="1" parent="zone_client">
+          <mxGeometry x="45" y="45" width="220" height="85" as="geometry"/>
+        </mxCell>
+
+        <mxCell id="node_turnstile" value="&lt;b&gt;CloudExam Edge Anti-Bot Shield&lt;/b&gt;&lt;br&gt;&lt;font style='font-size:11px;' color='#555555'&gt;Cloudflare Turnstile (Invisible CAPTCHA)&lt;br&gt;Xác thực người dùng thật &amp;lt; 0.1s&lt;/font&gt;" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#FFF8E7;strokeColor=#F58220;strokeWidth=1.5;fontColor=#994C00;arcSize=8;" vertex="1" parent="zone_client">
+          <mxGeometry x="25" y="165" width="260" height="65" as="geometry">
+            <mxRectangle name="link" value="https://developers.cloudflare.com/turnstile/"/>
+          </mxGeometry>
+        </mxCell>
+
+        <mxCell id="node_cloudfront" value="&lt;b&gt;CloudExam Edge Content Delivery&lt;/b&gt;&lt;br&gt;&lt;font style='font-size:11px;' color='#555555'&gt;Amazon CloudFront &amp;amp; CloudFront Functions&lt;br&gt;CDN Caching &amp;lt; 20ms | Inject Header x-tenant-id&lt;/font&gt;" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#F2F4FF;strokeColor=#4A6EE0;strokeWidth=1.5;fontColor=#1E3A8A;arcSize=8;" vertex="1" parent="zone_client">
+          <mxGeometry x="25" y="265" width="260" height="75" as="geometry">
+            <mxRectangle name="link" value="https://docs.aws.amazon.com/AmazonCloudFront/latest/DeveloperGuide/"/>
+          </mxGeometry>
+        </mxCell>
+
+        <mxCell id="node_react_spa" value="&lt;b&gt;CloudExam Single Page Application (SPA)&lt;/b&gt;&lt;br&gt;&lt;font style='font-size:11px;' color='#555555'&gt;React 18 + Vite + Tailwind CSS Engine&lt;br&gt;• Dynamic Multi-Country Themes (VN/LA)&lt;br&gt;• Camera HTML5 &amp;amp; Atomic State Persistence&lt;br&gt;• Đa ngôn ngữ (i18n: Tiếng Việt, Lào, Anh)&lt;/font&gt;" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#EBF5FF;strokeColor=#3182CE;strokeWidth=1.5;fontColor=#2B6CB0;arcSize=8;" vertex="1" parent="zone_client">
+          <mxGeometry x="25" y="380" width="260" height="120" as="geometry"/>
+        </mxCell>
+
+        <mxCell id="node_webcam" value="&lt;b&gt;HTML5 MediaDevices Hardware Layer&lt;/b&gt;&lt;br&gt;&lt;font style='font-size:11px;' color='#555555'&gt;Webcam Client Capture + HTML5 Canvas&lt;br&gt;Base64 Image Encoding (JPEG)&lt;/font&gt;" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#F7FAFC;strokeColor=#718096;strokeWidth=1.5;fontColor=#2D3748;arcSize=8;" vertex="1" parent="zone_client">
+          <mxGeometry x="25" y="535" width="260" height="65" as="geometry"/>
+        </mxCell>
+
+        <!-- ============================================================================== -->
+        <!-- 2. VÙNG BẢO MẬT ĐỊNH DANH & CỔNG REST API (IDENTITY & API GATEWAY)             -->
+        <!-- ============================================================================== -->
+        <mxCell id="zone_security_api" value="BẢO MẬT ĐỊNH DANH &amp; CỔNG TIẾP NHẬN (IDENTITY &amp; API GATEWAY)" style="swimlane;whiteSpace=wrap;html=1;fillColor=#FAF5FF;strokeColor=#805AD5;strokeWidth=2;fontStyle=1;fontSize=13;fontColor=#44337A;dashed=0;rounded=1;arcSize=4;" vertex="1" parent="1">
+          <mxGeometry x="370" y="40" width="310" height="980" as="geometry"/>
+        </mxCell>
+
+        <mxCell id="node_cognito" value="&lt;b&gt;CloudExam Identity Provider&lt;/b&gt;&lt;br&gt;&lt;font style='font-size:11px;' color='#555555'&gt;Amazon Cognito User Pool &amp;amp; Identity Pool&lt;br&gt;• OAuth 2.0 Authorization Code (PKCE)&lt;br&gt;• Phân quyền RBAC: Admin, Organizer, Student&lt;br&gt;• Phát hành JWT Token (ID &amp;amp; Access Token)&lt;/font&gt;" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#FFF5F5;strokeColor=#E53E3E;strokeWidth=1.5;fontColor=#742A2A;arcSize=8;" vertex="1" parent="zone_security_api">
+          <mxGeometry x="25" y="55" width="260" height="105" as="geometry">
+            <mxRectangle name="link" value="https://docs.aws.amazon.com/cognito/latest/developerguide/"/>
+          </mxGeometry>
+        </mxCell>
+
+        <mxCell id="node_apigw" value="&lt;b&gt;CloudExam Central REST API Gateway&lt;/b&gt;&lt;br&gt;&lt;font style='font-size:11px;' color='#555555'&gt;Amazon API Gateway (Regional REST)&lt;br&gt;• Cognito Authorizer (Xác thực chữ ký RSA)&lt;br&gt;• Mock Preflight CORS (OPTIONS HTTP 200)&lt;br&gt;• Chặn truy cập trái phép mức Gateway (401/403)&lt;/font&gt;" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#FFF5F7;strokeColor=#D53F8C;strokeWidth=1.5;fontColor=#702459;arcSize=8;" vertex="1" parent="zone_security_api">
+          <mxGeometry x="25" y="240" width="260" height="110" as="geometry">
+            <mxRectangle name="link" value="https://docs.aws.amazon.com/apigateway/latest/developerguide/"/>
+          </mxGeometry>
+        </mxCell>
+
+        <mxCell id="node_iam_roles" value="&lt;b&gt;CloudExam IAM Security Controller&lt;/b&gt;&lt;br&gt;&lt;font style='font-size:11px;' color='#555555'&gt;AWS Identity &amp;amp; Access Management (IAM)&lt;br&gt;• Least-Privilege Execution Roles&lt;br&gt;• Quyền DynamoDB CRUD &amp;amp; SQS Producer/Consumer&lt;br&gt;• Quyền S3 PutObject / GetObject &amp;amp; Rekognition&lt;/font&gt;" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#FFF0F0;strokeColor=#C53030;strokeWidth=1.5;fontColor=#9B2C2C;arcSize=8;" vertex="1" parent="zone_security_api">
+          <mxGeometry x="25" y="440" width="260" height="95" as="geometry">
+            <mxRectangle name="link" value="https://docs.aws.amazon.com/IAM/latest/UserGuide/"/>
+          </mxGeometry>
+        </mxCell>
+
+        <mxCell id="node_cloudwatch" value="&lt;b&gt;CloudExam Central Observability Engine&lt;/b&gt;&lt;br&gt;&lt;font style='font-size:11px;' color='#555555'&gt;Amazon CloudWatch (Logs, Metrics, Alarms)&lt;br&gt;• Structured JSON Log Groups (Retention 14d)&lt;br&gt;• Giám sát độ trễ P99 &amp;amp; Lỗi 5XX Gateway&lt;br&gt;• Cảnh báo hàng đợi DLQ &amp;amp; Tối ưu hóa FinOps&lt;/font&gt;" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#FFF5F5;strokeColor=#DD6B20;strokeWidth=1.5;fontColor=#7B341E;arcSize=8;" vertex="1" parent="zone_security_api">
+          <mxGeometry x="25" y="600" width="260" height="95" as="geometry">
+            <mxRectangle name="link" value="https://docs.aws.amazon.com/cloudwatch/"/>
+          </mxGeometry>
+        </mxCell>
+
+        <mxCell id="node_budgets" value="&lt;b&gt;CloudExam FinOps Budget Guard&lt;/b&gt;&lt;br&gt;&lt;font style='font-size:11px;' color='#555555'&gt;AWS Budgets &amp;amp; Cost Anomaly Detection&lt;br&gt;Hàng rào kiểm soát ngân sách: Ngưỡng 0.50 USD&lt;br&gt;Bảo toàn 100% tiêu chí $0 Free Tier&lt;/font&gt;" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#FEFCBF;strokeColor=#B7791F;strokeWidth=1.5;fontColor=#744210;arcSize=8;" vertex="1" parent="zone_security_api">
+          <mxGeometry x="25" y="740" width="260" height="85" as="geometry">
+            <mxRectangle name="link" value="https://docs.aws.amazon.com/cost-management/latest/userguide/budgets-managing-costs.html"/>
+          </mxGeometry>
+        </mxCell>
+
+        <!-- ============================================================================== -->
+        <!-- 3. VÙNG TÍNH TOÁN SERVERLESS & AI (COMPUTE & AI PROCESSING ENGINE)             -->
+        <!-- ============================================================================== -->
+        <mxCell id="zone_compute_ai" value="TÍNH TOÁN SERVERLESS &amp; TRÍ TUỆ NHÂN TẠO (AWS SERVERLESS COMPUTE)" style="swimlane;whiteSpace=wrap;html=1;fillColor=#FFFFF0;strokeColor=#D69E2E;strokeWidth=2;fontStyle=1;fontSize=13;fontColor=#744210;dashed=0;rounded=1;arcSize=4;" vertex="1" parent="1">
+          <mxGeometry x="710" y="40" width="370" height="980" as="geometry"/>
+        </mxCell>
+
+        <mxCell id="node_lambda_core" value="&lt;b&gt;CloudExam Core Business Application Server&lt;/b&gt;&lt;br&gt;&lt;font style='font-size:11px;' color='#555555'&gt;AWS Lambda (Python 3.11) — api_handler.py&lt;br&gt;• Bộ nhớ: 256MB | Timeout: 30s&lt;br&gt;• CRUD Đề thi, Ngân hàng câu hỏi, Thí sinh, Ca thi&lt;br&gt;• Sinh Presigned URL S3 (TTL 300s)&lt;br&gt;• Nhận bài nộp &amp;amp; Enqueue vào Amazon SQS&lt;/font&gt;" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#FFFAF0;strokeColor=#ED8936;strokeWidth=1.5;fontColor=#7B341E;arcSize=8;" vertex="1" parent="zone_compute_ai">
+          <mxGeometry x="25" y="45" width="320" height="110" as="geometry">
+            <mxRectangle name="link" value="https://docs.aws.amazon.com/lambda/latest/dg/welcome.html"/>
+          </mxGeometry>
+        </mxCell>
+
+        <mxCell id="node_lambda_face" value="&lt;b&gt;CloudExam Biometric Verification Server&lt;/b&gt;&lt;br&gt;&lt;font style='font-size:11px;' color='#555555'&gt;AWS Lambda (Python 3.11) — face_verify_handler.py&lt;br&gt;• Bộ nhớ: 512MB RAM tối ưu giải mã Base64&lt;br&gt;• Kiểm tra Session = RUNNING &amp;amp; Candidate có trong ca&lt;br&gt;• Tải ảnh thẻ gốc S3 &amp;amp; gọi Rekognition CompareFaces&lt;br&gt;• Cập nhật trạng thái CHECKED_IN vào DynamoDB&lt;/font&gt;" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#FFFAF0;strokeColor=#ED8936;strokeWidth=1.5;fontColor=#7B341E;arcSize=8;" vertex="1" parent="zone_compute_ai">
+          <mxGeometry x="25" y="220" width="320" height="115" as="geometry">
+            <mxRectangle name="link" value="https://docs.aws.amazon.com/rekognition/latest/dg/faces-comparefaces.html"/>
+          </mxGeometry>
+        </mxCell>
+
+        <mxCell id="node_rekognition" value="&lt;b&gt;CloudExam AI Computer Vision Engine&lt;/b&gt;&lt;br&gt;&lt;font style='font-size:11px;' color='#555555'&gt;Amazon Rekognition (SaaS AI Face Match)&lt;br&gt;• API CompareFaces (So khớp vector 1:1)&lt;br&gt;• Ngưỡng tương đồng khắt khe: Similarity &amp;ge; 80.0%&lt;br&gt;• Phát hiện ảnh giả mạo, góc nghiêng &amp;amp; chống thi hộ&lt;/font&gt;" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#F0FFF4;strokeColor=#38A169;strokeWidth=1.5;fontColor=#22543D;arcSize=8;" vertex="1" parent="zone_compute_ai">
+          <mxGeometry x="25" y="380" width="320" height="95" as="geometry">
+            <mxRectangle name="link" value="https://docs.aws.amazon.com/rekognition/"/>
+          </mxGeometry>
+        </mxCell>
+
+        <mxCell id="node_stepfunctions" value="&lt;b&gt;CloudExam Exam Lifecycle State Machine&lt;/b&gt;&lt;br&gt;&lt;font style='font-size:11px;' color='#555555'&gt;AWS Step Functions &amp;amp; Amazon EventBridge&lt;br&gt;• Quản lý chu trình ca thi tự động 100%:&lt;br&gt;  SCHEDULED &amp;rarr; RUNNING &amp;rarr; CLOSED&lt;br&gt;• Tự động kích hoạt phòng thi &amp;amp; cưỡng chế thu bài&lt;/font&gt;" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#FAF5FF;strokeColor=#9F7AEA;strokeWidth=1.5;fontColor=#44337A;arcSize=8;" vertex="1" parent="zone_compute_ai">
+          <mxGeometry x="25" y="525" width="320" height="95" as="geometry">
+            <mxRectangle name="link" value="https://docs.aws.amazon.com/step-functions/"/>
+          </mxGeometry>
+        </mxCell>
+
+        <mxCell id="node_lambda_grading" value="&lt;b&gt;CloudExam Asynchronous Grading Worker&lt;/b&gt;&lt;br&gt;&lt;font style='font-size:11px;' color='#555555'&gt;AWS Lambda (Python 3.11) — grading_worker.py&lt;br&gt;• Event Source Mapping với SQS (Batch Size = 10)&lt;br&gt;• Chấm điểm trắc nghiệm tự động ngầm thang 10&lt;br&gt;• Cập nhật điểm &amp;amp; COMPLETED vào DynamoDB&lt;br&gt;• Đẩy điểm vào Upstash Live Leaderboard &amp;lt; 5ms&lt;/font&gt;" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#FFFAF0;strokeColor=#DD6B20;strokeWidth=1.5;fontColor=#7B341E;arcSize=8;" vertex="1" parent="zone_compute_ai">
+          <mxGeometry x="25" y="665" width="320" height="115" as="geometry">
+            <mxRectangle name="link" value="https://docs.aws.amazon.com/lambda/latest/dg/with-sqs.html"/>
+          </mxGeometry>
+        </mxCell>
+
+        <mxCell id="node_sns" value="&lt;b&gt;CloudExam Result Notification Dispatcher&lt;/b&gt;&lt;br&gt;&lt;font style='font-size:11px;' color='#555555'&gt;Amazon Simple Notification Service (Amazon SNS)&lt;br&gt;Topic: CloudExam_ExamResults_Topic&lt;br&gt;Tự động phát hành email bảng điểm ca thi cho Giảng viên&lt;/font&gt;" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#FFF5F5;strokeColor=#E53E3E;strokeWidth=1.5;fontColor=#742A2A;arcSize=8;" vertex="1" parent="zone_compute_ai">
+          <mxGeometry x="25" y="825" width="320" height="85" as="geometry">
+            <mxRectangle name="link" value="https://docs.aws.amazon.com/sns/"/>
+          </mxGeometry>
+        </mxCell>
+
+        <!-- ============================================================================== -->
+        <!-- 4. VÙNG HÀNG ĐỢI, CSDL & LƯU TRỮ ĐA VÙNG (PERSISTENCE & QUEUES)                 -->
+        <!-- ============================================================================== -->
+        <mxCell id="zone_storage" value="CSDL NOSQL, LƯU TRỮ VÀ BỘ ĐỆM TẢI (PERSISTENCE &amp; BUFFER PIPELINE)" style="swimlane;whiteSpace=wrap;html=1;fillColor=#F0FFF4;strokeColor=#38A169;strokeWidth=2;fontStyle=1;fontSize=13;fontColor=#22543D;dashed=0;rounded=1;arcSize=4;" vertex="1" parent="1">
+          <mxGeometry x="1110" y="40" width="490" height="980" as="geometry"/>
+        </mxCell>
+
+        <mxCell id="node_sqs_queue" value="&lt;b&gt;CloudExam ExamSubmission Buffer Queue&lt;/b&gt;&lt;br&gt;&lt;font style='font-size:11px;' color='#555555'&gt;Amazon Simple Queue Service (Amazon SQS Standard)&lt;br&gt;• Hấp thụ hoàn toàn xung tải nộp bài hàng nghìn thí sinh&lt;br&gt;• Thời gian lưu trữ: 4 ngày | Visibility Timeout: 180s&lt;/font&gt;" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#FFF5F5;strokeColor=#C53030;strokeWidth=1.5;fontColor=#742A2A;arcSize=8;" vertex="1" parent="zone_storage">
+          <mxGeometry x="25" y="45" width="440" height="75" as="geometry">
+            <mxRectangle name="link" value="https://docs.aws.amazon.com/AWSSimpleQueueService/latest/SQSDeveloperGuide/"/>
+          </mxGeometry>
+        </mxCell>
+
+        <mxCell id="node_sqs_dlq" value="&lt;b&gt;CloudExam Dead-Letter Queue (DLQ)&lt;/b&gt;&lt;br&gt;&lt;font style='font-size:11px;' color='#555555'&gt;Amazon SQS Dead Letter Queue (maxReceiveCount = 3)&lt;br&gt;Bảo toàn 100% dữ liệu bài thi gặp sự cố để đối soát thủ công&lt;/font&gt;" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#FED7D7;strokeColor=#9B2C2C;strokeWidth=1.5;fontColor=#742A2A;arcSize=8;" vertex="1" parent="zone_storage">
+          <mxGeometry x="25" y="145" width="440" height="60" as="geometry"/>
+        </mxCell>
+
+        <mxCell id="node_s3" value="&lt;b&gt;CloudExam Media Storage Bucket&lt;/b&gt;&lt;br&gt;&lt;font style='font-size:11px;' color='#555555'&gt;Amazon S3 (Bucket: cloudexam-storage-409289618109-dev)&lt;br&gt;• Thư mục faces/* : Ảnh thẻ sinh trắc học hồ sơ gốc của thí sinh&lt;br&gt;• Thư mục questions/* : Ảnh sơ đồ, biểu đồ hình học đính kèm đề&lt;br&gt;• Mẫu hình Direct Upload qua S3 Presigned URL (TTL 300s)&lt;br&gt;• S3 Cross-Region Replication (CRR) sang Jakarta dự phòng&lt;/font&gt;" style="shape=cylinder3;whiteSpace=wrap;html=1;boundedLbl=1;backgroundOutline=1;size=15;fillColor=#EBF8FF;strokeColor=#3182CE;strokeWidth=1.5;fontColor=#2B6CB0;" vertex="1" parent="zone_storage">
+          <mxGeometry x="25" y="235" width="440" height="120" as="geometry">
+            <mxRectangle name="link" value="https://docs.aws.amazon.com/AmazonS3/latest/userguide/"/>
+          </mxGeometry>
+        </mxCell>
+
+        <mxCell id="node_dynamodb" value="&lt;b&gt;CloudExam High-Speed NoSQL Datastore Cluster&lt;/b&gt;&lt;br&gt;&lt;font style='font-size:11px;' color='#555555'&gt;Amazon DynamoDB (4 Tables On-Demand, Single-digit ms Latency)&lt;br&gt;&lt;b&gt;1. CloudExam_Questions_dev&lt;/b&gt; (PK: id, GSI: BankIdIndex)&lt;br&gt;&lt;b&gt;2. CloudExam_Candidates_dev&lt;/b&gt; (PK: email, GSI: StudentCodeIndex)&lt;br&gt;&lt;b&gt;3. CloudExam_Sessions_dev&lt;/b&gt; (PK: id, candidateEmails, submissions)&lt;br&gt;&lt;b&gt;4. CloudExam_QuestionBanks_dev&lt;/b&gt; (PK: id, subject, topic)&lt;br&gt;• Hỗ trợ Single-Table Multi-Tenancy (Prefix: TENANT#VN#, TENANT#LA#)&lt;br&gt;• DynamoDB Global Tables (Nhân bản 2 chiều sang Jakarta RPO &amp;lt; 1s)&lt;/font&gt;" style="shape=cylinder3;whiteSpace=wrap;html=1;boundedLbl=1;backgroundOutline=1;size=15;fillColor=#EBF4FF;strokeColor=#4C51BF;strokeWidth=1.5;fontColor=#3C366B;" vertex="1" parent="zone_storage">
+          <mxGeometry x="25" y="380" width="440" height="175" as="geometry">
+            <mxRectangle name="link" value="https://docs.aws.amazon.com/amazondynamodb/latest/developerguide/"/>
+          </mxGeometry>
+        </mxCell>
+
+        <mxCell id="node_gemini" value="&lt;b&gt;CloudExam AI Examination Intelligence Satellite&lt;/b&gt;&lt;br&gt;&lt;font style='font-size:11px;' color='#555555'&gt;Google Cloud (Google AI Studio) — Gemini 1.5 Flash API ($0 Free Tier)&lt;br&gt;• Tự động số hóa đề thi: Parse file Word (.docx) / PDF thành JSON câu hỏi&lt;br&gt;• AI Tutor: Phân tích và giải thích cặn kẽ đáp án sai cho thí sinh sau thi&lt;br&gt;• Hạn mức miễn phí: 15 RPM, 1.500 requests/ngày&lt;/font&gt;" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#F3E8FF;strokeColor=#805AD5;strokeWidth=1.5;fontColor=#44337A;arcSize=8;" vertex="1" parent="zone_storage">
+          <mxGeometry x="25" y="585" width="440" height="105" as="geometry">
+            <mxRectangle name="link" value="https://ai.google.dev/"/>
+          </mxGeometry>
+        </mxCell>
+
+        <mxCell id="node_upstash" value="&lt;b&gt;CloudExam Real-Time Live Leaderboard Engine&lt;/b&gt;&lt;br&gt;&lt;font style='font-size:11px;' color='#555555'&gt;Upstash Serverless Redis Cloud ($0 Free Tier, 10.000 cmds/day)&lt;br&gt;• Cấu trúc In-Memory: Redis Sorted Sets (ZADD / ZREVRANGE)&lt;br&gt;• Phản hồi bảng xếp hạng trực tiếp Top 5 với độ trễ &amp;lt; 5ms&lt;br&gt;• Tiết kiệm 100% dung lượng RCU/WCU của cơ sở dữ liệu DynamoDB&lt;/font&gt;" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#FFFAF0;strokeColor=#DD6B20;strokeWidth=1.5;fontColor=#7B341E;arcSize=8;" vertex="1" parent="zone_storage">
+          <mxGeometry x="25" y="720" width="440" height="95" as="geometry">
+            <mxRectangle name="link" value="https://upstash.com/docs/redis/overall/getstarted"/>
+          </mxGeometry>
+        </mxCell>
+
+        <mxCell id="node_terraform" value="&lt;b&gt;CloudExam Infrastructure as Code (IaC) Manager&lt;/b&gt;&lt;br&gt;&lt;font style='font-size:11px;' color='#555555'&gt;HashiCorp Terraform (14 Modules HCL: provider, lambda, dynamodb, s3, cognito...)&lt;br&gt;Tự động hóa 100% quy trình triển khai, cấu hình và đồng bộ hạ tầng đám mây&lt;/font&gt;" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#F7FAFC;strokeColor=#4A5568;strokeWidth=1.5;fontColor=#2D3748;arcSize=8;" vertex="1" parent="zone_storage">
+          <mxGeometry x="25" y="845" width="440" height="75" as="geometry">
+            <mxRectangle name="link" value="https://developer.hashicorp.com/terraform/docs"/>
+          </mxGeometry>
+        </mxCell>
+
+        <!-- ============================================================================== -->
+        <!-- ĐƯỜNG KẾT NỐI VÀ GIAO THỨC TRUYỀN THÔNG (CONNECTORS WITH PROTOCOLS & LABELS)    -->
+        <!-- ============================================================================== -->
+
+        <!-- 1. Users to CloudFront -->
+        <mxCell id="edge_users_cf" value="&lt;b&gt;HTTPS / TLS 1.3&lt;/b&gt;&lt;br&gt;&lt;font style='font-size:10px;'&gt;Tên miền Quốc gia (cloudexam.vn)&lt;/font&gt;" style="edgeStyle=orthogonalEdgeStyle;rounded=1;orthogonalLoop=1;jettySize=auto;html=1;strokeColor=#3182CE;strokeWidth=2;fontColor=#2B6CB0;exitX=0.5;exitY=1;entryX=0.5;entryY=0;" edge="1" parent="1" source="node_users" target="node_cloudfront">
+          <mxGeometry relative="1" as="geometry"/>
+        </mxCell>
+
+        <!-- 2. Users to Turnstile -->
+        <mxCell id="edge_users_turnstile" value="&lt;b&gt;Token 0.1s&lt;/b&gt;" style="edgeStyle=orthogonalEdgeStyle;rounded=1;orthogonalLoop=1;jettySize=auto;html=1;strokeColor=#F58220;strokeWidth=1.5;fontColor=#994C00;dashed=1;exitX=0.2;exitY=1;entryX=0.2;entryY=0;" edge="1" parent="1" source="node_users" target="node_turnstile">
+          <mxGeometry relative="1" as="geometry"/>
+        </mxCell>
+
+        <!-- 3. CloudFront to React SPA -->
+        <mxCell id="edge_cf_spa" value="&lt;b&gt;CDN Edge Caching&lt;/b&gt;&lt;br&gt;&lt;font style='font-size:10px;'&gt;Dynamic x-tenant-id (VN/LA)&lt;/font&gt;" style="edgeStyle=orthogonalEdgeStyle;rounded=1;orthogonalLoop=1;jettySize=auto;html=1;strokeColor=#3182CE;strokeWidth=2;fontColor=#2B6CB0;exitX=0.5;exitY=1;entryX=0.5;entryY=0;" edge="1" parent="1" source="node_cloudfront" target="node_react_spa">
+          <mxGeometry relative="1" as="geometry"/>
+        </mxCell>
+
+        <!-- 4. SPA to Cognito -->
+        <mxCell id="edge_spa_cognito" value="&lt;b&gt;HTTPS POST / OAuth 2.0 PKCE&lt;/b&gt;&lt;br&gt;&lt;font style='font-size:10px;'&gt;Hosted UI Login &amp;rarr; Trả về Bearer ID Token JWT&lt;/font&gt;" style="edgeStyle=orthogonalEdgeStyle;rounded=1;orthogonalLoop=1;jettySize=auto;html=1;strokeColor=#E53E3E;strokeWidth=2;fontColor=#742A2A;exitX=1;exitY=0.2;entryX=0;entryY=0.5;" edge="1" parent="1" source="node_react_spa" target="node_cognito">
+          <mxGeometry relative="1" as="geometry"/>
+        </mxCell>
+
+        <!-- 5. Cognito to API Gateway (JWKS verify) -->
+        <mxCell id="edge_cognito_apigw" value="&lt;b&gt;JWKS Public Key Set&lt;/b&gt;&lt;br&gt;&lt;font style='font-size:10px;'&gt;Xác thực chữ ký số RSA tự động&lt;/font&gt;" style="edgeStyle=orthogonalEdgeStyle;rounded=1;orthogonalLoop=1;jettySize=auto;html=1;strokeColor=#805AD5;strokeWidth=1.5;fontColor=#44337A;dashed=1;exitX=0.5;exitY=1;entryX=0.5;entryY=0;" edge="1" parent="1" source="node_cognito" target="node_apigw">
+          <mxGeometry relative="1" as="geometry"/>
+        </mxCell>
+
+        <!-- 6. SPA to API Gateway -->
+        <mxCell id="edge_spa_apigw" value="&lt;b&gt;HTTPS RESTful API&lt;/b&gt;&lt;br&gt;&lt;font style='font-size:10px;'&gt;Header: Authorization: Bearer &amp;lt;ID_TOKEN&amp;gt;&lt;br&gt;Header: x-tenant-id: VN/LA&lt;/font&gt;" style="edgeStyle=orthogonalEdgeStyle;rounded=1;orthogonalLoop=1;jettySize=auto;html=1;strokeColor=#D53F8C;strokeWidth=2;fontColor=#702459;exitX=1;exitY=0.5;entryX=0;entryY=0.5;" edge="1" parent="1" source="node_react_spa" target="node_apigw">
+          <mxGeometry relative="1" as="geometry"/>
+        </mxCell>
+
+        <!-- 7. API Gateway to Lambda Core -->
+        <mxCell id="edge_apigw_lambda_core" value="&lt;b&gt;Lambda Proxy Integration&lt;/b&gt;&lt;br&gt;&lt;font style='font-size:10px;'&gt;JSON Event Payload (CRUD Routes)&lt;/font&gt;" style="edgeStyle=orthogonalEdgeStyle;rounded=1;orthogonalLoop=1;jettySize=auto;html=1;strokeColor=#ED8936;strokeWidth=2;fontColor=#7B341E;exitX=1;exitY=0.3;entryX=0;entryY=0.5;" edge="1" parent="1" source="node_apigw" target="node_lambda_core">
+          <mxGeometry relative="1" as="geometry"/>
+        </mxCell>
+
+        <!-- 8. API Gateway to Lambda Face Verify -->
+        <mxCell id="edge_apigw_lambda_face" value="&lt;b&gt;POST /auth/face-verify&lt;/b&gt;&lt;br&gt;&lt;font style='font-size:10px;'&gt;Payload: { sessionId, email, capturedImage b64 }&lt;/font&gt;" style="edgeStyle=orthogonalEdgeStyle;rounded=1;orthogonalLoop=1;jettySize=auto;html=1;strokeColor=#ED8936;strokeWidth=2;fontColor=#7B341E;exitX=1;exitY=0.7;entryX=0;entryY=0.5;" edge="1" parent="1" source="node_apigw" target="node_lambda_face">
+          <mxGeometry relative="1" as="geometry"/>
+        </mxCell>
+
+        <!-- 9. Lambda Face Verify to S3 -->
+        <mxCell id="edge_face_s3" value="&lt;b&gt;AWS SDK (Boto3) s3:GetObject&lt;/b&gt;&lt;br&gt;&lt;font style='font-size:10px;'&gt;Tải ảnh thẻ gốc faces/{studentCode}.jpg&lt;/font&gt;" style="edgeStyle=orthogonalEdgeStyle;rounded=1;orthogonalLoop=1;jettySize=auto;html=1;strokeColor=#3182CE;strokeWidth=1.5;fontColor=#2B6CB0;exitX=1;exitY=0.3;entryX=0;entryY=0.3;" edge="1" parent="1" source="node_lambda_face" target="node_s3">
+          <mxGeometry relative="1" as="geometry"/>
+        </mxCell>
+
+        <!-- 10. Lambda Face Verify to Rekognition -->
+        <mxCell id="edge_face_rekognition" value="&lt;b&gt;Boto3 compare_faces&lt;/b&gt;&lt;br&gt;&lt;font style='font-size:10px;'&gt;SourceImage (S3) vs TargetImage (Webcam)&lt;br&gt;SimilarityThreshold = 80.0%&lt;/font&gt;" style="edgeStyle=orthogonalEdgeStyle;rounded=1;orthogonalLoop=1;jettySize=auto;html=1;strokeColor=#38A169;strokeWidth=2;fontColor=#22543D;exitX=0.5;exitY=1;entryX=0.5;entryY=0;" edge="1" parent="1" source="node_lambda_face" target="node_rekognition">
+          <mxGeometry relative="1" as="geometry"/>
+        </mxCell>
+
+        <!-- 11. Lambda Face Verify to DynamoDB -->
+        <mxCell id="edge_face_dynamo" value="&lt;b&gt;Boto3 update_item&lt;/b&gt;&lt;br&gt;&lt;font style='font-size:10px;'&gt;Ghi nhận trạng thái CHECKED_IN&lt;/font&gt;" style="edgeStyle=orthogonalEdgeStyle;rounded=1;orthogonalLoop=1;jettySize=auto;html=1;strokeColor=#4C51BF;strokeWidth=1.5;fontColor=#3C366B;exitX=1;exitY=0.7;entryX=0;entryY=0.3;" edge="1" parent="1" source="node_lambda_face" target="node_dynamodb">
+          <mxGeometry relative="1" as="geometry"/>
+        </mxCell>
+
+        <!-- 12. Lambda Core to S3 (Presigned URL) -->
+        <mxCell id="edge_core_s3_presigned" value="&lt;b&gt;s3_client.generate_presigned_url&lt;/b&gt;&lt;br&gt;&lt;font style='font-size:10px;'&gt;ClientMethod='put_object' (TTL 300s)&lt;/font&gt;" style="edgeStyle=orthogonalEdgeStyle;rounded=1;orthogonalLoop=1;jettySize=auto;html=1;strokeColor=#3182CE;strokeWidth=1.5;fontColor=#2B6CB0;exitX=1;exitY=0.4;entryX=0;entryY=0.1;" edge="1" parent="1" source="node_lambda_core" target="node_s3">
+          <mxGeometry relative="1" as="geometry"/>
+        </mxCell>
+
+        <!-- 13. Client Direct Upload to S3 -->
+        <mxCell id="edge_spa_s3_direct" value="&lt;b&gt;Direct HTTPS PUT (Binary Image Payload)&lt;/b&gt;&lt;br&gt;&lt;font style='font-size:10px;'&gt;Upload trực tiếp qua Presigned URL (Giảm 100% băng thông qua API Gateway/Lambda)&lt;/font&gt;" style="edgeStyle=orthogonalEdgeStyle;rounded=1;orthogonalLoop=1;jettySize=auto;html=1;strokeColor=#3182CE;strokeWidth=2;fontColor=#2B6CB0;exitX=0.8;exitY=0;entryX=0.2;entryY=0;" edge="1" parent="1" source="node_react_spa" target="node_s3">
+          <mxGeometry relative="1" as="geometry">
+            <Array as="points">
+              <mxPoint x="233" y="25"/>
+              <mxPoint x="1200" y="25"/>
+            </Array>
+          </mxGeometry>
+        </mxCell>
+
+        <!-- 14. Lambda Core to DynamoDB -->
+        <mxCell id="edge_core_dynamo" value="&lt;b&gt;AWS SDK (Boto3) DynamoDB CRUD&lt;/b&gt;&lt;br&gt;&lt;font style='font-size:10px;'&gt;Questions, QuestionBanks, Sessions, Candidates&lt;br&gt;GSI: BankIdIndex, StudentCodeIndex&lt;/font&gt;" style="edgeStyle=orthogonalEdgeStyle;rounded=1;orthogonalLoop=1;jettySize=auto;html=1;strokeColor=#4C51BF;strokeWidth=2;fontColor=#3C366B;exitX=1;exitY=0.8;entryX=0;entryY=0.15;" edge="1" parent="1" source="node_lambda_core" target="node_dynamodb">
+          <mxGeometry relative="1" as="geometry"/>
+        </mxCell>
+
+        <!-- 15. Lambda Core to SQS (Nộp bài) -->
+        <mxCell id="edge_core_sqs" value="&lt;b&gt;AWS SDK (Boto3) sqs:SendMessage&lt;/b&gt;&lt;br&gt;&lt;font style='font-size:10px;'&gt;POST /exam/submit &amp;rarr; Enqueue bài nộp (&amp;lt; 50ms)&lt;/font&gt;" style="edgeStyle=orthogonalEdgeStyle;rounded=1;orthogonalLoop=1;jettySize=auto;html=1;strokeColor=#C53030;strokeWidth=2;fontColor=#742A2A;exitX=1;exitY=0.2;entryX=0;entryY=0.5;" edge="1" parent="1" source="node_lambda_core" target="node_sqs_queue">
+          <mxGeometry relative="1" as="geometry"/>
+        </mxCell>
+
+        <!-- 16. SQS to Grading Worker -->
+        <mxCell id="edge_sqs_grading" value="&lt;b&gt;AWS Lambda Event Source Mapping&lt;/b&gt;&lt;br&gt;&lt;font style='font-size:10px;'&gt;Tiêu thụ Message theo lô: BatchSize = 10&lt;/font&gt;" style="edgeStyle=orthogonalEdgeStyle;rounded=1;orthogonalLoop=1;jettySize=auto;html=1;strokeColor=#ED8936;strokeWidth=2;fontColor=#7B341E;exitX=0;exitY=0.8;entryX=1;entryY=0.3;" edge="1" parent="1" source="node_sqs_queue" target="node_lambda_grading">
+          <mxGeometry relative="1" as="geometry"/>
+        </mxCell>
+
+        <!-- 17. SQS to DLQ -->
+        <mxCell id="edge_sqs_dlq" value="&lt;b&gt;Redrive Policy (maxReceiveCount = 3)&lt;/b&gt;" style="edgeStyle=orthogonalEdgeStyle;rounded=1;orthogonalLoop=1;jettySize=auto;html=1;strokeColor=#9B2C2C;strokeWidth=1.5;fontColor=#742A2A;dashed=1;exitX=0.5;exitY=1;entryX=0.5;entryY=0;" edge="1" parent="1" source="node_sqs_queue" target="node_sqs_dlq">
+          <mxGeometry relative="1" as="geometry"/>
+        </mxCell>
+
+        <!-- 18. Grading Worker to DynamoDB (Lưu điểm) -->
+        <mxCell id="edge_grading_dynamo" value="&lt;b&gt;Boto3 update_item / sessions&lt;/b&gt;&lt;br&gt;&lt;font style='font-size:10px;'&gt;Lưu điểm số, số câu đúng &amp;amp; status COMPLETED&lt;/font&gt;" style="edgeStyle=orthogonalEdgeStyle;rounded=1;orthogonalLoop=1;jettySize=auto;html=1;strokeColor=#4C51BF;strokeWidth=2;fontColor=#3C366B;exitX=1;exitY=0.5;entryX=0;entryY=0.75;" edge="1" parent="1" source="node_lambda_grading" target="node_dynamodb">
+          <mxGeometry relative="1" as="geometry"/>
+        </mxCell>
+
+        <!-- 19. Grading Worker to Upstash Redis (Live Leaderboard) -->
+        <mxCell id="edge_grading_upstash" value="&lt;b&gt;REST API / ZADD&lt;/b&gt;&lt;br&gt;&lt;font style='font-size:10px;'&gt;Ghi điểm Live Leaderboard &amp;lt; 5ms&lt;/font&gt;" style="edgeStyle=orthogonalEdgeStyle;rounded=1;orthogonalLoop=1;jettySize=auto;html=1;strokeColor=#DD6B20;strokeWidth=1.5;fontColor=#7B341E;exitX=1;exitY=0.8;entryX=0;entryY=0.5;" edge="1" parent="1" source="node_lambda_grading" target="node_upstash">
+          <mxGeometry relative="1" as="geometry"/>
+        </mxCell>
+
+        <!-- 20. Lambda Core to Google Gemini (Parse Word) -->
+        <mxCell id="edge_core_gemini" value="&lt;b&gt;HTTPS REST API (generateContent)&lt;/b&gt;&lt;br&gt;&lt;font style='font-size:10px;'&gt;POST raw text &amp;rarr; JSON câu hỏi trắc nghiệm (Gemini 1.5 Flash)&lt;/font&gt;" style="edgeStyle=orthogonalEdgeStyle;rounded=1;orthogonalLoop=1;jettySize=auto;html=1;strokeColor=#805AD5;strokeWidth=2;fontColor=#44337A;exitX=0.9;exitY=1;entryX=0;entryY=0.4;" edge="1" parent="1" source="node_lambda_core" target="node_gemini">
+          <mxGeometry relative="1" as="geometry"/>
+        </mxCell>
+
+        <!-- 21. Step Functions to Sessions & SNS -->
+        <mxCell id="edge_stepfunctions_dynamo" value="&lt;b&gt;Update ca thi SCHEDULED &amp;rarr; RUNNING &amp;rarr; CLOSED&lt;/b&gt;" style="edgeStyle=orthogonalEdgeStyle;rounded=1;orthogonalLoop=1;jettySize=auto;html=1;strokeColor=#4C51BF;strokeWidth=1.5;fontColor=#3C366B;exitX=1;exitY=0.5;entryX=0;entryY=0.6;" edge="1" parent="1" source="node_stepfunctions" target="node_dynamodb">
+          <mxGeometry relative="1" as="geometry"/>
+        </mxCell>
+
+        <mxCell id="edge_stepfunctions_sns" value="&lt;b&gt;SNS Publish Event&lt;/b&gt;&lt;br&gt;&lt;font style='font-size:10px;'&gt;Kích hoạt phát email báo cáo điểm&lt;/font&gt;" style="edgeStyle=orthogonalEdgeStyle;rounded=1;orthogonalLoop=1;jettySize=auto;html=1;strokeColor=#E53E3E;strokeWidth=1.5;fontColor=#742A2A;exitX=0.5;exitY=1;entryX=0.5;entryY=0;" edge="1" parent="1" source="node_stepfunctions" target="node_sns">
+          <mxGeometry relative="1" as="geometry"/>
+        </mxCell>
+
+        <!-- 22. CloudWatch Ingestion -->
+        <mxCell id="edge_cw_ingest" value="&lt;b&gt;Push Structured Logs &amp;amp; Metrics&lt;/b&gt;" style="edgeStyle=orthogonalEdgeStyle;rounded=1;orthogonalLoop=1;jettySize=auto;html=1;strokeColor=#DD6B20;strokeWidth=1;fontColor=#7B341E;dashed=1;exitX=0;exitY=0.5;entryX=1;entryY=0.5;" edge="1" parent="1" source="node_lambda_core" target="node_cloudwatch">
+          <mxGeometry relative="1" as="geometry"/>
+        </mxCell>
+
+      </root>
+    </mxGraphModel>
+  </diagram>
+</mxfile>

@@ -1,0 +1,81 @@
+// ==============================================================================
+// CLOUDEXAM — HÌNH 2.3: PHÂN HỆ QUẢN TRỊ ĐỀ THI & SỐ HÓA BẰNG AI (TÍNH NĂNG 2 & 3)
+// Phiên bản chuẩn hóa v4.0 · Tách 3 Lambda Server · Đầy đủ 4 Bảng CSDL & EventBridge
+// Cú pháp: Eraser.io Diagram-as-Code (https://app.eraser.io)
+// ==============================================================================
+
+direction right
+
+// ------------------------------------------------------------------------------
+// CỘT 1: GIAO DIỆN & XÁC THỰC NGƯỜI DÙNG (INSTRUCTOR PORTAL)
+// ------------------------------------------------------------------------------
+"1. GIAO DIỆN & XÁC THỰC" [color: blue] {
+  Instructor [icon: users, label: "CloudExam Instructors / Admins\n(Biên soạn đề & Quản lý kỳ thi)"]
+  OrganizerPortal [icon: react, label: "CloudExam Organizer Portal\n(React 18 SPA · Vite Client)"]
+  AuthServer [icon: aws-cognito, label: "CloudExam Auth Server\n(Amazon Cognito User Pool PKCE)"]
+}
+
+// ------------------------------------------------------------------------------
+// CỘT 2: CỔNG API & 3 CỤM CONTROLLER/SERVICE CHUYÊN BIỆT (LAMBDA MICROSERVICES)
+// ------------------------------------------------------------------------------
+"2. CỔNG API & 3 CỤM LAMBDA SERVER" [color: amber] {
+  APIGateway [icon: aws-api-gateway, label: "CloudExam Central API Gateway\n(Amazon API Gateway REST API)"]
+  
+  "Cụm 3 Dịch vụ Lambda Serverless" {
+    MediaPresignService [icon: aws-lambda, label: "CloudExam Media Presign Service\n(AWS Lambda · s3_presigner.py)"]
+    AIQuestionParser [icon: aws-lambda, label: "CloudExam AI Question Parser Server\n(AWS Lambda · gemini_parser.py)"]
+    AcademicCRUDController [icon: aws-lambda, label: "CloudExam Academic CRUD Controller\n(AWS Lambda · academic_crud.py)"]
+  }
+
+  SecretsVault [icon: aws-systems-manager, label: "CloudExam Secrets Store\n(AWS SSM Parameter Store)"]
+}
+
+// ------------------------------------------------------------------------------
+// CỘT 3: LƯU TRỮ ĐA PHƯƠNG TIỆN, CSDL 4 BẢNG & LẬP LỊCH TỰ ĐỘNG
+// ------------------------------------------------------------------------------
+"3. LƯU TRỮ, 4 BẢNG DYNAMODB & TỰ ĐỘNG HÓA" [color: green] {
+  MediaBucket [icon: aws-s3, label: "CloudExam Media Storage Bucket\n(Amazon S3 · questions/*)"]
+  
+  "Phân vùng 4 Bảng CSDL Amazon DynamoDB" {
+    QuestionBanksTable [icon: aws-dynamodb, label: "CloudExam Question Banks Store\n(DynamoDB: CloudExam_QuestionBanks_dev)"]
+    QuestionsTable [icon: aws-dynamodb, label: "CloudExam Questions Store\n(DynamoDB: CloudExam_Questions_dev)"]
+    CandidatesTable [icon: aws-dynamodb, label: "CloudExam Candidates Store\n(DynamoDB: CloudExam_Candidates_dev)"]
+    SessionsTable [icon: aws-dynamodb, label: "CloudExam Sessions Store\n(DynamoDB: CloudExam_Sessions_dev)"]
+  }
+
+  GenAIEngine [icon: google-cloud, label: "CloudExam AI Document Parser\n(Google Gemini 1.5 Flash API)"]
+  EventBridgeScheduler [icon: aws-eventbridge, label: "CloudExam EventBridge Scheduler\n(Amazon EventBridge Schedule)"]
+  ExamStateMachine [icon: aws-step-functions, label: "CloudExam Exam State Machine\n(AWS Step Functions)"]
+}
+
+// ==============================================================================
+// LUỒNG TƯƠNG TÁC TÍNH NĂNG VỚI PROTOCOL CHUẨN XÁC & MÃ [L-xx] ĐẦY ĐỦ
+// ==============================================================================
+
+// 1. Xác thực và điều hướng API
+Instructor > OrganizerPortal: "Biên soạn câu hỏi / Tải file Word/PDF / Tạo ca thi"
+OrganizerPortal <> AuthServer: "[L-03] HTTPS POST (OAuth 2.0 PKCE / Bearer JWT)"
+OrganizerPortal > APIGateway: "[L-04] HTTPS REST (Port 443 + Bearer JWT)"
+
+// 2. Tải ảnh đề thi trực tiếp (Presign Pattern)
+APIGateway > MediaPresignService: "[L-05a] AWS Lambda Proxy Integration (POST /questions/presign)"
+MediaPresignService > MediaBucket: "[L-06] HTTPS / AWS SDK Boto3 (SigV4) - Action: s3:generate_presigned_url (TTL 300s)"
+OrganizerPortal > MediaBucket: "[L-07] Direct HTTPS PUT (Content-Type: image/* / Presigned URL)"
+
+// 3. Số hóa đề thi tự động bằng GenAI Gemini
+APIGateway > AIQuestionParser: "[L-05b] AWS Lambda Proxy Integration (POST /questions/parse-doc)"
+AIQuestionParser > SecretsVault: "[L-08] HTTPS / AWS SDK Boto3 (SigV4) - Action: ssm:GetParameter (/cloudexam/gemini/api_key)"
+AIQuestionParser > GenAIEngine: "[L-09] REST over HTTPS (POST /v1beta/models/gemini-1.5-flash:generateContent)"
+GenAIEngine > AIQuestionParser: "[L-10] HTTPS Response 200 (Structured JSON MCQs [A,B,C,D])"
+AIQuestionParser > QuestionsTable: "[L-11b] HTTPS / AWS SDK Boto3 (SigV4) - Action: dynamodb:BatchWriteItem (Questions)"
+
+// 4. CRUD Ngân hàng đề, Thí sinh & Tạo ca thi tự động
+APIGateway > AcademicCRUDController: "[L-05c] AWS Lambda Proxy Integration (/banks, /candidates, /sessions)"
+AcademicCRUDController > QuestionBanksTable: "[L-11a] HTTPS / AWS SDK Boto3 (SigV4) - Action: dynamodb:PutItem (QuestionBanks)"
+AcademicCRUDController > CandidatesTable: "[L-11c] HTTPS / AWS SDK Boto3 (SigV4) - Action: dynamodb:BatchWriteItem (Candidates)"
+AcademicCRUDController > SessionsTable: "[L-11d] HTTPS / AWS SDK Boto3 (SigV4) - Action: dynamodb:PutItem (Sessions: SCHEDULED)"
+
+// 5. Lập lịch tự động mở ca thi qua EventBridge Scheduler
+AcademicCRUDController > EventBridgeScheduler: "[L-11e] HTTPS / AWS SDK Boto3 (SigV4) - Action: scheduler:CreateSchedule (startTime)"
+EventBridgeScheduler > ExamStateMachine: "[L-11f] EventBridge Target Invocation - Action: states:StartExecution (startTime)"
+AcademicCRUDController > OrganizerPortal: "HTTP 200 OK (Số hóa đề & lập lịch ca thi thành công 100%)"

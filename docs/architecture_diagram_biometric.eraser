@@ -1,0 +1,65 @@
+// ==============================================================================
+// CLOUDEXAM — HÌNH 2.4: PHÂN HỆ ĐIỂM DANH SINH TRẮC HỌC & AI REKOGNITION (TÍNH NĂNG 4 & 5)
+// Phiên bản chuẩn hóa v4.0 · Bổ sung mã luồng [L-13a], [L-13b] & Protocol SigV4 chuẩn xác
+// Cú pháp: Eraser.io Diagram-as-Code (https://app.eraser.io)
+// ==============================================================================
+
+direction right
+
+// ------------------------------------------------------------------------------
+// CỘT 1: THIẾT BỊ NGOẠI VI & THU NHẬN HÌNH ẢNH (EDGE CAPTURE)
+// ------------------------------------------------------------------------------
+"1. THIẾT BỊ NGOẠI VI & THU NHẬN ẢNH" [color: blue] {
+  Candidate [icon: users, label: "CloudExam Candidates\n(Thí sinh vào thi: /?exam={sessionId})"]
+  WebcamHardware [icon: camera, label: "CloudExam Hardware Webcam\n(HTML5 MediaDevices Peripheral)"]
+  ExamRoomClient [icon: react, label: "CloudExam Exam Room Client\n(React 18 · Canvas Capture)"]
+}
+
+// ------------------------------------------------------------------------------
+// CỘT 2: CỔNG API, LÕI XÁC THỰC & THỊ GIÁC AI (SERVERLESS AI VISION)
+// ------------------------------------------------------------------------------
+"2. CỔNG API & THỊ GIÁC AI" [color: amber] {
+  APIGateway [icon: aws-api-gateway, label: "CloudExam Central API Gateway\n(Amazon API Gateway REST API)"]
+  BiometricHandler [icon: aws-lambda, label: "CloudExam Biometric Verify Server\n(AWS Lambda · face_verify_handler.py)"]
+  RekognitionAI [icon: aws-rekognition, label: "CloudExam Face Match Engine\n(Amazon Rekognition SaaS)"]
+}
+
+// ------------------------------------------------------------------------------
+// CỘT 3: KHO ẢNH THẺ GỐC, CSDL & HỆ THỐNG CẢNH BÁO (STORAGE & ALERTS)
+// ------------------------------------------------------------------------------
+"3. ĐỐI SOÁT, CSDL & CẢNH BÁO" [color: green] {
+  FaceVault [icon: aws-s3, label: "CloudExam Face Photos Vault\n(Amazon S3 Bucket: faces/)"]
+  
+  "CSDL Đối soát Hồ sơ & Ca thi" {
+    CandidatesTable [icon: aws-dynamodb, label: "CloudExam Candidates Store\n(DynamoDB: CloudExam_Candidates_dev)"]
+    SessionsTable [icon: aws-dynamodb, label: "CloudExam Sessions Store\n(DynamoDB: CloudExam_Sessions_dev)"]
+  }
+
+  AlertTopic [icon: aws-sns, label: "CloudExam Proctor Security Alert\n(Amazon SNS Topic)"]
+}
+
+// ==============================================================================
+// LUỒNG TƯƠNG TÁC TÍNH NĂNG VỚI PROTOCOL CHUẨN XÁC & ĐẦY ĐỦ MÃ [L-xx]
+// ==============================================================================
+
+// 1. Thao tác thí sinh và chụp webcam
+Candidate > ExamRoomClient: "Đăng nhập ca thi (Email + Passcode)"
+Candidate > WebcamHardware: "Căn chỉnh mặt trước camera webcam"
+WebcamHardware > ExamRoomClient: "[L-12] HTML5 navigator.mediaDevices.getUserMedia (Base64 JPEG Frame)"
+ExamRoomClient > APIGateway: "[L-13] HTTPS POST (application/json - Base64 Payload < 10MB) /auth/face-verify"
+APIGateway > BiometricHandler: "[L-05d] AWS Lambda Proxy Integration (SigV4)"
+
+// 2. Kiểm tra điều kiện ca thi & Tải ảnh thẻ gốc
+BiometricHandler > SessionsTable: "[L-13a] HTTPS / AWS SDK Boto3 (SigV4) - Action: dynamodb:GetItem (Check RUNNING)"
+BiometricHandler > CandidatesTable: "[L-13b] HTTPS / AWS SDK Boto3 (SigV4) - Action: dynamodb:GetItem (Query GSI: StudentCodeIndex)"
+FaceVault > BiometricHandler: "[L-14] HTTPS / AWS SDK Boto3 (SigV4) - Action: s3:GetObject (faces/{MSSV}.jpg)"
+
+// 3. Thực thi đối soát AI Rekognition 1:1
+BiometricHandler > RekognitionAI: "[L-15] HTTPS / AWS SDK Boto3 (SigV4) - Action: rekognition:CompareFaces (Similarity >= 80%)"
+RekognitionAI > BiometricHandler: "HTTPS Response 200 (SimilarityScore %)"
+
+// 4. Phân nhánh kết quả và cấp quyền
+BiometricHandler > SessionsTable: "[L-16] HTTPS / AWS SDK Boto3 (SigV4) - Action: dynamodb:UpdateItem (CHECKED_IN)"
+BiometricHandler > ExamRoomClient: "HTTP 200 OK (Cấp quyền bước vào làm bài)"
+BiometricHandler > AlertTopic: "[L-17] HTTPS / AWS SDK Boto3 (SigV4) - Action: sns:Publish (Cảnh báo gian lận)"
+BiometricHandler > ExamRoomClient: "HTTP 403 Forbidden (Từ chối truy cập phòng thi)"

@@ -1,0 +1,110 @@
+// ==============================================================================
+// CLOUDEXAM — HÌNH 2.1: SƠ ĐỒ KIẾN TRÚC TÍNH NĂNG TỔNG THỂ (MASTER FUNCTIONAL ARCHITECTURE)
+// Phiên bản chuẩn hóa v4.0 · Bổ sung EventBridge Scheduler · Đầy đủ mã luồng [L-xx]
+// Cú pháp: Eraser.io Diagram-as-Code (https://app.eraser.io)
+// ==============================================================================
+
+direction right
+
+// ------------------------------------------------------------------------------
+// CỘT 1: LỚP GIAO DIỆN, THIẾT BỊ NGOẠI VI & BIÊN (CLIENT & EDGE ZONE)
+// ------------------------------------------------------------------------------
+"1. TRUY CẬP, THIẾT BỊ & BIÊN" [color: blue] {
+  Users [icon: users, label: "CloudExam Multi-Country Users\n(Thí sinh · Giảng viên · Giám thị)"]
+  WebcamDevice [icon: camera, label: "CloudExam Hardware Webcam\n(HTML5 MediaDevices Peripheral)"]
+  AntiBotShield [icon: shield, label: "CloudExam Anti-Bot Shield\n(Cloudflare Turnstile)"]
+  EdgeRouter [icon: aws-cloudfront, label: "CloudExam Edge Tenant Router\n(CloudFront Functions)"]
+  ReactApp [icon: react, label: "CloudExam Portal Web Client\n(React 18 SPA · Đa ngôn ngữ)"]
+  AuthServer [icon: aws-cognito, label: "CloudExam Auth Server\n(Amazon Cognito · PKCE Flow)"]
+  APIGateway [icon: aws-api-gateway, label: "CloudExam Central API Gateway\n(Amazon API Gateway REST API)"]
+}
+
+// ------------------------------------------------------------------------------
+// CỘT 2: AWS CLOUD — DỮ LIỆU, XỬ LÝ NỀN VÀ AI (SERVERLESS BACKBONE)
+// ------------------------------------------------------------------------------
+"2. AWS CLOUD — DỮ LIỆU & XỬ LÝ NỀN" [color: amber] {
+  "Lưu trữ & Cơ sở dữ liệu dùng chung" {
+    AcademicDB [icon: aws-dynamodb, label: "CloudExam Academic Datastore\n(DynamoDB 4 Bảng On-Demand)"]
+    MediaBucket [icon: aws-s3, label: "CloudExam Media Storage Bucket\n(Amazon S3 Bucket: questions/)"]
+  }
+
+  "Điểm danh sinh trắc học AI" {
+    FaceVault [icon: aws-s3, label: "CloudExam Face Photos Vault\n(Amazon S3 Bucket: faces/)"]
+    BiometricHandler [icon: aws-lambda, label: "CloudExam Biometric Verify Server\n(AWS Lambda · face_verify_handler)"]
+    RekognitionAI [icon: aws-rekognition, label: "CloudExam Face Match Engine\n(Amazon Rekognition SaaS)"]
+  }
+
+  "Đệm tải SQS & Chấm tự động" {
+    AppProducer [icon: aws-lambda, label: "CloudExam Ingestion & Core API Server\n(AWS Lambda · Producer & Controller)"]
+    SubmissionQueue [icon: aws-sqs, label: "CloudExam Submission Buffer\n(Amazon SQS Standard Queue)"]
+    GradingWorker [icon: aws-lambda, label: "CloudExam Grading Worker Server\n(AWS Lambda · Batch 10)"]
+    DeadLetterQueue [icon: aws-sqs, label: "CloudExam Submission DLQ\n(Amazon SQS Dead-Letter Queue)"]
+  }
+
+  "Vòng đời ca thi & Báo cáo" {
+    SchedulerService [icon: aws-eventbridge, label: "CloudExam EventBridge Scheduler\n(Amazon EventBridge Schedule)"]
+    ExamStateMachine [icon: aws-step-functions, label: "CloudExam Exam State Machine\n(AWS Step Functions)"]
+    NotificationTopic [icon: aws-sns, label: "CloudExam Notification Topic\n(Amazon SNS Topic)"]
+  }
+
+  "Vận hành & Giám sát FinOps" {
+    SecretsVault [icon: aws-systems-manager, label: "CloudExam Secrets Store\n(AWS SSM Parameter Store)"]
+    TelemetryEngine [icon: aws-cloudwatch, label: "CloudExam Observability Engine\n(Amazon CloudWatch & Budgets)"]
+  }
+}
+
+// ------------------------------------------------------------------------------
+// CỘT 3: DỊCH VỤ NGOÀI MULTI-CLOUD (0 USD SATELLITES)
+// ------------------------------------------------------------------------------
+"3. DỊCH VỤ NGOÀI MULTI-CLOUD" [color: purple] {
+  GenAIEngine [icon: google-cloud, label: "CloudExam AI Document Parser\n(Google Gemini 1.5 Flash API)"]
+}
+
+// ==============================================================================
+// GIAO THỨC TRUYỀN THÔNG & ĐIỀU HƯỚNG TỰ NHIÊN (LEFT -> CENTER -> RIGHT)
+// ==============================================================================
+
+// 1. Phân giải tên miền & Truy cập đa quốc gia (Tính năng 9)
+Users > EdgeRouter: "[L-01a] HTTPS DNS: cloudexam.vn / edulao.la"
+EdgeRouter > ReactApp: "[L-02b] Edge Inject: x-tenant-id"
+
+// 2. Định danh & Cổng API trung tâm (Tính năng 1)
+ReactApp <> AuthServer: "[L-03] HTTPS POST (OAuth 2.0 PKCE / Bearer JWT)"
+ReactApp > APIGateway: "[L-04] HTTPS REST (Port 443 + Bearer Token)"
+APIGateway > AppProducer: "[L-05] AWS Lambda Proxy Integration (SigV4)"
+
+// 3. Quản trị đề thi & Số hóa AI (Tính năng 2 & 3)
+AppProducer > MediaBucket: "[L-06] AWS SDK Boto3 (SigV4) - Action: s3:generate_presigned_url"
+ReactApp > MediaBucket: "[L-07] Direct HTTPS PUT (Content-Type: image/*)"
+AppProducer > SecretsVault: "[L-08] AWS SDK Boto3 (SigV4) - Action: ssm:GetParameter"
+AppProducer > GenAIEngine: "[L-09] REST over HTTPS (POST /v1beta/models/gemini-1.5-flash:generateContent)"
+GenAIEngine > AppProducer: "[L-10] HTTPS Response 200 (Structured JSON MCQs)"
+AppProducer > AcademicDB: "[L-11b] AWS SDK Boto3 (SigV4) - Action: dynamodb:BatchWriteItem"
+
+// Kích hoạt Vòng đời ca thi (Tính năng 8)
+AppProducer > SchedulerService: "[L-11e] AWS SDK Boto3 (SigV4) - Action: scheduler:CreateSchedule"
+SchedulerService > ExamStateMachine: "[L-11f] EventBridge Target Invocation - StartExecution"
+
+// 4. Điểm danh sinh trắc học AI có Webcam (Tính năng 4 & 5)
+Users > WebcamDevice: "Căn chỉnh mặt trước camera"
+WebcamDevice > ReactApp: "[L-12] HTML5 navigator.mediaDevices (Base64 Frame)"
+ReactApp > APIGateway: "[L-13] HTTPS POST (application/json - Base64 < 10MB) /auth/face-verify"
+APIGateway > BiometricHandler: "[L-05d] AWS Lambda Proxy Integration"
+FaceVault > BiometricHandler: "[L-14] AWS SDK Boto3 (SigV4) - Action: s3:GetObject"
+BiometricHandler > RekognitionAI: "[L-15] AWS SDK Boto3 (SigV4) - Action: rekognition:CompareFaces"
+BiometricHandler > AcademicDB: "[L-16] AWS SDK Boto3 (SigV4) - Action: dynamodb:UpdateItem (CHECKED_IN)"
+BiometricHandler > NotificationTopic: "[L-17] AWS SDK Boto3 (SigV4) - Action: sns:Publish (Cảnh báo)"
+
+// 5. Nộp bài đệm tải SQS & Chấm theo lô (Tính năng 6 & 7)
+ReactApp > AntiBotShield: "HTTPS GET (Request Turnstile Token < 0.1s)"
+AntiBotShield > ReactApp: "cf-turnstile-response String"
+ReactApp > APIGateway: "[L-18c] HTTPS POST (application/json) /exam/submit"
+AppProducer > SubmissionQueue: "[L-19] AWS SDK Boto3 (SigV4) - Action: sqs:SendMessage"
+SubmissionQueue > GradingWorker: "[L-20] AWS SQS-to-Lambda Event Source Mapping (Batch 10)"
+GradingWorker > AcademicDB: "[L-21b] AWS SDK Boto3 (SigV4) - Action: dynamodb:UpdateItem (COMPLETED)"
+GradingWorker > DeadLetterQueue: "[L-22] SQS Redrive Policy (maxReceiveCount = 3)"
+
+// 6. Điều phối vòng đời ca thi & Giám sát (Tính năng 8)
+ExamStateMachine > AcademicDB: "[L-23] AWS SDK Task - Action: dynamodb:updateItem (RUNNING/CLOSED)"
+ExamStateMachine > NotificationTopic: "[L-24] AWS SDK Task - Action: sns:publish (Email bảng điểm)"
+DeadLetterQueue > TelemetryEngine: "[L-25] CloudWatch Metric Alarm (MessagesVisible > 0)"
