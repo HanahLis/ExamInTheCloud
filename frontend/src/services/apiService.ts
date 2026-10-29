@@ -1,7 +1,7 @@
 import axios from 'axios';
 
 // Chế độ Mock đã được gỡ bỏ hoàn toàn. Toàn bộ request gửi trực tiếp tới dịch vụ AWS Cloud thật.
-export const isMockMode = (): boolean => false;
+export const isMockMode = (): boolean => import.meta.env.VITE_USE_MOCK === 'true';
 
 const api = axios.create({
   baseURL: import.meta.env.VITE_API_BASE_URL || '',
@@ -107,6 +107,67 @@ export interface ExamSubmitRequest {
   sessionId: string;
   answers: Record<string, number>; // { [questionId]: chosenIndex }
   candidateEmail?: string;
+  turnstileToken?: string; // Token xác thực người thật Cloudflare Turnstile (Task M-02 & T-02)
+  turnstile_token?: string;
+}
+
+
+export interface LeaderboardEntry {
+  rank: number;
+  candidateEmail: string;
+  email?: string;
+  name?: string;
+  score: number;
+}
+
+export interface LeaderboardResponse {
+  sessionId: string;
+  topCount: number;
+  leaderboard: LeaderboardEntry[];
+  source: string;
+}
+
+export interface ParseDocRequest {
+  fileBase64?: string;
+  fileContent?: string;
+  text?: string;
+  docText?: string;
+  bankId?: string;
+  subject?: string;
+  topic?: string;
+  autoSave?: boolean;
+}
+
+export interface ParseDocResponse {
+  message: string;
+  count: number;
+  bankId: string;
+  saved: boolean;
+  source: string;
+  questions: Question[];
+}
+
+export interface ExplainAnswerRequest {
+  questionId?: string;
+  content?: string;
+  questionContent?: string;
+  options?: string[];
+  chosenIndex?: number;
+  userAnswerIndex?: number;
+  correctIndex?: number;
+  chosenAnswer?: string;
+  userAnswer?: string;
+  correctAnswer?: string;
+  subject?: string;
+}
+
+export interface ExplainAnswerResponse {
+  questionId?: string;
+  explanation: string;
+  source: string;
+  chosenAnswer?: string;
+  correctAnswer?: string;
+  isCorrect?: boolean;
 }
 
 export interface ExamSubmitResult {
@@ -502,6 +563,14 @@ export const requestPresignedUrl = async (
   return res.data;
 };
 
+export const requestPresignedUploadUrl = async (params: {
+  fileName: string;
+  contentType: string;
+  prefix?: string;
+}): Promise<PresignedUrlResponse> => {
+  return requestPresignedUrl(params.fileName, params.contentType, params.prefix || 'questions');
+};
+
 // ============================================================================
 // 2. QUESTION BANKS APIS (/question-banks - DynamoDB)
 // ============================================================================
@@ -799,6 +868,52 @@ export const submitExam = async (req: ExamSubmitRequest): Promise<ExamSubmitResp
 // ============================================================================
 // 8. BẢNG ĐIỂM & KẾT QUẢ CA THI (/sessions/{id}/results từ DynamoDB)
 // ============================================================================
+
+
+// ============================================================================
+// 7.1. S3 DIRECT BINARY UPLOAD (Task 18 - Direct-to-Storage, 0MB API Gateway)
+// ============================================================================
+
+export const uploadBinaryToS3 = async (
+  uploadUrl: string,
+  data: Blob | File | ArrayBuffer,
+  contentType = 'image/jpeg'
+): Promise<boolean> => {
+  const resp = await fetch(uploadUrl, {
+    method: 'PUT',
+    headers: {
+      'Content-Type': contentType,
+    },
+    body: data,
+  });
+  if (!resp.ok) {
+    throw new Error(`S3 direct upload failed with status ${resp.status}`);
+  }
+  return true;
+};
+
+// ============================================================================
+// 7.2. MULTI-CLOUD APIS: WORD DOC PARSING, LIVE LEADERBOARD & AI TUTOR
+// ============================================================================
+
+export const parseQuestionsFromDoc = async (payload: ParseDocRequest): Promise<ParseDocResponse> => {
+  const res = await api.post('/questions/parse-doc', payload);
+  return res.data;
+};
+
+export const parseDocWithGemini = parseQuestionsFromDoc;
+
+export const fetchLeaderboard = async (sessionId: string): Promise<LeaderboardResponse> => {
+  const res = await api.get(`/sessions/${sessionId}/leaderboard`);
+  return res.data;
+};
+
+export const getLiveLeaderboard = fetchLeaderboard;
+
+export const explainAnswerWithAI = async (payload: ExplainAnswerRequest): Promise<ExplainAnswerResponse> => {
+  const res = await api.post('/exam/explain-answers', payload);
+  return res.data;
+};
 
 export const fetchSessionResults = async (sessionId: string): Promise<SessionResultsResponse> => {
   try {
