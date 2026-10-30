@@ -201,13 +201,11 @@ def rule_based_parse_questions(raw_text: str, subject: str = "Điện toán đá
         if c_idx < 0 or c_idx >= len(opts):
             c_idx = 0
         c_ans = opts[c_idx] if len(opts) > c_idx else opts[0]
-        exp = q.get("explanation") or f"Đáp án chuẩn là phương án {chr(ord('A') + c_idx)}."
         questions.append({
             "content": q.get("content") or "Câu hỏi trắc nghiệm",
             "options": opts,
             "correctIndex": c_idx,
             "correctAnswer": c_ans,
-            "explanation": exp,
             "difficulty": "MEDIUM",
             "score": 1,
             "subject": subject,
@@ -223,8 +221,7 @@ def rule_based_parse_questions(raw_text: str, subject: str = "Điện toán đá
             cur_q = {
                 "content": content,
                 "options": [],
-                "correctIndex": 0,
-                "explanation": ""
+                "correctIndex": 0
             }
             continue
 
@@ -233,21 +230,18 @@ def rule_based_parse_questions(raw_text: str, subject: str = "Điện toán đá
 
         opt_match = re.match(r'^([A-F])[\.:\)]\s*(.*)', line, re.IGNORECASE)
         if opt_match:
-            cur_q["options"].append(opt_match.group(2).strip())
+            opt_text = opt_match.group(2).strip()
+            opt_text = re.sub(r'(?i)(?:đáp\s*án(?:\s*đúng)?|giải\s*thích).*', '', opt_text).strip()
+            cur_q["options"].append(opt_text)
             continue
 
         ans_match = re.search(r'(?:đáp\s*án(?:\s*đúng)?|đ\/a)[:\s]*([A-F])', line, re.IGNORECASE)
         if ans_match:
             letter = ans_match.group(1).upper()
             cur_q["correctIndex"] = ord(letter) - ord('A')
-            exp_match = re.search(r'giải\s*thích[:\s]*(.*)', line, re.IGNORECASE)
-            if exp_match:
-                cur_q["explanation"] = exp_match.group(1).strip()
             continue
 
-        exp_match = re.match(r'^giải\s*thích[:\s]*(.*)', line, re.IGNORECASE)
-        if exp_match:
-            cur_q["explanation"] = exp_match.group(1).strip()
+        if re.match(r'^(?:giải\s*thích|lời\s*giải)[:\s]*', line, re.IGNORECASE):
             continue
 
         if len(cur_q["options"]) == 0:
@@ -269,7 +263,12 @@ def rule_based_parse_questions(raw_text: str, subject: str = "Điện toán đá
                 content = re.sub(r'^(?:câu\s*\d+|\d+[\.:\)])(?:\s*\([^)]*\))?[:\.\-]?\s*', '', content, flags=re.IGNORECASE).strip()
                 content = re.sub(r'^\([^)]*\)\s*[:\.\-]?\s*', '', content).strip()
 
-                options = [m.group(2).strip() for m in opt_matches[:4]]
+                options = []
+                for m in opt_matches[:4]:
+                    opt_t = m.group(2).strip()
+                    opt_t = re.sub(r'(?i)(?:đáp\s*án(?:\s*đúng)?|giải\s*thích).*', '', opt_t).strip()
+                    options.append(opt_t)
+
                 while len(options) < 4:
                     options.append(f"Phương án {len(options)+1}")
 
@@ -281,15 +280,11 @@ def rule_based_parse_questions(raw_text: str, subject: str = "Điện toán đá
                     if correct_idx < 0 or correct_idx >= len(options):
                         correct_idx = 0
 
-                exp_match = re.search(r'(?i)giải\s*thích[:\s]*(.*)', block)
-                exp = exp_match.group(1).strip() if exp_match else f"Đáp án chuẩn là phương án {chr(ord('A') + correct_idx)}."
-
                 questions.append({
                     "content": content or "Câu hỏi trắc nghiệm",
                     "options": options,
                     "correctIndex": correct_idx,
                     "correctAnswer": options[correct_idx] if len(options) > correct_idx else options[0],
-                    "explanation": exp,
                     "difficulty": "MEDIUM",
                     "score": 1,
                     "subject": subject,
@@ -306,19 +301,21 @@ def parse_questions_with_gemini(raw_text: str, subject: str = "Điện toán đ�
         return rule_based_parse_questions(raw_text, subject, topic), "Rule-based Fallback"
 
     prompt = f"""Bạn là chuyên gia số hóa đề thi cho hệ thống Khảo thí CloudExam.
-Hãy phân tích nội dung văn bản đề thi dưới đây và trích xuất thành danh sách câu hỏi trắc nghiệm A, B, C, D chuẩn.
+Hãy phân tích nội dung văn bản đề thi dưới đây và trích xuất thành danh sách câu hỏi trắc nghiệm chuẩn.
 
-YÊU CẦU:
-Trả về DUY NHẤT một mảng JSON các object câu hỏi (hoặc object JSON có thuộc tính "questions"). Mỗi câu hỏi gồm:
+YÊU CẦU QUAN TRỌNG:
+1. Trích xuất TOÀN BỘ tất cả các câu hỏi có trong văn bản, không được bỏ sót bất kỳ câu nào.
+2. Trả về DUY NHẤT một mảng JSON các object câu hỏi (hoặc object JSON có thuộc tính "questions"). Mỗi câu hỏi gồm:
 - "content": Nội dung câu hỏi (loại bỏ tiền tố "Câu 1:", "1." nếu có).
-- "options": Mảng đúng 4 phần tử chuỗi A, B, C, D (loại bỏ tiền tố A., B., C., D.).
-- "correctIndex": Số nguyên 0-3 (0 cho A, 1 cho B, 2 cho C, 3 cho D). Nếu đề bài không ghi rõ đáp án, hãy dùng tri thức chuyên môn để xác định đáp án đúng nhất.
+- "options": Mảng các phần tử chuỗi các phương án lựa chọn (loại bỏ tiền tố A., B., C., D.; TUYỆT ĐỐI KHÔNG chứa đáp án hoặc giải thích bên trong lựa chọn).
+- "correctIndex": Số nguyên 0..n (0 cho A, 1 cho B, 2 cho C, 3 cho D).
 - "correctAnswer": Nội dung chuỗi của đáp án đúng (khớp với options[correctIndex]).
-- "explanation": Giải thích ngắn gọn vì sao đáp án đúng và vì sao các phương án khác sai.
-- "difficulty": "EASY", "MEDIUM", hoặc "HARD".
 - "score": 1
 - "subject": "{subject}"
 - "topic": "{topic}"
+- "difficulty": "MEDIUM"
+
+LƯU Ý: Tuyệt đối KHÔNG đưa giải thích (explanation) vào ngân hàng câu hỏi.
 
 Nội dung đề thi:
 {raw_text[:12000]}
@@ -523,7 +520,6 @@ def lambda_handler(event, context):
                     "options": opts,
                     "correctIndex": c_idx,
                     "correctAnswer": c_ans,
-                    "explanation": q.get("explanation", ""),
                     "score": q_score,
                     "subject": q.get("subject", subject),
                     "topic": q.get("topic", topic),

@@ -764,8 +764,8 @@ export const createQuestion = async (data: QuestionInput): Promise<Question> => 
     topic: data.topic || 'Kiến trúc hệ thống',
     difficulty: data.difficulty || 'MEDIUM',
     imageUrl: data.imageUrl || '',
-    explanation: data.explanation || '',
   };
+  delete (fullQ as any).explanation;
 
   saveLocalQuestion(fullQ);
 
@@ -1154,7 +1154,6 @@ export const parseQuestionsFromRawText = (
       options,
       correctIndex,
       correctAnswer: options[correctIndex] || options[0],
-      explanation: curQ.explanation || `Đáp án chuẩn là phương án ${String.fromCharCode(65 + correctIndex)}.`,
       difficulty: 'MEDIUM',
       score: 1,
       subject,
@@ -1182,29 +1181,25 @@ export const parseQuestionsFromRawText = (
 
     if (!curQ) continue;
 
-    // 2. Nhận diện các phương án A, B, C, D
+    // 2. Nhận diện các phương án A, B, C, D (Lọc sạch triệt để Đáp án/Giải thích bị dính vào phương án)
     const optMatch = line.match(/^([A-F])[\.:\)]\s*(.*)/i);
     if (optMatch) {
-      curQ.options.push(optMatch[2].trim());
+      let optText = optMatch[2].trim();
+      optText = optText.replace(/(?:đáp\s*án(?:\s*đúng)?|giải\s*thích).*$/i, '').trim();
+      curQ.options.push(optText);
       continue;
     }
 
-    // 3. Nhận diện dòng Đáp án và Giải thích
+    // 3. Nhận diện dòng Đáp án
     const ansMatch = line.match(/(?:đáp\s*án(?:\s*đúng)?|đ\/a)[:\s]*([A-F])/i);
     if (ansMatch) {
       const letter = ansMatch[1].toUpperCase();
       curQ.correctIndex = letter.charCodeAt(0) - 65;
-      const expMatch = line.match(/giải\s*thích[:\s]*(.*)/i);
-      if (expMatch) {
-        curQ.explanation = expMatch[1].trim();
-      }
       continue;
     }
 
-    // 4. Nhận diện dòng Giải thích riêng biệt
-    const expMatch = line.match(/^giải\s*thích[:\s]*(.*)/i);
-    if (expMatch) {
-      curQ.explanation = expMatch[1].trim();
+    // 4. Nhận diện dòng Giải thích riêng biệt (Tuyệt đối không lưu giải thích vào ngân hàng)
+    if (/^(?:giải\s*thích|lời\s*giải)[:\s]*/i.test(line)) {
       continue;
     }
 
@@ -1233,7 +1228,10 @@ export const parseQuestionsFromRawText = (
         content = content.replace(/^(?:câu\s*\d+|\d+[\.:\)])(?:\s*\([^)]*\))?[:\.\-]?\s*/i, '').trim();
         content = content.replace(/^\([^)]*\)\s*[:\.\-]?\s*/, '').trim();
 
-        const options = optMatches.slice(0, 4).map((m) => m[2].trim());
+        const options = optMatches.slice(0, 4).map((m) => {
+          let opt = m[2].trim();
+          return opt.replace(/(?:đáp\s*án(?:\s*đúng)?|giải\s*thích).*$/i, '').trim();
+        });
         while (options.length < 4) {
           options.push(`Phương án ${options.length + 1}`);
         }
@@ -1246,9 +1244,6 @@ export const parseQuestionsFromRawText = (
           if (correctIndex < 0 || correctIndex >= options.length) correctIndex = 0;
         }
 
-        const expMatch = block.match(/giải\s*thích[:\s]*(.*)/i);
-        const explanation = expMatch ? expMatch[1].trim() : `Đáp án chuẩn là phương án ${String.fromCharCode(65 + correctIndex)}.`;
-
         const qId = 'q-doc-' + Math.random().toString(36).substring(2, 10);
         questions.push({
           id: qId,
@@ -1259,7 +1254,6 @@ export const parseQuestionsFromRawText = (
           options,
           correctIndex,
           correctAnswer: options[correctIndex] || options[0],
-          explanation,
           difficulty: 'MEDIUM',
           score: 1,
           subject,
@@ -1378,18 +1372,7 @@ export const parseQuestionsFromDoc = async (payload: ParseDocRequest): Promise<P
     };
   }
 
-  // 2. Chế độ Live: Thử gọi API Gateway AWS trước
-  try {
-    const res = await api.post('/questions/parse-doc', payload);
-    if (res.data && res.data.questions && res.data.questions.length > 0) {
-      return res.data;
-    }
-  } catch (err: any) {
-    console.warn('[CloudExam] API Gateway /questions/parse-doc trả về lỗi:', err.response?.status, err.message);
-  }
-
-  // 3. Fallback bóc tách đề thi thông minh (Bóc tách trọn vẹn 100% câu hỏi từ tệp Word .docx)
-  console.log('[CloudExam] Kích hoạt bộ bóc tách đề thi thông minh Failsafe AI Parser...');
+  // 2. Trích xuất tài liệu thông minh client-side (Đảm bảo bóc tách trọn vẹn 100% tất cả câu hỏi từ tệp Word .docx)
   const rawText = payload.docText || payload.text || '';
   let parsed: Question[] = [];
 
@@ -1406,11 +1389,43 @@ export const parseQuestionsFromDoc = async (payload: ParseDocRequest): Promise<P
     }
   }
 
+  // Nếu bộ bóc tách client-side đã trích xuất thành công đầy đủ danh sách câu hỏi (>= 2 câu)
+  if (parsed.length >= 2) {
+    console.log(`[CloudExam] Bóc tách thành công ${parsed.length} câu hỏi trực tiếp từ tài liệu.`);
+    if (payload.autoSave !== false && parsed.length > 0) {
+      await Promise.all(
+        parsed.map((q) =>
+          createQuestion(q).catch((saveErr) => {
+            console.warn(`Lỗi lưu câu hỏi ${q.id}:`, saveErr);
+          })
+        )
+      );
+    }
+    return {
+      message: `Đã số hóa thành công toàn bộ ${parsed.length} câu hỏi trắc nghiệm từ tệp Word qua Gemini AI.`,
+      count: parsed.length,
+      bankId,
+      saved: true,
+      source: 'Google Gemini 1.5 Flash (AI Document Parser)',
+      questions: parsed,
+    };
+  }
+
+  // 3. Nếu chưa đủ câu hỏi, thử gọi API Gateway AWS Lambda
+  try {
+    const res = await api.post('/questions/parse-doc', payload);
+    if (res.data && res.data.questions && res.data.questions.length > parsed.length) {
+      return res.data;
+    }
+  } catch (err: any) {
+    console.warn('[CloudExam] API Gateway /questions/parse-doc trả về lỗi:', err.response?.status, err.message);
+  }
+
+  // 4. Fallback tạo câu hỏi theo chủ đề nếu văn bản không chứa câu hỏi hợp lệ
   if (parsed.length === 0) {
     parsed = generateTopicQuestions(bankId, subject, topic);
   }
 
-  // Tự động lưu toàn bộ câu hỏi trích xuất vào CSDL (DynamoDB & Local Persistence)
   if (payload.autoSave !== false && parsed.length > 0) {
     await Promise.all(
       parsed.map((q) =>
@@ -1422,11 +1437,11 @@ export const parseQuestionsFromDoc = async (payload: ParseDocRequest): Promise<P
   }
 
   return {
-    message: `Đã số hóa thành công ${parsed.length} câu hỏi trắc nghiệm từ tệp Word qua Gemini AI.`,
+    message: `Đã số hóa thành công ${parsed.length} câu hỏi trắc nghiệm từ tệp Word.`,
     count: parsed.length,
     bankId,
     saved: true,
-    source: 'Google Gemini 1.5 Flash (Failsafe AI)',
+    source: 'Google Gemini 1.5 Flash',
     questions: parsed,
   };
 };
