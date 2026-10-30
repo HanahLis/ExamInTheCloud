@@ -6,11 +6,13 @@ import {
   deleteQuestion,
   getQuestionBanks,
   createQuestionBank,
+  parseQuestionsFromDoc,
   DEFAULT_QUESTION_BANKS,
   type Question,
   type Difficulty,
   type QuestionType,
   type QuestionBank,
+  type ParseDocResponse,
 } from '../services/apiService';
 
 const LABELS = ['A', 'B', 'C', 'D'];
@@ -55,6 +57,23 @@ export const QuestionBankTab = ({ questions, onRefresh }: Props) => {
   const [loading, setLoading] = useState(false);
   const [uploadStatus, setUploadStatus] = useState<string>('');
   const fileInput = useRef<HTMLInputElement>(null);
+
+  // ==========================================================================
+  // STATE & REFS CHO MODAL SỐ HÓA ĐỀ THI BẰNG AI (GOOGLE GEMINI 1.5 FLASH)
+  // ==========================================================================
+  const [showAIImportModal, setShowAIImportModal] = useState(false);
+  const [aiBankId, setAiBankId] = useState<string>('bank-se-arch-01');
+  const [aiSubject, setAiSubject] = useState('Điện toán đám mây');
+  const [aiTopic, setAiTopic] = useState('Kiến trúc hệ thống');
+  const [aiInputMode, setAiInputMode] = useState<'FILE' | 'TEXT'>('FILE');
+  const [aiFile, setAiFile] = useState<File | null>(null);
+  const [aiText, setAiText] = useState('');
+  const [aiAutoSave, setAiAutoSave] = useState(true);
+  const [aiLoading, setAiLoading] = useState(false);
+  const [aiError, setAiError] = useState('');
+  const [aiSuccessMessage, setAiSuccessMessage] = useState('');
+  const [aiExtractedQuestions, setAiExtractedQuestions] = useState<Question[]>([]);
+  const docFileInputRef = useRef<HTMLInputElement>(null);
 
   const loadBanks = async () => {
     try {
@@ -106,6 +125,105 @@ export const QuestionBankTab = ({ questions, onRefresh }: Props) => {
       alert('Lỗi tạo ngân hàng câu hỏi: ' + err);
     } finally {
       setCreatingBank(false);
+    }
+  };
+
+  const handleOpenAIModal = () => {
+    const targetBank = selectedBankFilter !== 'ALL' ? selectedBankFilter : banks[0]?.id || 'bank-se-arch-01';
+    setAiBankId(targetBank);
+    const foundBank = banks.find((b) => b.id === targetBank);
+    if (foundBank?.subject) {
+      setAiSubject(foundBank.subject);
+    }
+    setAiError('');
+    setAiSuccessMessage('');
+    setShowAIImportModal(true);
+  };
+
+  const handleCloseAIModal = () => {
+    setShowAIImportModal(false);
+    setAiFile(null);
+    setAiText('');
+    setAiError('');
+    setAiSuccessMessage('');
+    setAiExtractedQuestions([]);
+    if (docFileInputRef.current) docFileInputRef.current.value = '';
+  };
+
+  const handleInsertSampleText = () => {
+    setAiText(
+`Câu 1: Lợi ích chính của kiến trúc Serverless trên nền tảng AWS là gì?
+A. Chi phí bằng 0 khi hệ thống không có lượt thi nào (Pay-per-request)
+B. Bắt buộc duy trì máy chủ EC2 hoạt động 24/7
+C. Không hỗ trợ tính toán bằng ngôn ngữ Python
+D. Phải tự cấu hình hệ điều hành Linux
+Đáp án: A
+
+Câu 2: Để ngăn chặn tình trạng nghẽn tải (Thundering Herd) khi hàng ngàn thí sinh nộp bài giây cuối, dịch vụ nào được CloudExam sử dụng?
+A. Amazon RDS
+B. Amazon SQS kết hợp Dead Letter Queue (DLQ)
+C. Amazon Route 53
+D. AWS CloudFormation
+Đáp án: B
+
+Câu 3: Dịch vụ nào của AWS được CloudExam sử dụng để đối soát sinh trắc học khuôn mặt thí sinh với ngưỡng tương đồng >= 80%?
+A. Amazon Rekognition (CompareFaces API)
+B. Amazon Polly
+C. Amazon Transcribe
+D. Amazon Kendra
+Đáp án: A`
+    );
+  };
+
+  const handleAIImport = async (e?: FormEvent) => {
+    if (e) e.preventDefault();
+    setAiError('');
+    setAiSuccessMessage('');
+    setAiExtractedQuestions([]);
+
+    if (aiInputMode === 'FILE' && !aiFile) {
+      setAiError('Vui lòng chọn tệp Word (.docx) hoặc (.txt) từ máy tính.');
+      return;
+    }
+    if (aiInputMode === 'TEXT' && !aiText.trim()) {
+      setAiError('Vui lòng dán nội dung văn bản đề thi để AI phân tích.');
+      return;
+    }
+
+    setAiLoading(true);
+
+    try {
+      let fileBase64: string | undefined = undefined;
+
+      if (aiInputMode === 'FILE' && aiFile) {
+        fileBase64 = await new Promise<string>((resolve, reject) => {
+          const reader = new FileReader();
+          reader.onload = () => resolve(reader.result as string);
+          reader.onerror = (err) => reject(err);
+          reader.readAsDataURL(aiFile);
+        });
+      }
+
+      const res: ParseDocResponse = await parseQuestionsFromDoc({
+        bankId: aiBankId || bankId || 'bank-se-arch-01',
+        subject: aiSubject.trim() || subject || 'Điện toán đám mây',
+        topic: aiTopic.trim() || topic || 'Kiến trúc hệ thống',
+        fileBase64,
+        text: aiInputMode === 'TEXT' ? aiText.trim() : undefined,
+        autoSave: aiAutoSave,
+      });
+
+      setAiSuccessMessage(res.message || `Đã trích xuất thành công ${res.count} câu hỏi.`);
+      setAiExtractedQuestions(res.questions || []);
+
+      if (aiAutoSave) {
+        await onRefresh();
+      }
+    } catch (err: any) {
+      console.error('Lỗi số hóa đề thi bằng Gemini AI:', err);
+      setAiError(err.response?.data?.error || err.message || 'Lỗi xử lý tệp qua Google Gemini AI.');
+    } finally {
+      setAiLoading(false);
     }
   };
 
@@ -215,6 +333,16 @@ export const QuestionBankTab = ({ questions, onRefresh }: Props) => {
           </div>
 
           <div className="flex items-center gap-2">
+            <button
+              type="button"
+              onClick={handleOpenAIModal}
+              className="px-3.5 py-1.5 bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-700 hover:to-indigo-700 text-white text-xs font-semibold rounded-md shadow-sm transition flex items-center gap-1.5 cursor-pointer"
+              title="Tải tệp Word (.docx) để Google Gemini 1.5 Flash tự động bóc tách thành câu hỏi trắc nghiệm"
+            >
+              <span className="text-sm">✨</span>
+              <span>Số hóa đề thi bằng AI (Word / DOCX)</span>
+            </button>
+
             <button
               onClick={() => setShowCreateBankModal(true)}
               className="px-3 py-1.5 bg-slate-900 text-white text-xs font-medium rounded-md hover:bg-slate-800 transition cursor-pointer"
@@ -344,6 +472,336 @@ export const QuestionBankTab = ({ questions, onRefresh }: Props) => {
           </div>
         </div>
       )}
+
+      {/* Modal Số hóa Đề thi bằng AI (Google Gemini 1.5 Flash) */}
+      {showAIImportModal && (
+        <div className="fixed inset-0 bg-black/40 z-50 flex items-center justify-center p-4 backdrop-blur-xs overflow-y-auto">
+          <div className="bg-white rounded-xl max-w-2xl w-full border border-slate-200 shadow-xl overflow-hidden my-8">
+            {/* Header */}
+            <div className="bg-gradient-to-r from-purple-700 via-indigo-700 to-blue-700 p-5 text-white flex justify-between items-start">
+              <div>
+                <div className="flex items-center gap-2">
+                  <span className="text-xl">✨</span>
+                  <h4 className="text-base font-bold">Số hóa Đề thi bằng AI (Google Gemini 1.5 Flash)</h4>
+                  <span className="px-2 py-0.5 rounded-full text-[10px] bg-purple-200/30 text-purple-100 border border-purple-300/40 font-medium">
+                    Free Tier 0 USD
+                  </span>
+                </div>
+                <p className="text-xs text-purple-100/90 mt-1">
+                  Tải lên tệp Word (.docx) hoặc dán văn bản để AI tự động trích xuất các câu hỏi trắc nghiệm A-B-C-D kèm đáp án và lời giải.
+                </p>
+              </div>
+              <button
+                type="button"
+                onClick={handleCloseAIModal}
+                className="text-white/80 hover:text-white text-lg p-1 rounded hover:bg-white/10 transition cursor-pointer"
+              >
+                ✕
+              </button>
+            </div>
+
+            {/* Modal Body */}
+            <div className="p-5 space-y-4 max-h-[75vh] overflow-y-auto">
+              {/* Cấu hình ngân hàng & môn học */}
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 bg-slate-50 p-3 rounded-lg border border-slate-200/80">
+                <div>
+                  <label className="block text-xs font-semibold text-slate-700 mb-1">
+                    Ngân hàng câu hỏi đích *
+                  </label>
+                  <select
+                    value={aiBankId}
+                    onChange={(e) => {
+                      setAiBankId(e.target.value);
+                      const f = banks.find((b) => b.id === e.target.value);
+                      if (f?.subject) setAiSubject(f.subject);
+                    }}
+                    className="w-full p-2 border border-slate-300 rounded-md text-xs bg-white text-slate-800 outline-none focus:border-indigo-500"
+                  >
+                    {banks.map((b) => (
+                      <option key={b.id} value={b.id}>
+                        {b.name}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+
+                <div>
+                  <label className="block text-xs font-semibold text-slate-700 mb-1">
+                    Môn học
+                  </label>
+                  <input
+                    type="text"
+                    value={aiSubject}
+                    onChange={(e) => setAiSubject(e.target.value)}
+                    placeholder="Ví dụ: Điện toán đám mây"
+                    className="w-full p-2 border border-slate-300 rounded-md text-xs bg-white text-slate-800 outline-none focus:border-indigo-500"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-xs font-semibold text-slate-700 mb-1">
+                    Chủ đề
+                  </label>
+                  <input
+                    type="text"
+                    value={aiTopic}
+                    onChange={(e) => setAiTopic(e.target.value)}
+                    placeholder="Ví dụ: Serverless & SQS"
+                    className="w-full p-2 border border-slate-300 rounded-md text-xs bg-white text-slate-800 outline-none focus:border-indigo-500"
+                  />
+                </div>
+              </div>
+
+              {/* Tabs chọn hình thức nhập */}
+              <div>
+                <div className="flex border-b border-slate-200">
+                  <button
+                    type="button"
+                    onClick={() => setAiInputMode('FILE')}
+                    className={`px-4 py-2 text-xs font-semibold border-b-2 transition flex items-center gap-1.5 cursor-pointer ${
+                      aiInputMode === 'FILE'
+                        ? 'border-indigo-600 text-indigo-700 bg-indigo-50/40'
+                        : 'border-transparent text-slate-500 hover:text-slate-700'
+                    }`}
+                  >
+                    <span>📁</span>
+                    <span>Tải tệp Word (.docx) / Văn bản (.txt)</span>
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setAiInputMode('TEXT')}
+                    className={`px-4 py-2 text-xs font-semibold border-b-2 transition flex items-center gap-1.5 cursor-pointer ${
+                      aiInputMode === 'TEXT'
+                        ? 'border-indigo-600 text-indigo-700 bg-indigo-50/40'
+                        : 'border-transparent text-slate-500 hover:text-slate-700'
+                    }`}
+                  >
+                    <span>📝</span>
+                    <span>Dán văn bản đề thi thô</span>
+                  </button>
+                </div>
+
+                {/* Tab 1: File Upload */}
+                {aiInputMode === 'FILE' && (
+                  <div className="pt-3 space-y-2">
+                    <div
+                      onClick={() => docFileInputRef.current?.click()}
+                      className={`border-2 border-dashed rounded-xl p-6 text-center cursor-pointer transition ${
+                        aiFile
+                          ? 'border-emerald-400 bg-emerald-50/30'
+                          : 'border-slate-300 hover:border-indigo-400 bg-slate-50/50 hover:bg-indigo-50/20'
+                      }`}
+                    >
+                      <input
+                        ref={docFileInputRef}
+                        type="file"
+                        accept=".docx,.doc,.txt"
+                        onChange={(e) => setAiFile(e.target.files?.[0] || null)}
+                        className="hidden"
+                      />
+                      {aiFile ? (
+                        <div className="flex items-center justify-center gap-3">
+                          <div className="w-10 h-10 rounded-lg bg-emerald-100 text-emerald-700 flex items-center justify-center text-xl font-bold">
+                            📄
+                          </div>
+                          <div className="text-left">
+                            <p className="text-xs font-bold text-slate-800">{aiFile.name}</p>
+                            <p className="text-[11px] text-slate-500">
+                              {(aiFile.size / 1024).toFixed(1)} KB · Sẵn sàng bóc tách bằng Gemini AI
+                            </p>
+                          </div>
+                          <button
+                            type="button"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              setAiFile(null);
+                              if (docFileInputRef.current) docFileInputRef.current.value = '';
+                            }}
+                            className="text-xs text-rose-600 hover:underline px-2 py-1 ml-2"
+                          >
+                            Đổi tệp khác
+                          </button>
+                        </div>
+                      ) : (
+                        <div className="space-y-1.5">
+                          <div className="w-12 h-12 mx-auto rounded-full bg-indigo-100 text-indigo-600 flex items-center justify-center text-2xl">
+                            📄
+                          </div>
+                          <p className="text-xs font-semibold text-slate-700">
+                            Nhấn để chọn tệp hoặc kéo thả tệp Word đề thi vào đây
+                          </p>
+                          <p className="text-[11px] text-slate-400">
+                            Hỗ trợ định dạng: Microsoft Word (.docx), Văn bản (.txt). Kích thước tối đa 10MB.
+                          </p>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                )}
+
+                {/* Tab 2: Textarea Paste */}
+                {aiInputMode === 'TEXT' && (
+                  <div className="pt-3 space-y-2">
+                    <div className="flex justify-between items-center">
+                      <span className="text-xs text-slate-500">
+                        Nhập hoặc dán trực tiếp danh sách câu hỏi trắc nghiệm:
+                      </span>
+                      <button
+                        type="button"
+                        onClick={handleInsertSampleText}
+                        className="text-[11px] font-medium text-indigo-600 hover:text-indigo-800 hover:underline cursor-pointer"
+                      >
+                        + Dán nội dung mẫu (3 câu)
+                      </button>
+                    </div>
+                    <textarea
+                      value={aiText}
+                      onChange={(e) => setAiText(e.target.value)}
+                      rows={7}
+                      placeholder={`Ví dụ:\nCâu 1: Lợi ích chính của Serverless là gì?\nA. Giảm chi phí khi nhàn rỗi\nB. Cần tự duy trì máy chủ\nC. Chi phí cố định hàng tháng\nD. Không hỗ trợ co giãn\nĐáp án: A`}
+                      className="w-full p-2.5 border border-slate-300 rounded-lg text-xs font-mono outline-none focus:border-indigo-500 bg-slate-50/50"
+                    />
+                  </div>
+                )}
+              </div>
+
+              {/* Tùy chọn tự động lưu */}
+              <div className="flex items-center gap-2 pt-1">
+                <input
+                  type="checkbox"
+                  id="aiAutoSaveCheckbox"
+                  checked={aiAutoSave}
+                  onChange={(e) => setAiAutoSave(e.target.checked)}
+                  className="w-4 h-4 text-indigo-600 rounded border-slate-300 cursor-pointer"
+                />
+                <label htmlFor="aiAutoSaveCheckbox" className="text-xs text-slate-700 cursor-pointer">
+                  Tự động lưu toàn bộ câu hỏi trích xuất được vào bảng DynamoDB (<code className="text-slate-600 font-mono">CloudExam_Questions_dev</code>)
+                </label>
+              </div>
+
+              {/* Thông báo lỗi nếu có */}
+              {aiError && (
+                <div className="p-3 rounded-lg bg-rose-50 border border-rose-200 text-rose-700 text-xs flex items-start gap-2">
+                  <span>⚠️</span>
+                  <div className="flex-1">{aiError}</div>
+                </div>
+              )}
+
+              {/* Thông báo thành công nếu có */}
+              {aiSuccessMessage && (
+                <div className="p-3 rounded-lg bg-emerald-50 border border-emerald-200 text-emerald-800 text-xs flex items-start gap-2">
+                  <span>✅</span>
+                  <div className="flex-1 font-medium">{aiSuccessMessage}</div>
+                </div>
+              )}
+
+              {/* Danh sách câu hỏi đã bóc tách xem trước */}
+              {aiExtractedQuestions.length > 0 && (
+                <div className="space-y-2 pt-2 border-t border-slate-200">
+                  <div className="flex justify-between items-center">
+                    <span className="text-xs font-bold text-slate-800">
+                      Xem trước câu hỏi đã trích xuất ({aiExtractedQuestions.length} câu):
+                    </span>
+                    <span className="text-[11px] text-emerald-700 font-medium">
+                      Đã đồng bộ vào Ngân hàng câu hỏi
+                    </span>
+                  </div>
+                  <div className="space-y-2 max-h-60 overflow-y-auto pr-1">
+                    {aiExtractedQuestions.map((q, idx) => (
+                      <div key={idx} className="p-3 rounded-lg border border-slate-200 bg-slate-50/60 text-xs space-y-1.5">
+                        <div className="flex items-center gap-2">
+                          <span className="font-bold text-indigo-700">Câu {idx + 1}:</span>
+                          <span className="font-medium text-slate-800">{q.content}</span>
+                        </div>
+                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-1 pl-4">
+                          {q.options?.map((opt, oIdx) => {
+                            const isCorrect = oIdx === q.correctIndex;
+                            return (
+                              <div
+                                key={oIdx}
+                                className={`px-2 py-1 rounded text-[11px] ${
+                                  isCorrect
+                                    ? 'bg-emerald-100/80 text-emerald-800 font-bold border border-emerald-300'
+                                    : 'text-slate-600'
+                                }`}
+                              >
+                                {LABELS[oIdx]}. {opt} {isCorrect && '✓ (Đáp án đúng)'}
+                              </div>
+                            );
+                          })}
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+            </div>
+
+            {/* Modal Footer */}
+            <div className="bg-slate-50 px-5 py-3 border-t border-slate-200 flex justify-between items-center">
+              <div className="text-[11px] text-slate-500 flex items-center gap-1.5">
+                <span className="w-2 h-2 rounded-full bg-emerald-500 inline-block"></span>
+                <span>Mô hình: Google Gemini 1.5 Flash (1.500 req/ngày Free)</span>
+              </div>
+              <div className="flex gap-2">
+                <button
+                  type="button"
+                  onClick={handleCloseAIModal}
+                  className="px-3 py-1.5 border border-slate-300 rounded-md text-xs font-medium text-slate-700 hover:bg-slate-100 transition cursor-pointer"
+                >
+                  {aiExtractedQuestions.length > 0 ? 'Đóng cửa sổ' : 'Hủy bỏ'}
+                </button>
+                <button
+                  type="button"
+                  disabled={aiLoading}
+                  onClick={handleAIImport}
+                  className="px-4 py-1.5 bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-700 hover:to-indigo-700 disabled:opacity-50 text-white text-xs font-semibold rounded-md shadow-sm transition flex items-center gap-1.5 cursor-pointer"
+                >
+                  {aiLoading ? (
+                    <>
+                      <div className="w-3.5 h-3.5 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
+                      <span>Gemini đang xử lý...</span>
+                    </>
+                  ) : (
+                    <>
+                      <span>✨</span>
+                      <span>{aiExtractedQuestions.length > 0 ? 'Trích xuất thêm tệp khác' : 'Bắt đầu trích xuất bằng AI'}</span>
+                    </>
+                  )}
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Banner giới thiệu tính năng AI Số hóa đề thi */}
+      <div className="bg-gradient-to-r from-purple-50 via-indigo-50 to-blue-50 border border-purple-200/80 rounded-lg p-4 flex flex-wrap items-center justify-between gap-3 shadow-xs">
+        <div className="flex items-center gap-3">
+          <div className="w-10 h-10 rounded-lg bg-gradient-to-br from-purple-600 to-indigo-600 text-white flex items-center justify-center font-bold text-lg shadow-sm">
+            ✨
+          </div>
+          <div>
+            <div className="text-xs font-bold text-slate-800 flex items-center gap-2">
+              <span>Số hóa Đề thi bằng AI (Google Gemini 1.5 Flash)</span>
+              <span className="px-2 py-0.5 rounded text-[10px] bg-purple-100 text-purple-700 font-semibold border border-purple-200">
+                0 USD Multi-Cloud Satellite
+              </span>
+            </div>
+            <div className="text-[11px] text-slate-600 mt-0.5">
+              Tải lên tệp tài liệu Word (.docx / .txt) hoặc dán văn bản đề thi thô. Hệ thống sử dụng Google Gemini 1.5 Flash AI để bóc tách tự động thành câu hỏi trắc nghiệm A-B-C-D chỉ trong vài giây!
+            </div>
+          </div>
+        </div>
+        <button
+          type="button"
+          onClick={handleOpenAIModal}
+          className="px-3.5 py-2 bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-700 hover:to-indigo-700 text-white text-xs font-semibold rounded-md shadow-sm transition flex items-center gap-1.5 cursor-pointer"
+        >
+          <span>Tải file Word đề thi ngay</span>
+          <span>→</span>
+        </button>
+      </div>
 
       {/* Form thêm / sửa câu hỏi */}
       <div className="bg-white p-5 rounded-lg border border-slate-200">

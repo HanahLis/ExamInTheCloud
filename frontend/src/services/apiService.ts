@@ -897,6 +897,81 @@ export const uploadBinaryToS3 = async (
 // ============================================================================
 
 export const parseQuestionsFromDoc = async (payload: ParseDocRequest): Promise<ParseDocResponse> => {
+  if (isMockMode()) {
+    await new Promise((r) => setTimeout(r, 1200));
+    const bankId = payload.bankId || 'bank-se-arch-01';
+    const mockQuestions: Question[] = [
+      {
+        id: `q-doc-${Date.now()}-1`,
+        questionId: `q-doc-${Date.now()}-1`,
+        bankId,
+        content: 'Mô hình điện toán Serverless trên AWS đem lại lợi ích nổi bật nào nhất sau đây?',
+        type: 'SINGLE_CHOICE',
+        options: [
+          'Tự động co giãn theo tải thực tế và chi phí $0 khi hệ thống không có lượt thi nào (Pay-per-request)',
+          'Bắt buộc người dùng cấu hình trước số lượng CPU, RAM và dung lượng đĩa cố định',
+          'Chạy máy chủ liên tục 24/7 và tính phí theo giờ cố định hàng tháng',
+          'Chỉ hỗ trợ ngôn ngữ lập trình C++ và không có cơ chế ghi nhật ký hệ thống'
+        ],
+        correctIndex: 0,
+        correctAnswer: 'Tự động co giãn theo tải thực tế và chi phí $0 khi hệ thống không có lượt thi nào (Pay-per-request)',
+        score: 1,
+        subject: payload.subject || 'Điện toán đám mây',
+        topic: payload.topic || 'Serverless Architecture',
+        difficulty: 'EASY',
+        imageUrl: '',
+      },
+      {
+        id: `q-doc-${Date.now()}-2`,
+        questionId: `q-doc-${Date.now()}-2`,
+        bankId,
+        content: 'Để ngăn ngừa tình trạng nghẽn tải (Thundering Herd) khi hàng ngàn thí sinh nộp bài cùng giây, CloudExam áp dụng mẫu hình kiến trúc nào?',
+        type: 'SINGLE_CHOICE',
+        options: [
+          'Nộp bài đồng bộ trực tiếp vào cơ sở dữ liệu quan hệ SQL',
+          'Queue-Based Load Leveling qua hàng đợi Amazon SQS và xử lý nền ngầm theo lô (Batch Processing)',
+          'Yêu cầu thí sinh thử lại liên tục bằng polling HTTP',
+          'Tắt toàn bộ kiểm tra bảo mật để tăng tốc độ ghi đĩa'
+        ],
+        correctIndex: 1,
+        correctAnswer: 'Queue-Based Load Leveling qua hàng đợi Amazon SQS và xử lý nền ngầm theo lô (Batch Processing)',
+        score: 1,
+        subject: payload.subject || 'Điện toán đám mây',
+        topic: payload.topic || 'EDA & SQS Load Leveling',
+        difficulty: 'MEDIUM',
+        imageUrl: '',
+      },
+      {
+        id: `q-doc-${Date.now()}-3`,
+        questionId: `q-doc-${Date.now()}-3`,
+        bankId,
+        content: 'Dịch vụ nào của AWS được CloudExam tích hợp để đối soát sinh trắc học khuôn mặt thí sinh với ngưỡng tương đồng >= 80%?',
+        type: 'SINGLE_CHOICE',
+        options: [
+          'Amazon Rekognition (CompareFaces API)',
+          'Amazon Polly (Text-to-Speech Engine)',
+          'Amazon Lex (Chatbot Conversational Engine)',
+          'AWS CodeDeploy (Automation CI/CD Pipeline)'
+        ],
+        correctIndex: 0,
+        correctAnswer: 'Amazon Rekognition (CompareFaces API)',
+        score: 1,
+        subject: payload.subject || 'Điện toán đám mây',
+        topic: payload.topic || 'Biometrics & AI Vision',
+        difficulty: 'MEDIUM',
+        imageUrl: '',
+      }
+    ];
+
+    return {
+      message: `[MOCK] Google Gemini 1.5 Flash đã bóc tách thành công ${mockQuestions.length} câu hỏi trắc nghiệm từ tài liệu.`,
+      count: mockQuestions.length,
+      bankId,
+      saved: true,
+      source: 'Google Gemini 1.5 Flash (Mock Engine)',
+      questions: mockQuestions,
+    };
+  }
   const res = await api.post('/questions/parse-doc', payload);
   return res.data;
 };
