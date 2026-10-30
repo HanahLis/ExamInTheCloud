@@ -45,11 +45,11 @@ export const ExamRoom = ({ sessionId, currentUserEmail = '', onExit }: Props) =>
   const [verifyResult, setVerifyResult] = useState<FaceVerifyResponse | null>(null);
 
   // Tiến trình làm bài và lưu ngầm lên Cloud (Kiến trúc Local-First & Throttled Sync - Task 23)
-  const [answers, setAnswers] = useState<Record<string, number>>({});
+  const [answers, setAnswers] = useState<Record<string, number | string>>({});
   const [lastSavedTime, setLastSavedTime] = useState<string>('');
   const [isSavingDraft, setIsSavingDraft] = useState(false);
   const dirtyCountRef = useRef<number>(0);
-  const lastSyncAnswersRef = useRef<Record<string, number>>({});
+  const lastSyncAnswersRef = useRef<Record<string, number | string>>({});
 
   const answersRef = useRef(answers);
   useEffect(() => {
@@ -174,7 +174,7 @@ export const ExamRoom = ({ sessionId, currentUserEmail = '', onExit }: Props) =>
     }
   };
 
-  // Chọn đáp án: Lưu tức thì vào localStorage (Local-First 0ms), đệm gom 10 câu mới gửi Cloud (Task 23)
+  // Chọn đáp án trắc nghiệm: Lưu tức thì vào localStorage (Local-First 0ms), đệm gom 10 câu mới gửi Cloud (Task 23)
   const handleSelectOption = (questionId: string, optionIndex: number) => {
     const updated = { ...answers, [questionId]: optionIndex };
     setAnswers(updated);
@@ -197,6 +197,24 @@ export const ExamRoom = ({ sessionId, currentUserEmail = '', onExit }: Props) =>
     // 2. Throttled Sync: Gom đủ 10 câu thay đổi thì kích hoạt đồng bộ lên Cloud ngay
     if (dirtyCountRef.current >= 10) {
       syncDraftToCloud(updated);
+    }
+  };
+
+  // Trả lời câu hỏi tự luận: Lưu văn bản tức thì vào localStorage
+  const handleTextAnswer = (questionId: string, text: string) => {
+    const updated = { ...answers, [questionId]: text };
+    setAnswers(updated);
+    answersRef.current = updated;
+
+    const localDraftKey = `cloudexam_draft_${sessionId}_${candidateEmail}`;
+    try {
+      localStorage.setItem(localDraftKey, JSON.stringify({
+        answers: updated,
+        updatedAt: new Date().toISOString()
+      }));
+      setLastSavedTime('Đã lưu bài làm tự luận');
+    } catch (e) {
+      console.warn('Lỗi ghi localStorage:', e);
     }
   };
 
@@ -720,33 +738,48 @@ export const ExamRoom = ({ sessionId, currentUserEmail = '', onExit }: Props) =>
                     />
                   )}
 
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-2 pt-1">
-                    {q.options.map((opt, optIdx) => {
-                      const label = ['A', 'B', 'C', 'D'][optIdx] || `${optIdx + 1}`;
-                      const isChecked = selectedOpt === optIdx;
-                      return (
-                        <label
-                          key={optIdx}
-                          onClick={() => handleSelectOption(q.id, optIdx)}
-                          className={`flex items-center space-x-2.5 p-2 rounded border cursor-pointer text-xs transition ${
-                            isChecked
-                              ? 'bg-white border-slate-800 font-medium text-slate-900'
-                              : 'bg-white border-slate-200 text-slate-600 hover:bg-slate-50'
-                          }`}
-                        >
-                          <input
-                            type="radio"
-                            name={`question-${q.id}`}
-                            checked={isChecked}
-                            onChange={() => handleSelectOption(q.id, optIdx)}
-                            className="text-slate-800 focus:ring-slate-400"
-                          />
-                          <span className="font-semibold text-slate-700">{label}.</span>
-                          <span className="flex-1 truncate">{opt}</span>
-                        </label>
-                      );
-                    })}
-                  </div>
+                  {q.type === 'ESSAY' ? (
+                    <div className="pt-2">
+                      <label className="block text-[11px] font-medium text-slate-700 mb-1">
+                        Bài làm tự luận của bạn:
+                      </label>
+                      <textarea
+                        value={typeof answers[q.id] === 'string' ? answers[q.id] : ''}
+                        onChange={(e) => handleTextAnswer(q.id, e.target.value)}
+                        placeholder="Nhập nội dung câu trả lời tự luận vào đây..."
+                        rows={4}
+                        className="w-full p-2.5 border border-slate-300 rounded-md text-xs bg-white text-slate-900 outline-none focus:border-slate-500 leading-relaxed font-sans"
+                      />
+                    </div>
+                  ) : (
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-2 pt-1">
+                      {q.options.map((opt, optIdx) => {
+                        const label = ['A', 'B', 'C', 'D'][optIdx] || `${optIdx + 1}`;
+                        const isChecked = selectedOpt === optIdx;
+                        return (
+                          <label
+                            key={optIdx}
+                            onClick={() => handleSelectOption(q.id, optIdx)}
+                            className={`flex items-center space-x-2.5 p-2 rounded border cursor-pointer text-xs transition ${
+                              isChecked
+                                ? 'bg-white border-slate-800 font-medium text-slate-900'
+                                : 'bg-white border-slate-200 text-slate-600 hover:bg-slate-50'
+                            }`}
+                          >
+                            <input
+                              type="radio"
+                              name={`question-${q.id}`}
+                              checked={isChecked}
+                              onChange={() => handleSelectOption(q.id, optIdx)}
+                              className="text-slate-800 focus:ring-slate-400"
+                            />
+                            <span className="font-semibold text-slate-700">{label}.</span>
+                            <span className="flex-1 truncate">{opt}</span>
+                          </label>
+                        );
+                      })}
+                    </div>
+                  )}
                 </div>
               );
             })}

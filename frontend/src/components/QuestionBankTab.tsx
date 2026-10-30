@@ -6,6 +6,7 @@ import {
   deleteQuestion,
   getQuestionBanks,
   createQuestionBank,
+  deleteQuestionBank,
   parseQuestionsFromDoc,
   extractTextFromDocxFile,
   DEFAULT_QUESTION_BANKS,
@@ -40,12 +41,14 @@ export const QuestionBankTab = ({ questions, onRefresh }: Props) => {
   const [newBankDesc, setNewBankDesc] = useState('');
   const [creatingBank, setCreatingBank] = useState(false);
 
-  // 3. Form tạo / sửa câu hỏi
+  // 3. Form tạo / sửa câu hỏi (Hỗ trợ Trắc nghiệm A-F & Tự luận Essay)
   const [editingId, setEditingId] = useState<string | null>(null);
   const [bankId, setBankId] = useState<string>('bank-se-arch-01');
   const [subject, setSubject] = useState('Kiến trúc hướng dịch vụ');
   const [topic, setTopic] = useState('Kiến trúc hệ thống');
+  const [questionType, setQuestionType] = useState<QuestionType>('SINGLE_CHOICE');
   const [content, setContent] = useState('');
+  const [essayRubric, setEssayRubric] = useState('');
   // Hình thức trắc nghiệm từ 2 đến 6 lựa chọn (A, B, C, D, E, F)
   const [options, setOptions] = useState<string[]>(['', '', '', '']);
   const [correctIndex, setCorrectIndex] = useState(0);
@@ -54,6 +57,7 @@ export const QuestionBankTab = ({ questions, onRefresh }: Props) => {
   const [existingImage, setExistingImage] = useState('');
   const [loading, setLoading] = useState(false);
   const [uploadStatus, setUploadStatus] = useState<string>('');
+  const [deletingBankId, setDeletingBankId] = useState<string | null>(null);
   const fileInput = useRef<HTMLInputElement>(null);
 
   // 4. Modal nhập đề thi từ tệp Word (.docx)
@@ -198,7 +202,9 @@ export const QuestionBankTab = ({ questions, onRefresh }: Props) => {
   // Reset form
   const resetForm = () => {
     setEditingId(null);
+    setQuestionType('SINGLE_CHOICE');
     setContent('');
+    setEssayRubric('');
     setOptions(['', '', '', '']);
     setCorrectIndex(0);
     setScore(1);
@@ -210,18 +216,25 @@ export const QuestionBankTab = ({ questions, onRefresh }: Props) => {
 
   // Nạp câu hỏi vào form để chỉnh sửa
   const startEdit = (q: Question) => {
+    const isEssay = q.type === 'ESSAY';
     setEditingId(q.id);
     setBankId(q.bankId || (lecturerBanks[0]?.id ?? 'bank-se-arch-01'));
+    setQuestionType(isEssay ? 'ESSAY' : 'SINGLE_CHOICE');
     setContent(q.content);
+    setEssayRubric(isEssay ? (q.correctAnswer || '') : '');
     setSubject(q.subject || 'Kiến trúc hướng dịch vụ');
     setTopic(q.topic || 'Kiến trúc hệ thống');
-    // Nạp danh sách phương án (đảm bảo ít nhất 2 và tối đa 6)
-    const currentOptions =
-      Array.isArray(q.options) && q.options.length >= 2 ? [...q.options] : ['', ''];
-    setOptions(currentOptions.slice(0, 6));
-    setCorrectIndex(
-      q.correctIndex !== undefined && q.correctIndex < currentOptions.length ? q.correctIndex : 0
-    );
+
+    if (!isEssay) {
+      // Nạp danh sách phương án trắc nghiệm (đảm bảo ít nhất 2 và tối đa 6)
+      const currentOptions =
+        Array.isArray(q.options) && q.options.length >= 2 ? [...q.options] : ['', ''];
+      setOptions(currentOptions.slice(0, 6));
+      setCorrectIndex(
+        q.correctIndex !== undefined && q.correctIndex < currentOptions.length ? q.correctIndex : 0
+      );
+    }
+
     setScore(q.score ?? 1);
     setFile(null);
     setExistingImage(q.imageUrl ?? '');
@@ -230,17 +243,20 @@ export const QuestionBankTab = ({ questions, onRefresh }: Props) => {
     window.scrollTo({ top: 0, behavior: 'smooth' });
   };
 
-  // Lưu câu hỏi mới hoặc cập nhật câu hỏi
+  // Lưu câu hỏi mới hoặc cập nhật câu hỏi (Trắc nghiệm hoặc Tự luận)
   const handleSubmit = async (e: FormEvent) => {
     e.preventDefault();
     if (!content.trim()) {
       return alert('Vui lòng nhập nội dung câu hỏi.');
     }
-    if (options.length < 2) {
-      return alert('Câu hỏi phải có ít nhất 2 phương án trả lời.');
-    }
-    if (options.some((o) => !o.trim())) {
-      return alert('Vui lòng nhập đầy đủ nội dung cho tất cả các phương án trả lời.');
+
+    if (questionType !== 'ESSAY') {
+      if (options.length < 2) {
+        return alert('Câu hỏi trắc nghiệm phải có ít nhất 2 phương án trả lời.');
+      }
+      if (options.some((o) => !o.trim())) {
+        return alert('Vui lòng nhập đầy đủ nội dung cho tất cả các phương án trả lời.');
+      }
     }
 
     setLoading(true);
@@ -252,23 +268,41 @@ export const QuestionBankTab = ({ questions, onRefresh }: Props) => {
         setUploadStatus('Tải ảnh thành công');
       }
 
-      const correctAnswer = options[correctIndex]?.trim() || options[0]?.trim() || '';
-
-      const payload = {
-        bankId,
-        content: content.trim(),
-        type: 'SINGLE_CHOICE' as QuestionType,
-        options: options.map((o) => o.trim()),
-        correctIndex,
-        correctAnswer,
-        score: Number(score) || 1,
-        subject: subject.trim(),
-        topic: topic.trim(),
-        difficulty: 'MEDIUM' as const,
-        imageUrl,
-        ownerEmail: lecturerEmail,
-        createdBy: lecturerEmail,
-      };
+      let payload: any;
+      if (questionType === 'ESSAY') {
+        payload = {
+          bankId,
+          content: content.trim(),
+          type: 'ESSAY' as QuestionType,
+          options: [],
+          correctIndex: -1,
+          correctAnswer: essayRubric.trim(),
+          score: Math.max(0.25, Number(score) || 1),
+          subject: subject.trim(),
+          topic: topic.trim(),
+          difficulty: 'MEDIUM' as const,
+          imageUrl,
+          ownerEmail: lecturerEmail,
+          createdBy: lecturerEmail,
+        };
+      } else {
+        const correctAnswer = options[correctIndex]?.trim() || options[0]?.trim() || '';
+        payload = {
+          bankId,
+          content: content.trim(),
+          type: 'SINGLE_CHOICE' as QuestionType,
+          options: options.map((o) => o.trim()),
+          correctIndex,
+          correctAnswer,
+          score: Math.max(0.25, Number(score) || 1),
+          subject: subject.trim(),
+          topic: topic.trim(),
+          difficulty: 'MEDIUM' as const,
+          imageUrl,
+          ownerEmail: lecturerEmail,
+          createdBy: lecturerEmail,
+        };
+      }
 
       if (editingId) {
         await updateQuestion(editingId, payload);
@@ -295,6 +329,34 @@ export const QuestionBankTab = ({ questions, onRefresh }: Props) => {
       await onRefresh();
     } catch (err) {
       alert('Lỗi xóa câu hỏi: ' + err);
+    }
+  };
+
+  // Xóa vĩnh viễn ngân hàng câu hỏi trên AWS DynamoDB (CloudExam_QuestionBanks_dev & CloudExam_Questions_dev)
+  const handleDeleteBank = async (bank: QuestionBank) => {
+    const bankQs = lecturerQuestions.filter((q) => q.bankId === bank.id);
+    const confirmMsg = `Bạn có chắc chắn muốn xóa vĩnh viễn ngân hàng "${bank.name}" và toàn bộ ${bankQs.length} câu hỏi thuộc ngân hàng này trên hệ thống lưu trữ AWS?`;
+    if (!window.confirm(confirmMsg)) return;
+
+    setDeletingBankId(bank.id);
+    try {
+      await deleteQuestionBank(bank.id);
+      if (selectedBankFilter === bank.id) {
+        setSelectedBankFilter('ALL');
+      }
+      if (bankId === bank.id) {
+        const remaining = lecturerBanks.filter((b) => b.id !== bank.id);
+        if (remaining.length > 0) {
+          setBankId(remaining[0].id);
+          if (remaining[0].subject) setSubject(remaining[0].subject);
+        }
+      }
+      await loadBanks();
+      await onRefresh();
+    } catch (err: any) {
+      alert('Lỗi xóa ngân hàng câu hỏi trên AWS: ' + (err.message || err));
+    } finally {
+      setDeletingBankId(null);
     }
   };
 
@@ -446,29 +508,51 @@ export const QuestionBankTab = ({ questions, onRefresh }: Props) => {
             </select>
           </div>
 
-          <div className="flex flex-wrap gap-1.5 text-xs">
+          <div className="flex flex-wrap gap-2 text-xs">
             {lecturerBanks.map((b) => {
               const count = lecturerQuestions.filter((q) => q.bankId === b.id).length;
               const isSelected = selectedBankFilter === b.id;
+              const isDeleting = deletingBankId === b.id;
               return (
-                <button
+                <div
                   key={b.id}
-                  onClick={() => setSelectedBankFilter(isSelected ? 'ALL' : b.id)}
-                  className={`px-2.5 py-1 rounded-md border text-xs transition flex items-center gap-1.5 cursor-pointer ${
+                  className={`inline-flex items-center rounded-md border transition overflow-hidden shadow-2xs ${
                     isSelected
-                      ? 'bg-slate-900 text-white border-slate-900 font-medium'
-                      : 'bg-white border-slate-200 text-slate-600 hover:bg-slate-50'
+                      ? 'border-slate-900 bg-slate-900 text-white'
+                      : 'border-slate-200 bg-white text-slate-700 hover:border-slate-300'
                   }`}
                 >
-                  <span>{b.name}</span>
-                  <span
-                    className={`text-[10px] px-1 rounded ${
-                      isSelected ? 'bg-slate-700 text-white' : 'bg-slate-100 text-slate-600'
+                  <button
+                    type="button"
+                    onClick={() => setSelectedBankFilter(isSelected ? 'ALL' : b.id)}
+                    className="px-2.5 py-1 flex items-center gap-1.5 cursor-pointer"
+                  >
+                    <span className="font-medium">{b.name}</span>
+                    <span
+                      className={`text-[10px] px-1 py-0.2 rounded font-semibold ${
+                        isSelected ? 'bg-slate-700 text-white' : 'bg-slate-100 text-slate-600'
+                      }`}
+                    >
+                      {count}
+                    </span>
+                  </button>
+                  <button
+                    type="button"
+                    title={`Xóa vĩnh viễn ngân hàng "${b.name}" trên AWS DynamoDB`}
+                    disabled={isDeleting}
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      handleDeleteBank(b);
+                    }}
+                    className={`px-2 py-1 text-[11px] font-bold border-l transition cursor-pointer disabled:opacity-50 ${
+                      isSelected
+                        ? 'border-slate-800 text-slate-300 hover:text-rose-300 hover:bg-rose-950/40'
+                        : 'border-slate-100 text-slate-400 hover:text-rose-600 hover:bg-rose-50'
                     }`}
                   >
-                    {count}
-                  </span>
-                </button>
+                    {isDeleting ? '...' : '✕'}
+                  </button>
+                </div>
               );
             })}
           </div>
@@ -886,85 +970,135 @@ export const QuestionBankTab = ({ questions, onRefresh }: Props) => {
             />
           </div>
 
-          {/* Hàng 3: Hình thức trắc nghiệm từ 2 đến 6 lựa chọn (A, B, C, D, E, F) */}
-          <div className="space-y-2">
-            <div className="flex flex-wrap justify-between items-center">
-              <div>
-                <label className="block text-xs font-medium text-slate-700">
-                  Các lựa chọn trả lời và đánh dấu đáp án đúng *
-                </label>
-                <p className="text-[11px] text-slate-500">
-                  Hỗ trợ từ 2 đến 6 phương án (A, B, C, D, E, F). Chọn nút tròn để đánh dấu đáp
-                  án đúng.
-                </p>
-              </div>
-
-              {options.length < 6 && (
-                <button
-                  type="button"
-                  onClick={handleAddOption}
-                  className="text-xs text-indigo-600 hover:text-indigo-800 font-medium px-2 py-1 rounded bg-indigo-50 hover:bg-indigo-100 transition cursor-pointer"
-                >
-                  + Thêm lựa chọn ({OPTION_LABELS[options.length]})
-                </button>
-              )}
-            </div>
-
-            <div className="space-y-2">
-              {options.map((opt, i) => {
-                const isSelected = correctIndex === i;
-                return (
-                  <div
-                    key={i}
-                    className={`flex items-center gap-2 p-2 rounded-md border transition ${
-                      isSelected
-                        ? 'border-emerald-500 bg-emerald-50/60'
-                        : 'border-slate-200 bg-white'
-                    }`}
-                  >
-                    <input
-                      type="radio"
-                      name="correct-choice-radio"
-                      checked={isSelected}
-                      onChange={() => setCorrectIndex(i)}
-                      className="ml-1 w-4 h-4 text-emerald-600 cursor-pointer accent-emerald-600"
-                      title="Chọn làm đáp án đúng"
-                    />
-                    <span
-                      className={`w-4 font-bold text-xs ${
-                        isSelected ? 'text-emerald-700' : 'text-slate-600'
-                      }`}
-                    >
-                      {OPTION_LABELS[i]}
-                    </span>
-                    <input
-                      type="text"
-                      value={opt}
-                      onChange={(e) => handleOptionChange(i, e.target.value)}
-                      placeholder={`Nội dung lựa chọn ${OPTION_LABELS[i]}...`}
-                      className="flex-1 p-1.5 text-xs border border-slate-200 rounded outline-none focus:border-slate-400 bg-white"
-                      required
-                    />
-                    {isSelected && (
-                      <span className="text-[10px] font-bold text-emerald-700 bg-emerald-100 border border-emerald-300 px-2 py-0.5 rounded shrink-0">
-                        ✓ Đáp án đúng
-                      </span>
-                    )}
-                    {options.length > 2 && (
-                      <button
-                        type="button"
-                        onClick={() => handleRemoveOption(i)}
-                        className="text-xs text-slate-400 hover:text-rose-600 px-1.5 py-0.5 rounded hover:bg-rose-50 transition cursor-pointer"
-                        title="Xóa lựa chọn này"
-                      >
-                        ✕
-                      </button>
-                    )}
-                  </div>
-                );
-              })}
+          {/* Lựa chọn loại câu hỏi: Trắc nghiệm (A-F) hoặc Tự luận */}
+          <div className="flex items-center gap-3 pb-1">
+            <span className="text-xs font-semibold text-slate-700">Loại câu hỏi:</span>
+            <div className="inline-flex rounded-md p-0.5 bg-slate-100 border border-slate-200">
+              <button
+                type="button"
+                onClick={() => setQuestionType('SINGLE_CHOICE')}
+                className={`px-3 py-1 rounded text-xs font-medium cursor-pointer transition ${
+                  questionType !== 'ESSAY'
+                    ? 'bg-white text-slate-900 shadow-xs font-semibold'
+                    : 'text-slate-600 hover:text-slate-900'
+                }`}
+              >
+                📝 Trắc nghiệm (A-F)
+              </button>
+              <button
+                type="button"
+                onClick={() => setQuestionType('ESSAY')}
+                className={`px-3 py-1 rounded text-xs font-medium cursor-pointer transition ${
+                  questionType === 'ESSAY'
+                    ? 'bg-white text-indigo-700 shadow-xs font-semibold'
+                    : 'text-slate-600 hover:text-indigo-700'
+                }`}
+              >
+                ✍️ Tự luận (Essay)
+              </button>
             </div>
           </div>
+
+          {/* Nếu là Tự luận: hiển thị Barem / Gợi ý đáp án. Nếu là Trắc nghiệm: hiển thị các lựa chọn A-F */}
+          {questionType === 'ESSAY' ? (
+            <div className="space-y-1.5 p-3 rounded-md border border-indigo-200 bg-indigo-50/40">
+              <div className="flex justify-between items-center">
+                <label className="block text-xs font-semibold text-indigo-900">
+                  Gợi ý đáp án / Barem chấm điểm (Rubric)
+                </label>
+                <span className="text-[11px] text-indigo-600 font-medium">
+                  ✍️ Thí sinh sẽ nhập câu trả lời trực tiếp trong phòng thi
+                </span>
+              </div>
+              <textarea
+                value={essayRubric}
+                onChange={(e) => setEssayRubric(e.target.value)}
+                className="w-full p-2.5 border border-indigo-200 rounded-md outline-none focus:border-indigo-400 text-xs leading-relaxed bg-white text-slate-800"
+                rows={4}
+                placeholder="Nhập barem chấm điểm, các ý chính cần có hoặc câu trả lời mẫu cho giảng viên đối chiếu..."
+              />
+            </div>
+          ) : (
+            /* Hàng 3: Hình thức trắc nghiệm từ 2 đến 6 lựa chọn (A, B, C, D, E, F) */
+            <div className="space-y-2">
+              <div className="flex flex-wrap justify-between items-center">
+                <div>
+                  <label className="block text-xs font-medium text-slate-700">
+                    Các lựa chọn trả lời và đánh dấu đáp án đúng *
+                  </label>
+                  <p className="text-[11px] text-slate-500">
+                    Hỗ trợ từ 2 đến 6 phương án (A, B, C, D, E, F). Chọn nút tròn để đánh dấu đáp
+                    án đúng.
+                  </p>
+                </div>
+
+                {options.length < 6 && (
+                  <button
+                    type="button"
+                    onClick={handleAddOption}
+                    className="text-xs text-indigo-600 hover:text-indigo-800 font-medium px-2 py-1 rounded bg-indigo-50 hover:bg-indigo-100 transition cursor-pointer"
+                  >
+                    + Thêm lựa chọn ({OPTION_LABELS[options.length]})
+                  </button>
+                )}
+              </div>
+
+              <div className="space-y-2">
+                {options.map((opt, i) => {
+                  const isSelected = correctIndex === i;
+                  return (
+                    <div
+                      key={i}
+                      className={`flex items-center gap-2 p-2 rounded-md border transition ${
+                        isSelected
+                          ? 'border-emerald-500 bg-emerald-50/60'
+                          : 'border-slate-200 bg-white'
+                      }`}
+                    >
+                      <input
+                        type="radio"
+                        name="correct-choice-radio"
+                        checked={isSelected}
+                        onChange={() => setCorrectIndex(i)}
+                        className="ml-1 w-4 h-4 text-emerald-600 cursor-pointer accent-emerald-600"
+                        title="Chọn làm đáp án đúng"
+                      />
+                      <span
+                        className={`w-4 font-bold text-xs ${
+                          isSelected ? 'text-emerald-700' : 'text-slate-600'
+                        }`}
+                      >
+                        {OPTION_LABELS[i]}
+                      </span>
+                      <input
+                        type="text"
+                        value={opt}
+                        onChange={(e) => handleOptionChange(i, e.target.value)}
+                        placeholder={`Nội dung lựa chọn ${OPTION_LABELS[i]}...`}
+                        className="flex-1 p-1.5 text-xs border border-slate-200 rounded outline-none focus:border-slate-400 bg-white"
+                        required
+                      />
+                      {isSelected && (
+                        <span className="text-[10px] font-bold text-emerald-700 bg-emerald-100 border border-emerald-300 px-2 py-0.5 rounded shrink-0">
+                          ✓ Đáp án đúng
+                        </span>
+                      )}
+                      {options.length > 2 && (
+                        <button
+                          type="button"
+                          onClick={() => handleRemoveOption(i)}
+                          className="text-xs text-slate-400 hover:text-rose-600 px-1.5 py-0.5 rounded hover:bg-rose-50 transition cursor-pointer"
+                          title="Xóa lựa chọn này"
+                        >
+                          ✕
+                        </button>
+                      )}
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+          )}
 
           {/* Hàng 4: Điểm số & Ảnh minh họa (Không có mức độ) */}
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-1">
@@ -1077,13 +1211,24 @@ export const QuestionBankTab = ({ questions, onRefresh }: Props) => {
           {filteredQuestions.map((q, index) => {
             return (
               <div key={q.id} className="py-4 space-y-3">
-                {/* 1. Câu hỏi */}
-                <div>
-                  <span className="font-bold text-slate-900 text-sm mr-2">
-                    Câu {index + 1}:
-                  </span>
-                  <span className="text-slate-800 text-sm font-medium leading-relaxed">
-                    {q.content}
+                {/* 1. Câu hỏi & Nhãn phân loại */}
+                <div className="flex items-start justify-between gap-2">
+                  <div className="flex-1">
+                    <span className="font-bold text-slate-900 text-sm mr-2">
+                      Câu {index + 1}:
+                    </span>
+                    <span className="text-slate-800 text-sm font-medium leading-relaxed">
+                      {q.content}
+                    </span>
+                  </div>
+                  <span
+                    className={`shrink-0 text-[10px] font-semibold px-2 py-0.5 rounded border ${
+                      q.type === 'ESSAY'
+                        ? 'bg-purple-50 text-purple-700 border-purple-200'
+                        : 'bg-blue-50 text-blue-700 border-blue-200'
+                    }`}
+                  >
+                    {q.type === 'ESSAY' ? '✍️ Tự luận' : '📝 Trắc nghiệm'}
                   </span>
                 </div>
 
@@ -1098,44 +1243,61 @@ export const QuestionBankTab = ({ questions, onRefresh }: Props) => {
                   </div>
                 )}
 
-                {/* 2. Các câu trả lời (đáp án đúng in màu xanh) */}
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 pt-1">
-                  {q.options.map((opt, i) => {
-                    const isCorrect = i === q.correctIndex;
-                    return (
-                      <div
-                        key={i}
-                        className={`p-2.5 rounded-md border text-xs flex items-start gap-2.5 transition ${
-                          isCorrect
-                            ? 'border-emerald-500 bg-emerald-50/70 text-emerald-950 font-semibold shadow-xs'
-                            : 'border-slate-200 bg-slate-50/50 text-slate-700'
-                        }`}
-                      >
-                        <span
-                          className={`w-5 h-5 rounded-full flex items-center justify-center text-[11px] font-bold shrink-0 mt-0.5 ${
+                {/* 2. Nội dung trả lời (Tự luận hoặc Trắc nghiệm A-F) */}
+                {q.type === 'ESSAY' ? (
+                  <div className="p-3 rounded-md border border-slate-200 bg-slate-50/70 text-xs space-y-1">
+                    <div className="flex items-center gap-1.5 text-slate-600 font-semibold text-[11px]">
+                      <span>✍️ Câu hỏi tự luận</span>
+                      {q.correctAnswer && <span className="text-slate-400">• Barem / Gợi ý đáp án:</span>}
+                    </div>
+                    {q.correctAnswer ? (
+                      <p className="text-slate-700 whitespace-pre-wrap leading-relaxed pl-1 border-l-2 border-indigo-400">
+                        {q.correctAnswer}
+                      </p>
+                    ) : (
+                      <p className="text-slate-400 italic">Chưa có barem gợi ý đáp án.</p>
+                    )}
+                  </div>
+                ) : (
+                  /* Các câu trả lời (đáp án đúng in màu xanh) */
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 pt-1">
+                    {q.options.map((opt, i) => {
+                      const isCorrect = i === q.correctIndex;
+                      return (
+                        <div
+                          key={i}
+                          className={`p-2.5 rounded-md border text-xs flex items-start gap-2.5 transition ${
                             isCorrect
-                              ? 'bg-emerald-600 text-white'
-                              : 'bg-slate-200 text-slate-600'
+                              ? 'border-emerald-500 bg-emerald-50/70 text-emerald-950 font-semibold shadow-xs'
+                              : 'border-slate-200 bg-slate-50/50 text-slate-700'
                           }`}
                         >
-                          {OPTION_LABELS[i] || String.fromCharCode(65 + i)}
-                        </span>
-                        <span
-                          className={`flex-1 leading-relaxed ${
-                            isCorrect ? 'text-emerald-950 font-semibold' : 'text-slate-700'
-                          }`}
-                        >
-                          {opt}
-                        </span>
-                        {isCorrect && (
-                          <span className="text-[10px] font-bold text-emerald-700 bg-emerald-100 border border-emerald-300 px-1.5 py-0.5 rounded shrink-0">
-                            ✓ Đáp án đúng
+                          <span
+                            className={`w-5 h-5 rounded-full flex items-center justify-center text-[11px] font-bold shrink-0 mt-0.5 ${
+                              isCorrect
+                                ? 'bg-emerald-600 text-white'
+                                : 'bg-slate-200 text-slate-600'
+                            }`}
+                          >
+                            {OPTION_LABELS[i] || String.fromCharCode(65 + i)}
                           </span>
-                        )}
-                      </div>
-                    );
-                  })}
-                </div>
+                          <span
+                            className={`flex-1 leading-relaxed ${
+                              isCorrect ? 'text-emerald-950 font-semibold' : 'text-slate-700'
+                            }`}
+                          >
+                            {opt}
+                          </span>
+                          {isCorrect && (
+                            <span className="text-[10px] font-bold text-emerald-700 bg-emerald-100 border border-emerald-300 px-1.5 py-0.5 rounded shrink-0">
+                              ✓ Đáp án đúng
+                            </span>
+                          )}
+                        </div>
+                      );
+                    })}
+                  </div>
+                )}
 
                 {/* 3. Cuối cùng là điểm và các nút thao tác */}
                 <div className="flex justify-between items-center pt-2 border-t border-slate-100 text-xs">

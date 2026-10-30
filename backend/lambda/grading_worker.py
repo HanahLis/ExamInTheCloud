@@ -149,11 +149,17 @@ def grade_submission(submission: dict) -> dict:
 
         q_score = Decimal(str(q_item.get("score", 1)))
         max_score += q_score
-        correct_index = q_item.get("correctIndex")
-
-        if correct_index is not None and chosen_idx == correct_index:
-            total_score += q_score
-            correct_count += 1
+        q_type = q_item.get("type", "SINGLE_CHOICE")
+        if q_type == "ESSAY":
+            # Đối với câu hỏi tự luận: Nếu thí sinh có nhập nội dung trả lời thì ghi nhận hoàn thành
+            if isinstance(chosen_idx, str) and len(chosen_idx.strip()) > 0:
+                total_score += q_score
+                correct_count += 1
+        else:
+            correct_index = q_item.get("correctIndex")
+            if correct_index is not None and chosen_idx == correct_index:
+                total_score += q_score
+                correct_count += 1
 
     submission_result = {
         "id": submission_id,

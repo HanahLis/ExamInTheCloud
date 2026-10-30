@@ -631,9 +631,14 @@ def lambda_handler(event, context):
 
             elif http_method == "POST":
                 question_id = body.get("questionId") or str(uuid.uuid4())
-                options = body.get("options", [])
-                correct_idx = body.get("correctIndex", 0)
-                correct_answer = body.get("correctAnswer") or (options[correct_idx] if len(options) > correct_idx else "")
+                q_type = body.get("type", "SINGLE_CHOICE")
+                is_essay = q_type == "ESSAY"
+                options = [] if is_essay else body.get("options", [])
+                correct_idx = -1 if is_essay else int(body.get("correctIndex", 0))
+                if is_essay:
+                    correct_answer = body.get("correctAnswer", "")
+                else:
+                    correct_answer = body.get("correctAnswer") or (options[correct_idx] if len(options) > correct_idx else "")
                 owner = body.get("ownerEmail") or user_email or body.get("createdBy", "")
 
                 item = {
@@ -641,7 +646,7 @@ def lambda_handler(event, context):
                     "questionId": question_id,
                     "bankId": body.get("bankId", "bank-default"),
                     "content": body.get("content", ""),
-                    "type": body.get("type", "SINGLE_CHOICE"),
+                    "type": q_type,
                     "options": options,
                     "correctIndex": correct_idx,
                     "correctAnswer": correct_answer,
@@ -670,9 +675,14 @@ def lambda_handler(event, context):
                 return build_response(200, item)
 
             elif http_method == "PUT":
-                options = body.get("options", [])
-                correct_idx = body.get("correctIndex", 0)
-                correct_answer = body.get("correctAnswer") or (options[correct_idx] if len(options) > correct_idx else "")
+                q_type = body.get("type", "SINGLE_CHOICE")
+                is_essay = q_type == "ESSAY"
+                options = [] if is_essay else body.get("options", [])
+                correct_idx = -1 if is_essay else int(body.get("correctIndex", 0))
+                if is_essay:
+                    correct_answer = body.get("correctAnswer", "")
+                else:
+                    correct_answer = body.get("correctAnswer") or (options[correct_idx] if len(options) > correct_idx else "")
 
                 update_expr = "SET content = :c, #opt = :o, correctIndex = :ci, correctAnswer = :ca, score = :s, #typ = :t, subject = :sb, topic = :top, difficulty = :d, imageUrl = :img, bankId = :b"
                 expr_names = {"#opt": "options", "#typ": "type"}
@@ -682,7 +692,7 @@ def lambda_handler(event, context):
                     ":ci": correct_idx,
                     ":ca": correct_answer,
                     ":s": Decimal(str(body.get("score", 1))),
-                    ":t": body.get("type", "SINGLE_CHOICE"),
+                    ":t": q_type,
                     ":sb": body.get("subject", "Điện toán đám mây"),
                     ":top": body.get("topic", "AWS Serverless"),
                     ":d": body.get("difficulty", "EASY"),
@@ -718,6 +728,32 @@ def lambda_handler(event, context):
                 return build_response(200, all_banks)
 
             elif http_method == "POST":
+                # Hỗ trợ xóa ngân hàng câu hỏi qua POST action=DELETE (Đảm bảo tương thích API Gateway)
+                if body.get("action") == "DELETE" or body.get("_method") == "DELETE":
+                    bank_id = body.get("id") or body.get("bankId") or query_params.get("id")
+                    if not bank_id:
+                        return build_response(400, {"error": "Thiếu id ngân hàng câu hỏi cần xóa."})
+
+                    question_banks_table.delete_item(Key={"id": bank_id})
+
+                    # Cascade delete: Xóa toàn bộ câu hỏi thuộc ngân hàng này trên AWS DynamoDB
+                    try:
+                        q_res = questions_table.scan(
+                            FilterExpression=boto3.dynamodb.conditions.Attr("bankId").eq(bank_id)
+                        )
+                        items_to_del = q_res.get("Items", [])
+                        for q_item in items_to_del:
+                            del_id = q_item.get("id")
+                            if del_id:
+                                questions_table.delete_item(Key={"id": del_id})
+                    except Exception as cascade_err:
+                        print(f"[WARN] Lỗi cascade xóa câu hỏi trong bank {bank_id}: {cascade_err}")
+
+                    return build_response(200, {
+                        "message": f"Đã xóa thành công ngân hàng câu hỏi {bank_id} và toàn bộ câu hỏi liên quan trên AWS.",
+                        "id": bank_id
+                    })
+
                 bank_id = body.get("id") or f"bank-{str(uuid.uuid4())[:8]}"
                 owner = body.get("ownerEmail") or user_email or body.get("createdBy", "")
                 item = {
@@ -732,6 +768,53 @@ def lambda_handler(event, context):
                 }
                 question_banks_table.put_item(Item=item)
                 return build_response(201, item)
+
+            elif http_method == "DELETE":
+                bank_id = query_params.get("id") or (body.get("id") if body else None) or (body.get("bankId") if body else None)
+                if not bank_id:
+                    return build_response(400, {"error": "Thiếu id ngân hàng câu hỏi cần xóa."})
+
+                question_banks_table.delete_item(Key={"id": bank_id})
+                try:
+                    q_res = questions_table.scan(
+                        FilterExpression=boto3.dynamodb.conditions.Attr("bankId").eq(bank_id)
+                    )
+                    items_to_del = q_res.get("Items", [])
+                    for q_item in items_to_del:
+                        del_id = q_item.get("id")
+                        if del_id:
+                            questions_table.delete_item(Key={"id": del_id})
+                except Exception as cascade_err:
+                    print(f"[WARN] Lỗi cascade xóa câu hỏi trong bank {bank_id}: {cascade_err}")
+
+                return build_response(200, {
+                    "message": f"Đã xóa thành công ngân hàng câu hỏi {bank_id} và toàn bộ câu hỏi liên quan trên AWS.",
+                    "id": bank_id
+                })
+
+        elif resource_path == "/question-banks/{id}":
+            bank_id = path_parameters.get("id")
+            if http_method == "DELETE":
+                if not bank_id:
+                    return build_response(400, {"error": "Thiếu id ngân hàng câu hỏi cần xóa."})
+
+                question_banks_table.delete_item(Key={"id": bank_id})
+                try:
+                    q_res = questions_table.scan(
+                        FilterExpression=boto3.dynamodb.conditions.Attr("bankId").eq(bank_id)
+                    )
+                    items_to_del = q_res.get("Items", [])
+                    for q_item in items_to_del:
+                        del_id = q_item.get("id")
+                        if del_id:
+                            questions_table.delete_item(Key={"id": del_id})
+                except Exception as cascade_err:
+                    print(f"[WARN] Lỗi cascade xóa câu hỏi trong bank {bank_id}: {cascade_err}")
+
+                return build_response(200, {
+                    "message": f"Đã xóa thành công ngân hàng câu hỏi {bank_id} và toàn bộ câu hỏi liên quan trên AWS.",
+                    "id": bank_id
+                })
 
         # =========================================================================
         # 2. /candidates API

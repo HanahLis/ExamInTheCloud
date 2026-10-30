@@ -25,7 +25,7 @@ api.interceptors.request.use((config) => {
 // ============================================================================
 
 export type Difficulty = 'EASY' | 'MEDIUM' | 'HARD';
-export type QuestionType = 'SINGLE_CHOICE' | 'MULTIPLE_CHOICE';
+export type QuestionType = 'SINGLE_CHOICE' | 'MULTIPLE_CHOICE' | 'ESSAY';
 
 export interface Question {
   id: string;
@@ -111,7 +111,7 @@ export interface FaceVerifyResponse {
 
 export interface ExamSubmitRequest {
   sessionId: string;
-  answers: Record<string, number>; // { [questionId]: chosenIndex }
+  answers: Record<string, number | string>; // { [questionId]: chosenIndex | essayText }
   candidateEmail?: string;
   turnstileToken?: string; // Token xác thực người thật Cloudflare Turnstile (Task M-02 & T-02)
   turnstile_token?: string;
@@ -667,6 +667,63 @@ export const createQuestionBank = async (data: QuestionBankInput): Promise<Quest
   }
 };
 
+export const removeLocalBank = (bankId: string) => {
+  try {
+    const list = getLocalBanks().filter((b) => b.id !== bankId && b.bankId !== bankId);
+    localStorage.setItem(LOCAL_CUSTOM_BANKS_KEY, JSON.stringify(list));
+  } catch (e) {
+    console.warn('Lỗi xóa local bank:', e);
+  }
+};
+
+export const removeLocalQuestionsByBank = (bankId: string) => {
+  try {
+    const list = getLocalQuestions().filter((q) => q.bankId !== bankId);
+    localStorage.setItem(LOCAL_CUSTOM_QUESTIONS_KEY, JSON.stringify(list));
+  } catch (e) {
+    console.warn('Lỗi xóa local questions by bank:', e);
+  }
+};
+
+export const deleteQuestionBank = async (bankId: string): Promise<any> => {
+  // 1. Xóa ngay trên local storage để cập nhật UI tức thì
+  removeLocalBank(bankId);
+  removeLocalQuestionsByBank(bankId);
+
+  // 2. Xóa toàn bộ câu hỏi thuộc ngân hàng này trên AWS DynamoDB (CloudExam_Questions_dev)
+  try {
+    const allQuestions = await getQuestions();
+    const bankQuestions = allQuestions.filter((q) => q.bankId === bankId);
+    await Promise.all(
+      bankQuestions.map((q) =>
+        api.delete(`/questions/${q.id}`).catch((delErr) => console.warn(`Lỗi xóa câu hỏi ${q.id} trên AWS:`, delErr))
+      )
+    );
+  } catch (qErr) {
+    console.warn('Lỗi quét câu hỏi cần xóa trên AWS:', qErr);
+  }
+
+  // 3. Xóa bản ghi Ngân hàng trên AWS DynamoDB (CloudExam_QuestionBanks_dev)
+  try {
+    const res = await api.post('/question-banks', { action: 'DELETE', id: bankId, bankId });
+    return res.data;
+  } catch (err) {
+    console.warn('POST /question-banks (action: DELETE) error, thử gọi DELETE method:', err);
+    try {
+      const res2 = await api.delete(`/question-banks/${bankId}`);
+      return res2.data;
+    } catch {
+      try {
+        const res3 = await api.delete('/question-banks', { params: { id: bankId } });
+        return res3.data;
+      } catch (err3) {
+        console.warn('DELETE /question-banks failed (đã dọn dẹp local và câu hỏi):', err3);
+        return { id: bankId, deleted: true };
+      }
+    }
+  }
+};
+
 // ============================================================================
 // 3. QUESTION APIS (/questions - DynamoDB & Local Resilience Cache)
 // ============================================================================
@@ -751,14 +808,17 @@ export const getQuestions = async (): Promise<Question[]> => {
 
 export const createQuestion = async (data: QuestionInput): Promise<Question> => {
   const qId = data.id || data.questionId || ('q-doc-' + Math.random().toString(36).substring(2, 10));
+  const isEssay = data.type === 'ESSAY';
   const fullQ: Question = {
     ...data,
     id: qId,
     questionId: qId,
     type: data.type || 'SINGLE_CHOICE',
-    options: data.options || [],
-    correctIndex: Number(data.correctIndex ?? 0),
-    correctAnswer: data.correctAnswer || (data.options ? data.options[Number(data.correctIndex ?? 0)] : ''),
+    options: isEssay ? [] : (data.options || []),
+    correctIndex: isEssay ? -1 : Number(data.correctIndex ?? 0),
+    correctAnswer: isEssay
+      ? (data.correctAnswer || '')
+      : (data.correctAnswer || (data.options ? data.options[Number(data.correctIndex ?? 0)] : '')),
     score: Number(data.score ?? 1),
     subject: data.subject || 'Kiến trúc hướng dịch vụ',
     topic: data.topic || 'Kiến trúc hệ thống',
@@ -1578,7 +1638,7 @@ export const getExamPaper = async (sessionId: string): Promise<ExamPaperResponse
 
 export const saveExamProgress = async (
   sessionId: string,
-  answers: Record<string, number>,
+  answers: Record<string, number | string>,
   candidateEmail?: string
 ): Promise<{ saved: boolean; updatedAt: string }> => {
   const res = await api.post('/exam/save-progress', {
