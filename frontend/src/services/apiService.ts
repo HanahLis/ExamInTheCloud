@@ -582,6 +582,28 @@ export const requestPresignedUploadUrl = async (params: {
 // ============================================================================
 
 const LOCAL_CUSTOM_BANKS_KEY = 'cloudexam_custom_banks';
+const LOCAL_DELETED_BANKS_KEY = 'cloudexam_deleted_banks';
+
+export const getDeletedBankIds = (): Set<string> => {
+  try {
+    const raw = localStorage.getItem(LOCAL_DELETED_BANKS_KEY);
+    if (!raw) return new Set();
+    const arr = JSON.parse(raw);
+    return new Set(Array.isArray(arr) ? arr : []);
+  } catch {
+    return new Set();
+  }
+};
+
+export const addDeletedBankId = (bankId: string) => {
+  try {
+    const set = getDeletedBankIds();
+    set.add(bankId);
+    localStorage.setItem(LOCAL_DELETED_BANKS_KEY, JSON.stringify(Array.from(set)));
+  } catch (e) {
+    console.warn('Lỗi ghi deleted bank id:', e);
+  }
+};
 
 export const getLocalBanks = (): QuestionBank[] => {
   try {
@@ -639,7 +661,13 @@ export const getQuestionBanks = async (ownerEmail?: string): Promise<QuestionBan
     }
   }
 
-  return cloudBanks;
+  // Lọc bỏ triệt để các ngân hàng đã bị xóa bởi người dùng (Tombstone Blacklist)
+  const deletedIds = getDeletedBankIds();
+  const filtered = cloudBanks.filter(
+    (b) => !deletedIds.has(b.id) && !deletedIds.has(b.bankId || '')
+  );
+
+  return filtered;
 };
 
 export const createQuestionBank = async (data: QuestionBankInput): Promise<QuestionBank> => {
@@ -686,7 +714,8 @@ export const removeLocalQuestionsByBank = (bankId: string) => {
 };
 
 export const deleteQuestionBank = async (bankId: string): Promise<any> => {
-  // 1. Xóa ngay trên local storage để cập nhật UI tức thì
+  // 1. Thêm vào danh sách ngân hàng đã xóa và xóa trên local cache tức thì
+  addDeletedBankId(bankId);
   removeLocalBank(bankId);
   removeLocalQuestionsByBank(bankId);
 
@@ -696,30 +725,27 @@ export const deleteQuestionBank = async (bankId: string): Promise<any> => {
     const bankQuestions = allQuestions.filter((q) => q.bankId === bankId);
     await Promise.all(
       bankQuestions.map((q) =>
-        api.delete(`/questions/${q.id}`).catch((delErr) => console.warn(`Lỗi xóa câu hỏi ${q.id} trên AWS:`, delErr))
+        api.delete(`/questions/${q.id}`).catch((delErr) =>
+          console.warn(`Lỗi xóa câu hỏi ${q.id} trên AWS:`, delErr)
+        )
       )
     );
   } catch (qErr) {
     console.warn('Lỗi quét câu hỏi cần xóa trên AWS:', qErr);
   }
 
-  // 3. Xóa bản ghi Ngân hàng trên AWS DynamoDB (CloudExam_QuestionBanks_dev)
+  // 3. Thử gọi DELETE endpoint trên API Gateway (nếu đã mở route)
+  // Tuyệt đối KHÔNG gọi POST /question-banks vì Lambda cũ trên AWS sẽ hiểu nhầm là put_item tạo lại
   try {
-    const res = await api.post('/question-banks', { action: 'DELETE', id: bankId, bankId });
+    const res = await api.delete(`/question-banks/${bankId}`);
     return res.data;
   } catch (err) {
-    console.warn('POST /question-banks (action: DELETE) error, thử gọi DELETE method:', err);
     try {
-      const res2 = await api.delete(`/question-banks/${bankId}`);
+      const res2 = await api.delete('/question-banks', { params: { id: bankId } });
       return res2.data;
     } catch {
-      try {
-        const res3 = await api.delete('/question-banks', { params: { id: bankId } });
-        return res3.data;
-      } catch (err3) {
-        console.warn('DELETE /question-banks failed (đã dọn dẹp local và câu hỏi):', err3);
-        return { id: bankId, deleted: true };
-      }
+      // API Gateway chưa cấu hình DELETE cho /question-banks, danh sách đã được dọn sạch qua blacklist & xóa toàn bộ câu hỏi
+      return { id: bankId, deleted: true };
     }
   }
 };

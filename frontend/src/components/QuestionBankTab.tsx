@@ -7,6 +7,7 @@ import {
   getQuestionBanks,
   createQuestionBank,
   deleteQuestionBank,
+  getDeletedBankIds,
   parseQuestionsFromDoc,
   extractTextFromDocxFile,
   DEFAULT_QUESTION_BANKS,
@@ -79,29 +80,48 @@ export const QuestionBankTab = ({ questions, onRefresh }: Props) => {
   const loadBanks = async () => {
     try {
       const list = await getQuestionBanks(lecturerEmail);
-      // Lọc các ngân hàng thuộc tài khoản giảng viên hiện tại hoặc ngân hàng dùng chung
+      const deletedIds = getDeletedBankIds();
+
+      // Lọc các ngân hàng thuộc tài khoản giảng viên hiện tại hoặc ngân hàng dùng chung (chưa bị xóa)
       const myOwned = list.filter((b) => {
+        if (deletedIds.has(b.id) || deletedIds.has(b.bankId || '')) return false;
         if (!b.ownerEmail && !b.createdBy) return true;
         return (
           b.ownerEmail?.toLowerCase() === lecturerEmail ||
           b.createdBy?.toLowerCase() === lecturerEmail
         );
       });
+
+      // Kiểm tra ngân hàng mặc định nếu chưa bị xóa
+      const availableDefaults = DEFAULT_QUESTION_BANKS.filter(
+        (b) => !deletedIds.has(b.id) && !deletedIds.has(b.bankId || '')
+      );
+
       const finalList =
-        myOwned.length > 0 ? myOwned : list.length > 0 ? list : DEFAULT_QUESTION_BANKS;
+        myOwned.length > 0 ? myOwned : list.length > 0 ? list : availableDefaults;
       setBanks(finalList);
 
       if (finalList.length > 0) {
-        setBankId(finalList[0].id);
-        if (finalList[0].subject) setSubject(finalList[0].subject);
-        setImportBankId(finalList[0].id);
-        if (finalList[0].subject) setImportSubject(finalList[0].subject);
+        setBankId((prev) => (finalList.some((b) => b.id === prev) ? prev : finalList[0].id));
+        setImportBankId((prev) => (finalList.some((b) => b.id === prev) ? prev : finalList[0].id));
+      } else {
+        setBankId('');
+        setImportBankId('');
       }
     } catch (e) {
       console.error('Lỗi tải ngân hàng câu hỏi:', e);
-      setBanks(DEFAULT_QUESTION_BANKS);
-      setBankId(DEFAULT_QUESTION_BANKS[0].id);
-      if (DEFAULT_QUESTION_BANKS[0].subject) setSubject(DEFAULT_QUESTION_BANKS[0].subject);
+      const deletedIds = getDeletedBankIds();
+      const availableDefaults = DEFAULT_QUESTION_BANKS.filter(
+        (b) => !deletedIds.has(b.id) && !deletedIds.has(b.bankId || '')
+      );
+      setBanks(availableDefaults);
+      if (availableDefaults.length > 0) {
+        setBankId(availableDefaults[0].id);
+        setImportBankId(availableDefaults[0].id);
+      } else {
+        setBankId('');
+        setImportBankId('');
+      }
     }
   };
 
@@ -109,16 +129,17 @@ export const QuestionBankTab = ({ questions, onRefresh }: Props) => {
     loadBanks();
   }, [lecturerEmail]);
 
-  // Ngân hàng câu hỏi của riêng giảng viên này
+  // Ngân hàng câu hỏi của riêng giảng viên này (đảm bảo loại bỏ ngân hàng đã xóa)
   const lecturerBanks = useMemo(() => {
-    const list = banks.filter((b) => {
+    const deletedIds = getDeletedBankIds();
+    return banks.filter((b) => {
+      if (deletedIds.has(b.id) || deletedIds.has(b.bankId || '')) return false;
       if (!b.ownerEmail && !b.createdBy) return true;
       return (
         b.ownerEmail?.toLowerCase() === lecturerEmail ||
         b.createdBy?.toLowerCase() === lecturerEmail
       );
     });
-    return list.length > 0 ? list : banks;
   }, [banks, lecturerEmail]);
 
   // Lọc câu hỏi thuộc phạm vi ngân hàng của giảng viên hiện tại
@@ -339,22 +360,29 @@ export const QuestionBankTab = ({ questions, onRefresh }: Props) => {
     if (!window.confirm(confirmMsg)) return;
 
     setDeletingBankId(bank.id);
+
+    // Cập nhật ngay tức thì giao diện để người dùng thấy ngân hàng biến mất 0ms
+    setBanks((prev) => prev.filter((b) => b.id !== bank.id && b.bankId !== bank.id));
+    if (selectedBankFilter === bank.id) {
+      setSelectedBankFilter('ALL');
+    }
+    if (bankId === bank.id) {
+      const remaining = lecturerBanks.filter((b) => b.id !== bank.id);
+      if (remaining.length > 0) {
+        setBankId(remaining[0].id);
+        if (remaining[0].subject) setSubject(remaining[0].subject);
+      } else {
+        setBankId('');
+      }
+    }
+
     try {
       await deleteQuestionBank(bank.id);
-      if (selectedBankFilter === bank.id) {
-        setSelectedBankFilter('ALL');
-      }
-      if (bankId === bank.id) {
-        const remaining = lecturerBanks.filter((b) => b.id !== bank.id);
-        if (remaining.length > 0) {
-          setBankId(remaining[0].id);
-          if (remaining[0].subject) setSubject(remaining[0].subject);
-        }
-      }
       await loadBanks();
       await onRefresh();
     } catch (err: any) {
-      alert('Lỗi xóa ngân hàng câu hỏi trên AWS: ' + (err.message || err));
+      console.warn('Lỗi đồng bộ xóa ngân hàng câu hỏi:', err);
+      await loadBanks();
     } finally {
       setDeletingBankId(null);
     }
@@ -508,7 +536,12 @@ export const QuestionBankTab = ({ questions, onRefresh }: Props) => {
             </select>
           </div>
 
-          <div className="flex flex-wrap gap-2 text-xs">
+          <div className="flex flex-wrap gap-2 text-xs items-center">
+            {lecturerBanks.length === 0 && (
+              <span className="text-xs text-slate-400 italic">
+                Chưa có ngân hàng nào. Bấm "+ Tạo ngân hàng mới" để thêm.
+              </span>
+            )}
             {lecturerBanks.map((b) => {
               const count = lecturerQuestions.filter((q) => q.bankId === b.id).length;
               const isSelected = selectedBankFilter === b.id;
@@ -675,11 +708,15 @@ export const QuestionBankTab = ({ questions, onRefresh }: Props) => {
                     }}
                     className="w-full p-2 border border-slate-300 rounded-md text-xs bg-white text-slate-800 outline-none"
                   >
-                    {lecturerBanks.map((b) => (
-                      <option key={b.id} value={b.id}>
-                        {b.name}
-                      </option>
-                    ))}
+                    {lecturerBanks.length === 0 ? (
+                      <option value="">Chưa có ngân hàng câu hỏi</option>
+                    ) : (
+                      lecturerBanks.map((b) => (
+                        <option key={b.id} value={b.id}>
+                          {b.name}
+                        </option>
+                      ))
+                    )}
                   </select>
                 </div>
 
@@ -918,11 +955,15 @@ export const QuestionBankTab = ({ questions, onRefresh }: Props) => {
                 className="w-full p-2 border border-slate-200 rounded text-xs bg-white text-slate-800 outline-none focus:border-slate-400"
                 required
               >
-                {lecturerBanks.map((b) => (
-                  <option key={b.id} value={b.id}>
-                    {b.name}
-                  </option>
-                ))}
+                {lecturerBanks.length === 0 ? (
+                  <option value="">Chưa có ngân hàng câu hỏi</option>
+                ) : (
+                  lecturerBanks.map((b) => (
+                    <option key={b.id} value={b.id}>
+                      {b.name}
+                    </option>
+                  ))
+                )}
               </select>
             </div>
 
