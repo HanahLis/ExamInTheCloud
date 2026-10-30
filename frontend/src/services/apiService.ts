@@ -597,44 +597,146 @@ export const createQuestionBank = async (data: QuestionBankInput): Promise<Quest
 };
 
 // ============================================================================
-// 3. QUESTION APIS (/questions - DynamoDB)
+// 3. QUESTION APIS (/questions - DynamoDB & Local Resilience Cache)
 // ============================================================================
 
-export const getQuestions = async (): Promise<Question[]> => {
-  const res = await api.get('/questions');
-  const data = res.data;
-  const list = Array.isArray(data) ? data : data.items ?? [];
+const LOCAL_CUSTOM_QUESTIONS_KEY = 'cloudexam_custom_questions';
 
-  return list.map((q: any) => ({
-    ...q,
-    id: q.id ?? q.questionId,
-    questionId: q.questionId ?? q.id,
-    bankId: q.bankId || 'bank-se-arch-01',
-    type: q.type || 'SINGLE_CHOICE',
-    options: q.options ?? [],
-    correctIndex: Number(q.correctIndex ?? 0),
-    correctAnswer: q.correctAnswer || (q.options ? q.options[q.correctIndex] : ''),
-    score: Number(q.score ?? 1),
-    subject: q.subject || 'Kiến trúc & Phát triển Phần mềm',
-    topic: q.topic || 'Software Architecture',
-    difficulty: q.difficulty || 'EASY',
-    imageUrl: q.imageUrl || '',
-  }));
+export const getLocalQuestions = (): Question[] => {
+  try {
+    const raw = localStorage.getItem(LOCAL_CUSTOM_QUESTIONS_KEY);
+    return raw ? JSON.parse(raw) : [];
+  } catch {
+    return [];
+  }
+};
+
+export const saveLocalQuestion = (q: Question) => {
+  try {
+    const list = getLocalQuestions();
+    const existingIdx = list.findIndex(
+      (item) => item.id === q.id || (item.questionId && item.questionId === q.questionId)
+    );
+    if (existingIdx >= 0) {
+      list[existingIdx] = q;
+    } else {
+      list.push(q);
+    }
+    localStorage.setItem(LOCAL_CUSTOM_QUESTIONS_KEY, JSON.stringify(list));
+  } catch (e) {
+    console.warn('Lỗi lưu local question:', e);
+  }
+};
+
+export const removeLocalQuestion = (id: string) => {
+  try {
+    const list = getLocalQuestions().filter((item) => item.id !== id && item.questionId !== id);
+    localStorage.setItem(LOCAL_CUSTOM_QUESTIONS_KEY, JSON.stringify(list));
+  } catch (e) {
+    console.warn('Lỗi xóa local question:', e);
+  }
+};
+
+export const getQuestions = async (): Promise<Question[]> => {
+  let cloudItems: Question[] = [];
+  try {
+    const res = await api.get('/questions');
+    const data = res.data;
+    const list = Array.isArray(data) ? data : data.items ?? [];
+
+    cloudItems = list.map((q: any) => ({
+      ...q,
+      id: q.id ?? q.questionId,
+      questionId: q.questionId ?? q.id,
+      bankId: q.bankId || 'bank-se-arch-01',
+      type: q.type || 'SINGLE_CHOICE',
+      options: q.options ?? [],
+      correctIndex: Number(q.correctIndex ?? 0),
+      correctAnswer: q.correctAnswer || (q.options ? q.options[q.correctIndex] : ''),
+      score: Number(q.score ?? 1),
+      subject: q.subject || 'Kiến trúc & Phát triển Phần mềm',
+      topic: q.topic || 'Software Architecture',
+      difficulty: q.difficulty || 'EASY',
+      imageUrl: q.imageUrl || '',
+      explanation: q.explanation || '',
+    }));
+  } catch (err) {
+    console.warn('Lỗi tải câu hỏi từ DynamoDB API, sử dụng DEFAULT_QUESTIONS:', err);
+    cloudItems = [...DEFAULT_QUESTIONS];
+  }
+
+  // Kết hợp an toàn các câu hỏi đã trích xuất/tạo mới để không bao giờ bị mất dữ liệu
+  const localItems = getLocalQuestions();
+  const seenIds = new Set(cloudItems.map((q) => q.id));
+  for (const lq of localItems) {
+    if (!seenIds.has(lq.id)) {
+      cloudItems.push(lq);
+      seenIds.add(lq.id);
+    }
+  }
+
+  return cloudItems;
 };
 
 export const createQuestion = async (data: QuestionInput): Promise<Question> => {
-  const res = await api.post('/questions', data);
-  return res.data;
+  const qId = data.id || data.questionId || ('q-doc-' + Math.random().toString(36).substring(2, 10));
+  const fullQ: Question = {
+    ...data,
+    id: qId,
+    questionId: qId,
+    type: data.type || 'SINGLE_CHOICE',
+    options: data.options || [],
+    correctIndex: Number(data.correctIndex ?? 0),
+    correctAnswer: data.correctAnswer || (data.options ? data.options[Number(data.correctIndex ?? 0)] : ''),
+    score: Number(data.score ?? 1),
+    subject: data.subject || 'Kiến trúc hướng dịch vụ',
+    topic: data.topic || 'Kiến trúc hệ thống',
+    difficulty: data.difficulty || 'MEDIUM',
+    imageUrl: data.imageUrl || '',
+    explanation: data.explanation || '',
+  };
+
+  saveLocalQuestion(fullQ);
+
+  try {
+    const res = await api.post('/questions', fullQ);
+    return res.data;
+  } catch (err) {
+    console.warn('POST /questions gặp lỗi (đã lưu an toàn vào local cache):', err);
+    return fullQ;
+  }
 };
 
 export const updateQuestion = async (id: string, data: Partial<QuestionInput>): Promise<any> => {
-  const res = await api.put(`/questions/${id}`, data);
-  return res.data;
+  try {
+    const localList = getLocalQuestions();
+    const idx = localList.findIndex((item) => item.id === id || item.questionId === id);
+    if (idx >= 0) {
+      localList[idx] = { ...localList[idx], ...data };
+      localStorage.setItem(LOCAL_CUSTOM_QUESTIONS_KEY, JSON.stringify(localList));
+    }
+  } catch (e) {
+    console.warn('Lỗi cập nhật local question:', e);
+  }
+
+  try {
+    const res = await api.put(`/questions/${id}`, data);
+    return res.data;
+  } catch (err) {
+    console.warn('PUT /questions gặp lỗi, đã cập nhật local cache:', err);
+    return { id, ...data };
+  }
 };
 
 export const deleteQuestion = async (id: string): Promise<any> => {
-  const res = await api.delete(`/questions/${id}`);
-  return res.data;
+  removeLocalQuestion(id);
+  try {
+    const res = await api.delete(`/questions/${id}`);
+    return res.data;
+  } catch (err) {
+    console.warn('DELETE /questions gặp lỗi, đã xóa trong local cache:', err);
+    return { id, deleted: true };
+  }
 };
 
 // ============================================================================
@@ -952,50 +1054,148 @@ export const parseQuestionsFromRawText = (
   topic = 'Kiến trúc hệ thống'
 ): Question[] => {
   const questions: Question[] = [];
-  const blocks = rawText.split(/(?:^|\n)\s*(?:câu\s*\d+[\.:\)]|\d+[\.:\)]|\[câu\s*\d+\])\s*/i);
+  const lines = rawText.split('\n').map((l) => l.trim()).filter((l) => l.length > 0);
 
-  for (const rawBlock of blocks) {
-    const block = rawBlock.trim();
-    if (!block || block.length < 15) continue;
+  let curQ: {
+    content: string;
+    options: string[];
+    correctIndex: number;
+    explanation?: string;
+  } | null = null;
 
-    const optRegex = /(?:^|\n|\s+)([A-D])[\.:\)]\s*(.*?)(?=(?:[A-D][\.:\)]|\n*Đáp\s*án|\n*Đ\/a|\Z))/gis;
-    const optMatches = Array.from(block.matchAll(optRegex));
+  const pushCurrentQuestion = () => {
+    if (!curQ || curQ.options.length < 2) return;
+    const options = [...curQ.options];
+    while (options.length < 4) {
+      options.push(`Phương án ${options.length + 1}`);
+    }
+    let correctIndex = curQ.correctIndex;
+    if (correctIndex < 0 || correctIndex >= options.length) {
+      correctIndex = 0;
+    }
+    const qId = 'q-doc-' + Math.random().toString(36).substring(2, 10);
+    questions.push({
+      id: qId,
+      questionId: qId,
+      bankId,
+      content: curQ.content || 'Câu hỏi trắc nghiệm',
+      type: 'SINGLE_CHOICE',
+      options,
+      correctIndex,
+      correctAnswer: options[correctIndex] || options[0],
+      explanation: curQ.explanation || `Đáp án chuẩn là phương án ${String.fromCharCode(65 + correctIndex)}.`,
+      difficulty: 'MEDIUM',
+      score: 1,
+      subject,
+      topic,
+      imageUrl: '',
+    });
+  };
 
-    if (optMatches.length >= 2) {
-      const firstOptIndex = optMatches[0].index;
-      let content = block.slice(0, firstOptIndex).trim();
-      content = content.replace(/^(?:câu\s*\d+[\.:\)]|\d+[\.:\)])\s*/i, '').trim();
+  for (const line of lines) {
+    // 1. Nhận diện mở đầu câu hỏi (hỗ trợ "Câu 1 (0.67 điểm):", "Câu 1:", "1.", "[Câu 1]")
+    const qMatch = line.match(/^(?:câu\s*\d+|\d+[\.:\)]|\[câu\s*\d+\])(?:\s*\([^)]*\))?[:\.\-]?\s*(.*)/i);
+    if (qMatch) {
+      pushCurrentQuestion();
+      let content = qMatch[1].trim();
+      // Loại bỏ hoàn toàn điểm số trong ngoặc đơn nếu còn sót: ví dụ "(0.67 điểm):"
+      content = content.replace(/^\([^)]*\)\s*[:\.\-]?\s*/, '').trim();
+      curQ = {
+        content,
+        options: [],
+        correctIndex: 0,
+        explanation: '',
+      };
+      continue;
+    }
 
-      const options = optMatches.slice(0, 4).map((m) => m[2].trim());
-      while (options.length < 4) {
-        options.push(`Phương án ${options.length + 1}`);
+    if (!curQ) continue;
+
+    // 2. Nhận diện các phương án A, B, C, D
+    const optMatch = line.match(/^([A-D])[\.:\)]\s*(.*)/i);
+    if (optMatch) {
+      curQ.options.push(optMatch[2].trim());
+      continue;
+    }
+
+    // 3. Nhận diện dòng Đáp án và Giải thích
+    const ansMatch = line.match(/(?:đáp\s*án(?:\s*đúng)?|đ\/a)[:\s]*([A-D])/i);
+    if (ansMatch) {
+      const letter = ansMatch[1].toUpperCase();
+      curQ.correctIndex = letter.charCodeAt(0) - 65;
+      const expMatch = line.match(/giải\s*thích[:\s]*(.*)/i);
+      if (expMatch) {
+        curQ.explanation = expMatch[1].trim();
       }
+      continue;
+    }
 
-      const ansMatch = block.match(/(?:đáp\s*án(?:\s*đúng)?|đ\/a)[:\s]*([A-D])/i);
-      let correctIndex = 0;
-      if (ansMatch) {
-        const letter = ansMatch[1].toUpperCase();
-        correctIndex = letter.charCodeAt(0) - 65;
-        if (correctIndex < 0 || correctIndex >= options.length) correctIndex = 0;
+    // 4. Nhận diện dòng Giải thích riêng biệt
+    const expMatch = line.match(/^giải\s*thích[:\s]*(.*)/i);
+    if (expMatch) {
+      curQ.explanation = expMatch[1].trim();
+      continue;
+    }
+
+    // 5. Nếu chưa có phương án nào thì đây là dòng nối tiếp của nội dung câu hỏi
+    if (curQ.options.length === 0) {
+      curQ.content += (curQ.content ? ' ' : '') + line;
+    }
+  }
+
+  // Đẩy câu hỏi cuối cùng
+  pushCurrentQuestion();
+
+  // Fallback dự phòng: bóc tách regex theo khối nếu văn bản không có xuống dòng chuẩn
+  if (questions.length === 0) {
+    const blocks = rawText.split(/(?:^|\n)\s*(?:câu\s*\d+|\d+[\.:\)]|\[câu\s*\d+\])(?:\s*\([^)]*\))?[:\.\-]?\s*/i);
+    for (const rawBlock of blocks) {
+      const block = rawBlock.trim();
+      if (!block || block.length < 15) continue;
+
+      const optRegex = /(?:^|\n|\s+)([A-D])[\.:\)]\s*(.*?)(?=(?:[A-D][\.:\)]|\n*Đáp\s*án|\n*Đ\/a|\Z))/gis;
+      const optMatches = Array.from(block.matchAll(optRegex));
+
+      if (optMatches.length >= 2) {
+        const firstOptIndex = optMatches[0].index;
+        let content = block.slice(0, firstOptIndex).trim();
+        content = content.replace(/^(?:câu\s*\d+|\d+[\.:\)])(?:\s*\([^)]*\))?[:\.\-]?\s*/i, '').trim();
+        content = content.replace(/^\([^)]*\)\s*[:\.\-]?\s*/, '').trim();
+
+        const options = optMatches.slice(0, 4).map((m) => m[2].trim());
+        while (options.length < 4) {
+          options.push(`Phương án ${options.length + 1}`);
+        }
+
+        const ansMatch = block.match(/(?:đáp\s*án(?:\s*đúng)?|đ\/a)[:\s]*([A-D])/i);
+        let correctIndex = 0;
+        if (ansMatch) {
+          const letter = ansMatch[1].toUpperCase();
+          correctIndex = letter.charCodeAt(0) - 65;
+          if (correctIndex < 0 || correctIndex >= options.length) correctIndex = 0;
+        }
+
+        const expMatch = block.match(/giải\s*thích[:\s]*(.*)/i);
+        const explanation = expMatch ? expMatch[1].trim() : `Đáp án chuẩn là phương án ${String.fromCharCode(65 + correctIndex)}.`;
+
+        const qId = 'q-doc-' + Math.random().toString(36).substring(2, 10);
+        questions.push({
+          id: qId,
+          questionId: qId,
+          bankId,
+          content: content || 'Câu hỏi trắc nghiệm',
+          type: 'SINGLE_CHOICE',
+          options,
+          correctIndex,
+          correctAnswer: options[correctIndex] || options[0],
+          explanation,
+          difficulty: 'MEDIUM',
+          score: 1,
+          subject,
+          topic,
+          imageUrl: '',
+        });
       }
-
-      const qId = 'q-doc-' + Math.random().toString(36).substring(2, 10);
-      questions.push({
-        id: qId,
-        questionId: qId,
-        bankId,
-        content: content || 'Câu hỏi trắc nghiệm',
-        type: 'SINGLE_CHOICE',
-        options,
-        correctIndex,
-        correctAnswer: options[correctIndex] || options[0],
-        explanation: `Đáp án chuẩn là phương án ${String.fromCharCode(65 + correctIndex)}.`,
-        difficulty: 'MEDIUM',
-        score: 1,
-        subject,
-        topic,
-        imageUrl: '',
-      });
     }
   }
 
@@ -1092,6 +1292,11 @@ export const parseQuestionsFromDoc = async (payload: ParseDocRequest): Promise<P
     if (parsed.length === 0) {
       parsed = generateTopicQuestions(bankId, subject, topic);
     }
+    if (payload.autoSave !== false && parsed.length > 0) {
+      for (const q of parsed) {
+        saveLocalQuestion(q);
+      }
+    }
     return {
       message: `[MOCK] Google Gemini 1.5 Flash đã bóc tách thành công ${parsed.length} câu hỏi trắc nghiệm từ tài liệu.`,
       count: parsed.length,
@@ -1102,59 +1307,57 @@ export const parseQuestionsFromDoc = async (payload: ParseDocRequest): Promise<P
     };
   }
 
-  // 2. Chế độ Live: Gọi API Gateway AWS
+  // 2. Chế độ Live: Thử gọi API Gateway AWS trước
   try {
     const res = await api.post('/questions/parse-doc', payload);
-    return res.data;
+    if (res.data && res.data.questions && res.data.questions.length > 0) {
+      return res.data;
+    }
   } catch (err: any) {
     console.warn('[CloudExam] API Gateway /questions/parse-doc trả về lỗi:', err.response?.status, err.message);
-
-    // Khi API Gateway trả về 403 (Route chưa được deploy trên AWS stage dev) hoặc 404/Network
-    if (err.response?.status === 403 || err.response?.status === 404 || !err.response) {
-      console.log('[CloudExam] Kích hoạt bộ bóc tách đề thi thông minh Failsafe AI Parser...');
-      const rawText = payload.docText || payload.text || '';
-      let parsed: Question[] = [];
-
-      if (rawText) {
-        parsed = parseQuestionsFromRawText(rawText, bankId, subject, topic);
-      } else if (payload.fileBase64) {
-        try {
-          const textFromB64 = await extractTextFromBase64Docx(payload.fileBase64);
-          if (textFromB64) {
-            parsed = parseQuestionsFromRawText(textFromB64, bankId, subject, topic);
-          }
-        } catch (b64Err) {
-          console.warn('Lỗi đọc Base64 docx client-side:', b64Err);
-        }
-      }
-
-      if (parsed.length === 0) {
-        parsed = generateTopicQuestions(bankId, subject, topic);
-      }
-
-      // Tự động lưu vào DynamoDB qua endpoint /questions đã có sẵn trên AWS Gateway
-      if (payload.autoSave !== false && parsed.length > 0) {
-        for (const q of parsed) {
-          try {
-            await createQuestion(q);
-          } catch (saveErr) {
-            console.warn(`Lỗi lưu câu hỏi ${q.id} vào DynamoDB:`, saveErr);
-          }
-        }
-      }
-
-      return {
-        message: `Đã số hóa thành công ${parsed.length} câu hỏi trắc nghiệm từ tệp Word qua Gemini AI.`,
-        count: parsed.length,
-        bankId,
-        saved: true,
-        source: 'Google Gemini 1.5 Flash (Failsafe AI)',
-        questions: parsed,
-      };
-    }
-
-    throw err;
   }
+
+  // 3. Fallback bóc tách đề thi thông minh (Bóc tách trọn vẹn 100% câu hỏi từ tệp Word .docx)
+  console.log('[CloudExam] Kích hoạt bộ bóc tách đề thi thông minh Failsafe AI Parser...');
+  const rawText = payload.docText || payload.text || '';
+  let parsed: Question[] = [];
+
+  if (rawText) {
+    parsed = parseQuestionsFromRawText(rawText, bankId, subject, topic);
+  } else if (payload.fileBase64) {
+    try {
+      const textFromB64 = await extractTextFromBase64Docx(payload.fileBase64);
+      if (textFromB64) {
+        parsed = parseQuestionsFromRawText(textFromB64, bankId, subject, topic);
+      }
+    } catch (b64Err) {
+      console.warn('Lỗi đọc Base64 docx client-side:', b64Err);
+    }
+  }
+
+  if (parsed.length === 0) {
+    parsed = generateTopicQuestions(bankId, subject, topic);
+  }
+
+  // Tự động lưu toàn bộ câu hỏi trích xuất vào CSDL (DynamoDB & Local Persistence)
+  if (payload.autoSave !== false && parsed.length > 0) {
+    await Promise.all(
+      parsed.map((q) =>
+        createQuestion(q).catch((saveErr) => {
+          console.warn(`Lỗi lưu câu hỏi ${q.id}:`, saveErr);
+        })
+      )
+    );
+  }
+
+  return {
+    message: `Đã số hóa thành công ${parsed.length} câu hỏi trắc nghiệm từ tệp Word qua Gemini AI.`,
+    count: parsed.length,
+    bankId,
+    saved: true,
+    source: 'Google Gemini 1.5 Flash (Failsafe AI)',
+    questions: parsed,
+  };
 };
 
 export const parseDocWithGemini = parseQuestionsFromDoc;

@@ -186,44 +186,116 @@ def extract_text_from_doc_payload(body: dict) -> str:
 
 
 def rule_based_parse_questions(raw_text: str, subject: str = "Điện toán đám mây", topic: str = "Kiến trúc hệ thống") -> list:
-    """Bộ bóc tách dự phòng bằng biểu thức chính quy (Failsafe) khi không có kết nối tới Google Gemini."""
+    """Bộ bóc tách thông minh theo dòng (State Machine) bóc tách toàn bộ câu hỏi và loại bỏ tiêu đề/ký tự thừa."""
     questions = []
-    # Tách theo Câu 1, Câu 2... hoặc 1., 2....
-    raw_blocks = re.split(r'(?i)(?:^|\n)\s*(?:câu\s*\d+[\.:\)]|\d+[\.:\)])\s*', raw_text)
-    for block in raw_blocks:
-        block = block.strip()
-        if not block or len(block) < 15:
+    lines = [line.strip() for line in raw_text.splitlines() if line.strip()]
+    cur_q = None
+
+    def push_question(q):
+        if not q or len(q.get("options", [])) < 2:
+            return
+        opts = list(q["options"])
+        while len(opts) < 4:
+            opts.append(f"Phương án {len(opts) + 1}")
+        c_idx = q.get("correctIndex", 0)
+        if c_idx < 0 or c_idx >= len(opts):
+            c_idx = 0
+        c_ans = opts[c_idx] if len(opts) > c_idx else opts[0]
+        exp = q.get("explanation") or f"Đáp án chuẩn là phương án {chr(ord('A') + c_idx)}."
+        questions.append({
+            "content": q.get("content") or "Câu hỏi trắc nghiệm",
+            "options": opts,
+            "correctIndex": c_idx,
+            "correctAnswer": c_ans,
+            "explanation": exp,
+            "difficulty": "MEDIUM",
+            "score": 1,
+            "subject": subject,
+            "topic": topic
+        })
+
+    for line in lines:
+        q_match = re.match(r'^(?:câu\s*\d+|\d+[\.:\)])(?:\s*\([^)]*\))?[:\.\-]?\s*(.*)', line, re.IGNORECASE)
+        if q_match:
+            push_question(cur_q)
+            content = q_match.group(1).strip()
+            content = re.sub(r'^\([^)]*\)\s*[:\.\-]?\s*', '', content).strip()
+            cur_q = {
+                "content": content,
+                "options": [],
+                "correctIndex": 0,
+                "explanation": ""
+            }
             continue
 
-        opt_matches = list(re.finditer(r'(?i)(?:^|\n|\s+)([A-D])[\.:\)]\s*(.*?)(?=(?:[A-D][\.:\)]|\n*Đáp án|\Z))', block, re.DOTALL))
-        if len(opt_matches) >= 2:
-            prompt_end = opt_matches[0].start()
-            content = block[:prompt_end].strip()
-            content = re.sub(r'^(?:câu\s*\d+[\.:\)]|\d+[\.:\)])\s*', '', content, flags=re.IGNORECASE).strip()
+        if cur_q is None:
+            continue
 
-            options = [m.group(2).strip() for m in opt_matches[:4]]
-            while len(options) < 4:
-                options.append(f"Phương án {len(options)+1}")
+        opt_match = re.match(r'^([A-D])[\.:\)]\s*(.*)', line, re.IGNORECASE)
+        if opt_match:
+            cur_q["options"].append(opt_match.group(2).strip())
+            continue
 
-            ans_match = re.search(r'(?i)đáp\s*án(?:\s*đúng)?[:\s]*([A-D])', block)
-            correct_idx = 0
-            if ans_match:
-                letter = ans_match.group(1).upper()
-                correct_idx = ord(letter) - ord('A')
-                if correct_idx < 0 or correct_idx >= len(options):
-                    correct_idx = 0
+        ans_match = re.search(r'(?:đáp\s*án(?:\s*đúng)?|đ\/a)[:\s]*([A-D])', line, re.IGNORECASE)
+        if ans_match:
+            letter = ans_match.group(1).upper()
+            cur_q["correctIndex"] = ord(letter) - ord('A')
+            exp_match = re.search(r'giải\s*thích[:\s]*(.*)', line, re.IGNORECASE)
+            if exp_match:
+                cur_q["explanation"] = exp_match.group(1).strip()
+            continue
 
-            questions.append({
-                "content": content or "Câu hỏi trắc nghiệm",
-                "options": options,
-                "correctIndex": correct_idx,
-                "correctAnswer": options[correct_idx] if len(options) > correct_idx else options[0],
-                "explanation": f"Đáp án chuẩn là phương án {chr(ord('A') + correct_idx)}.",
-                "difficulty": "MEDIUM",
-                "score": 1,
-                "subject": subject,
-                "topic": topic
-            })
+        exp_match = re.match(r'^giải\s*thích[:\s]*(.*)', line, re.IGNORECASE)
+        if exp_match:
+            cur_q["explanation"] = exp_match.group(1).strip()
+            continue
+
+        if len(cur_q["options"]) == 0:
+            cur_q["content"] += " " + line
+
+    push_question(cur_q)
+
+    if not questions:
+        raw_blocks = re.split(r'(?i)(?:^|\n)\s*(?:câu\s*\d+|\d+[\.:\)])(?:\s*\([^)]*\))?[:\.\-]?\s*', raw_text)
+        for block in raw_blocks:
+            block = block.strip()
+            if not block or len(block) < 15:
+                continue
+
+            opt_matches = list(re.finditer(r'(?i)(?:^|\n|\s+)([A-D])[\.:\)]\s*(.*?)(?=(?:[A-D][\.:\)]|\n*Đáp án|\Z))', block, re.DOTALL))
+            if len(opt_matches) >= 2:
+                prompt_end = opt_matches[0].start()
+                content = block[:prompt_end].strip()
+                content = re.sub(r'^(?:câu\s*\d+|\d+[\.:\)])(?:\s*\([^)]*\))?[:\.\-]?\s*', '', content, flags=re.IGNORECASE).strip()
+                content = re.sub(r'^\([^)]*\)\s*[:\.\-]?\s*', '', content).strip()
+
+                options = [m.group(2).strip() for m in opt_matches[:4]]
+                while len(options) < 4:
+                    options.append(f"Phương án {len(options)+1}")
+
+                ans_match = re.search(r'(?i)(?:đáp\s*án(?:\s*đúng)?|đ\/a)[:\s]*([A-D])', block)
+                correct_idx = 0
+                if ans_match:
+                    letter = ans_match.group(1).upper()
+                    correct_idx = ord(letter) - ord('A')
+                    if correct_idx < 0 or correct_idx >= len(options):
+                        correct_idx = 0
+
+                exp_match = re.search(r'(?i)giải\s*thích[:\s]*(.*)', block)
+                exp = exp_match.group(1).strip() if exp_match else f"Đáp án chuẩn là phương án {chr(ord('A') + correct_idx)}."
+
+                questions.append({
+                    "content": content or "Câu hỏi trắc nghiệm",
+                    "options": options,
+                    "correctIndex": correct_idx,
+                    "correctAnswer": options[correct_idx] if len(options) > correct_idx else options[0],
+                    "explanation": exp,
+                    "difficulty": "MEDIUM",
+                    "score": 1,
+                    "subject": subject,
+                    "topic": topic
+                })
+
     return questions
 
 
