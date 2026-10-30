@@ -7,6 +7,7 @@ import {
   getQuestionBanks,
   createQuestionBank,
   parseQuestionsFromDoc,
+  extractTextFromDocxFile,
   DEFAULT_QUESTION_BANKS,
   type Question,
   type Difficulty,
@@ -194,22 +195,33 @@ D. Amazon Kendra
 
     try {
       let fileBase64: string | undefined = undefined;
+      let docText: string | undefined = undefined;
 
       if (aiInputMode === 'FILE' && aiFile) {
+        // Trích xuất văn bản trực tiếp từ tệp Word (.docx) bằng JSZip client-side
+        try {
+          docText = await extractTextFromDocxFile(aiFile);
+        } catch (docxErr) {
+          console.warn('Lỗi đọc nội dung docx client-side:', docxErr);
+        }
+
         fileBase64 = await new Promise<string>((resolve, reject) => {
           const reader = new FileReader();
           reader.onload = () => resolve(reader.result as string);
           reader.onerror = (err) => reject(err);
           reader.readAsDataURL(aiFile);
         });
+      } else if (aiInputMode === 'TEXT') {
+        docText = aiText.trim();
       }
 
       const res: ParseDocResponse = await parseQuestionsFromDoc({
         bankId: aiBankId || bankId || 'bank-se-arch-01',
-        subject: aiSubject.trim() || subject || 'Điện toán đám mây',
+        subject: aiSubject.trim() || subject || 'Kiến trúc hướng dịch vụ',
         topic: aiTopic.trim() || topic || 'Kiến trúc hệ thống',
         fileBase64,
-        text: aiInputMode === 'TEXT' ? aiText.trim() : undefined,
+        docText,
+        text: docText,
         autoSave: aiAutoSave,
       });
 
