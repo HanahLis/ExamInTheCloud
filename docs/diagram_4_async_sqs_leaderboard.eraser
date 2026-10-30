@@ -1,0 +1,37 @@
+// ==============================================================================
+// BIỂU ĐỒ 4: HÀNG ĐỢI NỘP BÀI, CHẤM ĐIỂM SQS & LIVE LEADERBOARD
+// Bộ đệm chịu tải SQS, Chấm điểm Worker, Dead Letter Queue & Upstash Redis
+// Cú pháp: Eraser Diagram-as-Code (https://app.eraser.io)
+// ==============================================================================
+
+direction right
+
+CandidateWeb [icon: react, label: "Thí sinh nộp bài\nExamRoom.tsx (Webcam + Turnstile)"]
+
+SubmissionBuffer [label: "1. BỘ ĐỆM BẤT ĐỒNG BỘ (AMAZON SQS)", color: orange] {
+  LambdaSubmit [icon: aws-lambda, label: "Lambda Core API\nEndpoint: POST /exam/submit\nPhản hồi HTTP 200 tức thì (< 50ms)"]
+  SQSQueue [icon: aws-sqs, label: "Amazon SQS Queue (ExamSubmissionQueue)\nSSE-SQS Managed Encryption\nLong Polling 5s • Visibility Timeout 60s"]
+  SQSDLQ [icon: aws-sqs, label: "Dead Letter Queue (ExamSubmissionDLQ)\nLưu bài thi lỗi sau maxReceiveCount = 3\nRetention: 14 ngày cho giám thị tra cứu"]
+}
+
+AsyncGrading [label: "2. XỬ LÝ CHẤM ĐIỂM BẤT ĐỒNG BỘ (WORKER)", color: amber] {
+  GradingWorker [icon: aws-lambda, label: "Lambda Grading Worker (grading_worker.py)\nEvent Source Mapping (Batch Size = 10)\nReportBatchItemFailures (Chỉ retry bản ghi lỗi)"]
+  KMSKey [icon: aws-kms, label: "AWS KMS Multi-Region Key\nGiải mã Envelope DEK đáp án chuẩn"]
+}
+
+ResultsAndCache [label: "3. KẾT QUẢ THI & BẢNG XẾP HẠNG TỐC ĐỘ CAO", color: green] {
+  DynamoDBSessions [icon: aws-dynamodb, label: "DynamoDB (CloudExam_Sessions_dev)\nCập nhật submissions.{email} map\nĐiểm số, câu đúng/sai & Thời gian nộp"]
+  UpstashRedis [icon: redis, label: "Upstash Serverless Redis (< 5ms)\nZADD leaderboard:{sessionId} score candidate\nTop 5 Live Leaderboard không tốn RCU DynamoDB"]
+}
+
+// Kết nối luồng nộp bài & chấm điểm
+CandidateWeb > LambdaSubmit: "1. Submit bài thi (+ Turnstile Token)"
+LambdaSubmit > SQSQueue: "2. Enqueue bài nộp (< 50ms)"
+SQSQueue > GradingWorker: "3. Lambda ESM tiêu thụ Batch 10"
+GradingWorker > KMSKey: "4. Giải mã đáp án đúng"
+GradingWorker > DynamoDBSessions: "5. Lưu điểm bài thi vào Session"
+GradingWorker > UpstashRedis: "6. REST API ZADD nhảy điểm tức thì"
+GradingWorker > SQSDLQ: "7. Redrive Policy đẩy bài lỗi sau 3 lần retry"
+
+CandidateWeb > UpstashRedis: "8. Polling / Realtime query Top 5 Leaderboard (< 5ms)"
+

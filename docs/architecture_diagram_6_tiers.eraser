@@ -1,124 +1,108 @@
 // ==============================================================================
-// HỆ THỐNG CLOUDEXAM - SƠ ĐỒ KIẾN TRÚC 6 TẦNG (ĐA QUỐC GIA MỞ RỘNG)
+// HỆ THỐNG CLOUDEXAM - SƠ ĐỒ KIẾN TRÚC TRIỂN KHAI CHUẨN 3 KHỐI
+// Cấu trúc đối chiếu chuẩn: 
+// 1. LỚP ỨNG DỤNG & NGHIỆP VỤ (Client & API Gateway)
+// 2. AWS CLOUD — DỮ LIỆU, XỬ LÝ NỀN & BẢO MẬT (Singapore ap-southeast-1)
+// 3. DỊCH VỤ NGOÀI & ĐA ĐÁM MÂY (Google Gemini, Upstash, Cloudflare, Jakarta DR)
 // Cú pháp: Eraser Diagram-as-Code (https://app.eraser.io)
-// Hỗ trợ chuyển đổi đa quốc gia linh hoạt với Dynamic Multi-Country UI Engine
 // ==============================================================================
 
+// Người dùng hệ thống (Thí sinh / Giảng viên / Admin)
+Users [icon: users, label: "Thí sinh / Giảng viên / Admin (VN & Lào)"]
+
 // ------------------------------------------------------------------------------
-// TẦNG 0: BẢO MẬT BIÊN & ĐỊNH TUYẾN
+// KHỐI 1 (TRÊN): LỚP ỨNG DỤNG VÀ NGHIỆP VỤ
 // ------------------------------------------------------------------------------
-"TẦNG 0: BẢO MẬT BIÊN" [color: blue] {
-  Users [icon: users, label: "Người Dùng Đa Quốc Gia"]
-  Route53 [icon: aws-route-53, label: "Amazon Route 53"]
-  WAFv2 [icon: aws-waf, label: "AWS WAFv2"]
-  CloudFront [icon: aws-cloudfront, label: "Amazon CloudFront"]
-  CFFunctions [icon: aws-lambda, label: "CloudFront Functions (Tenant Resolver)"]
+AppLayer [label: "LỚP ỨNG DỤNG VÀ NGHIỆP VỤ", color: blue] {
+  ReactWeb [icon: react, label: "React Web SPA\nResponsive • Multi-Country (VN & Lào)"]
+  Cognito [icon: aws-cognito, label: "Amazon Cognito\nĐăng nhập • PKCE • Phân quyền"]
+  APIGateway [icon: aws-api-gateway, label: "Amazon API Gateway\nREST API • CORS • WAFv2"]
+  APIModules [icon: file-text, label: "CÁC MODULE LOGIC REST API:\n• /questions & /question-banks (Đề thi)\n• /candidates & /sessions (Ca thi)\n• /auth/face-verify (Điểm danh AI)\n• /exam/submit (Nộp bài thi bất đồng bộ)"]
+
+  ReactWeb > Cognito: "Đăng nhập / PKCE"
+  Cognito > APIGateway: "JWKS Authorizer"
+  ReactWeb > APIGateway: "REST / JSON + JWT"
 }
 
 // ------------------------------------------------------------------------------
-// TẦNG 1: GIAO DIỆN & XÁC THỰC
+// KHỐI 2 (DƯỚI TRÁI): AWS CLOUD — DỮ LIỆU, XỬ LÝ NỀN VÀ BẢO MẬT (Singapore)
 // ------------------------------------------------------------------------------
-"TẦNG 1: GIAO DIỆN & XÁC THỰC" [color: cyan] {
-  ReactSPA [icon: react, label: "React SPA (Dynamic Multi-Country UI)"]
-  Cognito [icon: aws-cognito, label: "Amazon Cognito"]
-  APIGateway [icon: aws-api-gateway, label: "Amazon API Gateway"]
+AWSCloud [label: "AWS CLOUD — DỮ LIỆU, XỬ LÝ NỀN VÀ BẢO MẬT (ap-southeast-1)", color: amber] {
+  
+  ServerlessAI [label: "Xử lý Serverless & Điểm danh AI", color: orange] {
+    LambdaCore [icon: aws-lambda, label: "Lambda Core API\nCRUD Đề, Ca thi, Presigned URL"]
+    LambdaFace [icon: aws-lambda, label: "Lambda Face Verify\nDecode ảnh Webcam Base64"]
+    Rekognition [icon: aws-rekognition, label: "Amazon Rekognition\nCompareFaces (Khớp >= 80%)"]
+  }
+
+  AsyncGrading [label: "Hàng đợi nộp bài & Chấm điểm tự động", color: orange] {
+    SQSQueue [icon: aws-sqs, label: "Amazon SQS Queue\nBộ đệm tiếp nhận bài thi"]
+    SQSDLQ [icon: aws-sqs, label: "Dead Letter Queue (DLQ)\nLưu bài nộp lỗi (Retry 3x)"]
+    GradingWorker [icon: aws-lambda, label: "Lambda Grading Worker\nBatch 10 & Chấm điểm tự động"]
+  }
+
+  DatabaseStorage [label: "Cơ sở dữ liệu & Lưu trữ tập trung", color: green] {
+    DynamoDB [icon: aws-dynamodb, label: "Amazon DynamoDB (4 Bảng)\nMulti-Tenant (TENANT#VN/LA)"]
+    S3Storage [icon: aws-s3, label: "Amazon S3 Media Bucket\nquestions/, faces/, temp/ 24h"]
+  }
+
+  PlatformOps [label: "Điều phối ca thi, Giám sát & FinOps", color: purple] {
+    StepFunctions [icon: aws-step-functions, label: "AWS Step Functions\nLifecycle ca thi tự động"]
+    CloudWatchSNS [icon: aws-cloudwatch, label: "CloudWatch & SNS Alerts\nLog 14 ngày & Cảnh báo"]
+    TerraformBudgets [icon: terraform, label: "Terraform & AWS Budgets\nQuản trị IaC & Ngưỡng 0.50$"]
+  }
 }
 
 // ------------------------------------------------------------------------------
-// TẦNG 2: XỬ LÝ SERVERLESS & AI
+// KHỐI 3 (DƯỚI PHẢI): DỊCH VỤ NGOÀI & ĐA ĐÁM MÂY (MULTI-CLOUD SATELLITES)
 // ------------------------------------------------------------------------------
-"TẦNG 2: SERVERLESS & AI" [color: amber] {
-  LambdaFace [icon: aws-lambda, label: "Lambda Face Verify"]
-  Rekognition [icon: aws-rekognition, label: "Amazon Rekognition"]
-  LambdaCore [icon: aws-lambda, label: "Lambda Core API"]
-  LambdaGrading [icon: aws-lambda, label: "Lambda Grading Worker"]
-  StepFunctions [icon: aws-step-functions, label: "AWS Step Functions"]
-}
-
-// ------------------------------------------------------------------------------
-// TẦNG 3: BỘ ĐỆM BẤT ĐỒNG BỘ
-// ------------------------------------------------------------------------------
-"TẦNG 3: BỘ ĐỆM SQS" [color: orange] {
-  SQSQueue [icon: aws-sqs, label: "Amazon SQS Queue"]
-  SQSDLQ [icon: aws-sqs, label: "Dead Letter Queue (DLQ)"]
-}
-
-// ------------------------------------------------------------------------------
-// TẦNG 4: LƯU TRỮ & CSDL ĐA VÙNG
-// ------------------------------------------------------------------------------
-"TẦNG 4: DỮ LIỆU ĐA VÙNG" [color: green] {
-  DynamoDBPrimary [icon: aws-dynamodb, label: "DynamoDB (Multi-Country Data)"]
-  DynamoDBReplica [icon: aws-dynamodb, label: "DynamoDB Global (Jakarta)"]
-  S3MediaPrimary [icon: aws-s3, label: "Amazon S3 (Singapore)"]
-  S3MediaReplica [icon: aws-s3, label: "S3 CRR (Jakarta)"]
-  KMSMultiRegion [icon: aws-kms, label: "AWS KMS Multi-Region"]
-}
-
-// ------------------------------------------------------------------------------
-// TẦNG 5: QUẢN TRỊ, GIÁM SÁT & FINOPS
-// ------------------------------------------------------------------------------
-"TẦNG 5: QUẢN TRỊ & GIÁM SÁT" [color: purple] {
-  Terraform [icon: terraform, label: "HashiCorp Terraform"]
-  IAMRoles [icon: aws-iam, label: "AWS IAM Roles"]
-  XRay [icon: aws-x-ray, label: "AWS X-Ray"]
-  CloudWatch [icon: aws-cloudwatch, label: "Amazon CloudWatch"]
-  FinOps [icon: aws-cloudwatch, label: "AWS Budgets & FinOps"]
+ExternalServices [label: "DỊCH VỤ NGOÀI / ĐA ĐÁM MÂY", color: cyan] {
+  GeminiAI [icon: google-cloud, label: "Google Gemini 1.5 Flash\nBóc tách đề Word sang JSON (0$)\nAI Gia sư giải thích câu sai"]
+  UpstashRedis [icon: redis, label: "Upstash Serverless Redis\nLive Leaderboard Top 5 (< 5ms)\nBộ nhớ đệm tốc độ cao (0$)"]
+  CloudflareTurnstile [icon: cloudflare, label: "Cloudflare Turnstile\nXác thực người thật tàng hình (0.1s)\nChống bot spam nộp bài (0$)"]
+  JakartaDR [icon: aws-dynamodb, label: "AWS Jakarta (ap-southeast-3)\nDynamoDB Global Tables (RPO < 1s)\nS3 Cross-Region Repl (CRR)"]
 }
 
 // ==============================================================================
-// CÁC LUỒNG DỮ LIỆU & QUAN HỆ KẾT NỐI
+// CÁC LUỒNG DỮ LIỆU & QUAN HỆ KẾT NỐI HỆ THỐNG
 // ==============================================================================
 
-// 1. Biên & Giao diện Đa Quốc Gia
-Users > Route53: "HTTPS (Tên miền Quốc gia)"
-Route53 > WAFv2: "Lọc IP & Geo-block"
-WAFv2 > CloudFront: "Web ACL"
-CloudFront > CFFunctions: "Viewer Request"
-CFFunctions > CloudFront: "Dynamic x-tenant-id ({CODE})"
-CloudFront > ReactSPA: "Web Hosting"
+// 1. Luồng truy cập từ Người dùng
+Users > ReactWeb: "HTTPS cloudexam.vn / edulao.la"
+ReactWeb > CloudflareTurnstile: "Turnstile Token (0.1s)"
 
-// 2. Xác thực & Cổng API
-ReactSPA > Cognito: "1. Đăng nhập PKCE"
-Cognito > ReactSPA: "ID Token JWT"
-Cognito > APIGateway: "Xác thực JWKS"
-ReactSPA > APIGateway: "2. Gọi REST API (Bearer JWT)"
+// 2. Luồng gọi API từ Lớp Ứng dụng xuống AWS Cloud
+APIGateway > LambdaCore: "REST CRUD Đề & Ca thi"
+APIGateway > LambdaFace: "Proxy Webcam Base64"
+ReactWeb > S3Storage: "Direct PUT Ảnh (Presigned URL)"
 
-// 3. Điểm danh AI
-APIGateway > LambdaFace: "Proxy /auth/face-verify"
-LambdaFace > S3MediaPrimary: "Đọc ảnh thẻ"
-LambdaFace > Rekognition: "CompareFaces"
-Rekognition > LambdaFace: "Khớp >= 80%"
-LambdaFace > DynamoDBPrimary: "Ghi Check-in"
+// 3. Xử lý Serverless & Điểm danh khuôn mặt
+LambdaFace > Rekognition: "So khớp khuôn mặt"
+LambdaFace > S3Storage: "Đọc ảnh thẻ gốc"
+LambdaFace > DynamoDB: "Ghi log điểm danh"
 
-// 4. Quản trị Đề thi & Presigned URL
-APIGateway > LambdaCore: "Proxy CRUD"
-LambdaCore > S3MediaPrimary: "Sinh Presigned URL"
-ReactSPA > S3MediaPrimary: "Direct Upload S3"
-LambdaCore > KMSMultiRegion: "Mã hóa DEK"
-LambdaCore > DynamoDBPrimary: "Lưu Đề & Ca thi (TENANT#{CODE})"
+// 4. Quản lý đề thi & Tích hợp Google Gemini AI
+LambdaCore > DynamoDB: "Lưu Đề thi & Ca thi"
+LambdaCore > GeminiAI: "Bóc tách đề Word sang JSON (0$)"
 
-// 5. Nộp bài Bất đồng bộ
-ReactSPA > APIGateway: "Nộp bài /exam/submit"
-APIGateway > LambdaCore: "Proxy Submit"
-LambdaCore > SQSQueue: "Enqueue bài nộp"
-SQSQueue > LambdaGrading: "Tiêu thụ Batch 10"
-LambdaGrading > KMSMultiRegion: "Giải mã đáp án"
-LambdaGrading > DynamoDBPrimary: "Lưu điểm số"
-LambdaGrading > SQSDLQ: "Retry 3 lần lỗi"
+// 5. Hàng đợi nộp bài & Chấm điểm SQS
+LambdaCore > SQSQueue: "Enqueue bài nộp (<50ms)"
+SQSQueue > GradingWorker: "Batch 10 bài thi"
+GradingWorker > SQSDLQ: "Lỗi sau 3 lần retry"
+GradingWorker > DynamoDB: "Ghi nhận điểm thi"
 
-// 6. Điều phối & Đa vùng DR
-StepFunctions > LambdaCore: "Điều phối Ca thi"
-DynamoDBPrimary <> DynamoDBReplica: "Global Tables Sync"
-S3MediaPrimary > S3MediaReplica: "Cross-Region Repl"
-KMSMultiRegion <> KMSMultiRegion: "Replica Key Sync"
-Route53 .> DynamoDBReplica: "DNS Failover (DR)"
+// 6. Bảng xếp hạng Live Leaderboard với Upstash Redis
+GradingWorker > UpstashRedis: "ZADD cập nhật Leaderboard"
+LambdaCore > UpstashRedis: "Query Top 5 (< 5ms)"
 
-// 7. Giám sát & Quản trị
-LambdaFace > CloudWatch: "Push Logs"
-LambdaCore > CloudWatch: "Push Logs"
-LambdaGrading > CloudWatch: "Push Logs"
-APIGateway > CloudWatch: "Access Logs"
-LambdaCore > XRay: "Trace Segments"
-LambdaFace > XRay: "Trace Segments"
-Terraform > IAMRoles: "Provision Roles"
-CloudWatch > FinOps: "Cảnh báo SNS"
+// 7. Điều phối ca thi tự động
+StepFunctions > DynamoDB: "Status: RUNNING -> CLOSED"
+
+// 8. Đồng bộ Phục hồi thảm họa đa vùng (Multi-Region DR)
+DynamoDB > JakartaDR: "Global Tables Sync (RPO < 1s)"
+S3Storage > JakartaDR: "S3 Replication (CRR)"
+
+// 8. Đồng bộ Phục hồi thảm họa đa vùng (Multi-Region DR)
+DynamoDB > JakartaDR: "Global Tables Sync (RPO < 1s)"
+S3Storage > JakartaDR: "S3 Replication (CRR)"
+
