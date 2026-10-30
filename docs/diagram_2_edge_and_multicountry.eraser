@@ -1,0 +1,39 @@
+// ==============================================================================
+// BIỂU ĐỒ 2: BẢO MẬT BIÊN, CDN & ĐỊNH TUYẾN ĐA QUỐC GIA
+// Tên miền cloudexam.vn (Việt Nam) & edulao.la (Lào), Cloudflare, WAFv2 & Cognito
+// Cú pháp: Eraser Diagram-as-Code (https://app.eraser.io)
+// ==============================================================================
+
+direction right
+
+Users [icon: users, label: "Thí sinh & Giảng viên (Việt Nam & Lào)"]
+
+EdgeRouting [label: "1. ĐỊNH TUYẾN & LÁ CHẮN BIÊN (EDGE SECURITY)", color: blue] {
+  Cloudflare [icon: cloudflare, label: "Cloudflare Turnstile\nXác thực người thật tàng hình (0.1s)"]
+  Route53 [icon: aws-route-53, label: "Amazon Route 53\nDNS Geolocation & Failover Policy"]
+  WAFv2 [icon: aws-waf, label: "AWS WAFv2 Regional Web ACL\nRate Limit, OWASP Top 10, SQLi & GeoMatch"]
+  CloudFront [icon: aws-cloudfront, label: "Amazon CloudFront CDN\nPhân phối Static Web Assets"]
+  CFFunctions [icon: aws-lambda, label: "CloudFront Functions (Edge <1ms)\nTrích xuất Host: Gắn x-tenant-id (VN/LA)"]
+}
+
+ClientApp [label: "2. GIAO DIỆN NGƯỜI DÙNG (FRONTEND CLIENT)", color: cyan] {
+  ReactSPA [icon: react, label: "React 18 SPA (Vite + Tailwind)\nDynamic Multi-Country Theme Engine\nthemes/{vn, la, default}.ts & locales/{vi, la, en}.json"]
+}
+
+AuthAndGateway [label: "3. ĐỊNH DANH & CỔNG API (AUTH & API GATEWAY)", color: amber] {
+  Cognito [icon: aws-cognito, label: "Amazon Cognito User Pool\nOAuth 2.0 PKCE Flow • Hosted UI\nRBAC Groups: Admin, Organizer, Candidate"]
+  APIGateway [icon: aws-api-gateway, label: "Amazon API Gateway REST API\nCognitoUserPoolAuthorizer (Xác thực JWKS)\nGateway Responses CORS (DEFAULT_4XX, DEFAULT_5XX)"]
+}
+
+// Kết nối luồng
+Users > Cloudflare: "1. Xác thực Token chống Bot"
+Users > Route53: "2. HTTPS cloudexam.vn / edulao.la"
+Route53 > WAFv2: "3. Lọc IP, SQLi & Geo-Match"
+WAFv2 > CloudFront: "4. Web ACL Allow"
+CloudFront > CFFunctions: "5. Viewer Request Event"
+CFFunctions > ReactSPA: "6. Header x-tenant-id ('VN' / 'LA') -> Nạp Theme"
+
+ReactSPA > Cognito: "7. Đăng nhập PKCE (Nhận JWT ID Token)"
+Cognito > APIGateway: "8. Xác thực chữ ký RSA Bearer Token"
+ReactSPA > APIGateway: "9. Gọi REST API đính kèm Tenant ID"
+
