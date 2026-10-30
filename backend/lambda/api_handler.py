@@ -186,23 +186,27 @@ def extract_text_from_doc_payload(body: dict) -> str:
 
 
 def rule_based_parse_questions(raw_text: str, subject: str = "Điện toán đám mây", topic: str = "Kiến trúc hệ thống") -> list:
-    """Bộ bóc tách thông minh theo dòng (State Machine) bóc tách toàn bộ câu hỏi và loại bỏ tiêu đề/ký tự thừa."""
+    """Bộ bóc tách thông minh song ngữ Anh - Việt (State Machine) bóc tách toàn bộ câu hỏi và loại bỏ tiêu đề/ký tự thừa."""
     questions = []
     lines = [line.strip() for line in raw_text.splitlines() if line.strip()]
     cur_q = None
+
+    is_english = bool(re.search(r'\b(question|which|what|choose|select|following|answer|marks?|points?)\b', raw_text, re.IGNORECASE))
+    default_opt_prefix = "Option" if is_english else "Phương án"
+    default_content = "Multiple Choice Question" if is_english else "Câu hỏi trắc nghiệm"
 
     def push_question(q):
         if not q or len(q.get("options", [])) < 2:
             return
         opts = list(q["options"])
         while len(opts) < 4:
-            opts.append(f"Phương án {len(opts) + 1}")
+            opts.append(f"{default_opt_prefix} {len(opts) + 1}")
         c_idx = q.get("correctIndex", 0)
         if c_idx < 0 or c_idx >= len(opts):
             c_idx = 0
         c_ans = opts[c_idx] if len(opts) > c_idx else opts[0]
         questions.append({
-            "content": q.get("content") or "Câu hỏi trắc nghiệm",
+            "content": q.get("content") or default_content,
             "options": opts,
             "correctIndex": c_idx,
             "correctAnswer": c_ans,
@@ -213,11 +217,16 @@ def rule_based_parse_questions(raw_text: str, subject: str = "Điện toán đá
         })
 
     for line in lines:
-        q_match = re.match(r'^(?:câu\s*\d+|\d+[\.:\)])(?:\s*\([^)]*\))?[:\.\-]?\s*(.*)', line, re.IGNORECASE)
+        q_match = re.match(
+            r'^(?:câu\s*\d+|question\s*\d+|q\s*\.?\s*\d+|\d+[\.:\)]|\[(?:câu|question|q)\s*\.?\s*\d+\])(?:\s*\([^)]*\))?[:\.\-]?\s*(.*)',
+            line,
+            re.IGNORECASE
+        )
         if q_match:
             push_question(cur_q)
             content = q_match.group(1).strip()
             content = re.sub(r'^\([^)]*\)\s*[:\.\-]?\s*', '', content).strip()
+            content = re.sub(r'\s*\(\s*\d+(?:[\.,]\d+)?\s*(?:điểm|pts?|points?|marks?)\s*\)\s*$', '', content, flags=re.IGNORECASE).strip()
             cur_q = {
                 "content": content,
                 "options": [],
@@ -228,20 +237,28 @@ def rule_based_parse_questions(raw_text: str, subject: str = "Điện toán đá
         if cur_q is None:
             continue
 
-        opt_match = re.match(r'^([A-F])[\.:\)]\s*(.*)', line, re.IGNORECASE)
+        opt_match = re.match(r'^(?:\(?([A-F])\)|\(?([A-F])[\.:\-\)]|\[([A-F])\])\s*(.*)', line, re.IGNORECASE)
         if opt_match:
-            opt_text = opt_match.group(2).strip()
-            opt_text = re.sub(r'(?i)(?:đáp\s*án(?:\s*đúng)?|giải\s*thích).*', '', opt_text).strip()
+            opt_text = (opt_match.group(4) or opt_match.group(2) or '').strip()
+            opt_text = re.sub(
+                r'(?i)(?:đáp\s*án(?:\s*đúng)?|giải\s*thích|correct\s*(?:answer|option)|answer(?:\s*is)?|right\s*answer|ans|key|explanation|explain|rationale|reason).*',
+                '',
+                opt_text
+            ).strip()
             cur_q["options"].append(opt_text)
             continue
 
-        ans_match = re.search(r'(?:đáp\s*án(?:\s*đúng)?|đ\/a)[:\s]*([A-F])', line, re.IGNORECASE)
+        ans_match = re.search(
+            r'(?:đáp\s*án(?:\s*đúng)?|đ\/a|correct\s*(?:answer|option)|answer(?:\s*is)?|right\s*answer|ans|key)[:\s]*\(?([A-F])\)?',
+            line,
+            re.IGNORECASE
+        )
         if ans_match:
             letter = ans_match.group(1).upper()
             cur_q["correctIndex"] = ord(letter) - ord('A')
             continue
 
-        if re.match(r'^(?:giải\s*thích|lời\s*giải)[:\s]*', line, re.IGNORECASE):
+        if re.match(r'^(?:giải\s*thích|lời\s*giải|explanation|explain|rationale|reason|note)[:\s]*', line, re.IGNORECASE):
             continue
 
         if len(cur_q["options"]) == 0:
@@ -250,29 +267,49 @@ def rule_based_parse_questions(raw_text: str, subject: str = "Điện toán đá
     push_question(cur_q)
 
     if not questions:
-        raw_blocks = re.split(r'(?i)(?:^|\n)\s*(?:câu\s*\d+|\d+[\.:\)])(?:\s*\([^)]*\))?[:\.\-]?\s*', raw_text)
+        raw_blocks = re.split(
+            r'(?i)(?:^|\n)\s*(?:câu\s*\d+|question\s*\d+|q\s*\.?\s*\d+|\d+[\.:\)]|\[(?:câu|question|q)\s*\.?\s*\d+\])(?:\s*\([^)]*\))?[:\.\-]?\s*',
+            raw_text
+        )
         for block in raw_blocks:
             block = block.strip()
             if not block or len(block) < 15:
                 continue
 
-            opt_matches = list(re.finditer(r'(?i)(?:^|\n|\s+)([A-D])[\.:\)]\s*(.*?)(?=(?:[A-D][\.:\)]|\n*Đáp án|\Z))', block, re.DOTALL))
+            opt_matches = list(re.finditer(
+                r'(?i)(?:^|\n|\s+)(?:\(?([A-F])\)|\(?([A-F])[\.:\-\)]|\[([A-F])\])\s*(.*?)(?=(?:(?:^|\n|\s+)(?:\(?[A-F][\.:\-\)]|\([A-F]\)|\[[A-F]\])|\s*(?:đáp\s*án|đ\/a|correct\s*(?:answer|option)|answer|ans|key)|\Z))',
+                block,
+                re.DOTALL
+            ))
             if len(opt_matches) >= 2:
                 prompt_end = opt_matches[0].start()
                 content = block[:prompt_end].strip()
-                content = re.sub(r'^(?:câu\s*\d+|\d+[\.:\)])(?:\s*\([^)]*\))?[:\.\-]?\s*', '', content, flags=re.IGNORECASE).strip()
+                content = re.sub(
+                    r'^(?:câu\s*\d+|question\s*\d+|q\s*\.?\s*\d+|\d+[\.:\)])(?:\s*\([^)]*\))?[:\.\-]?\s*',
+                    '',
+                    content,
+                    flags=re.IGNORECASE
+                ).strip()
                 content = re.sub(r'^\([^)]*\)\s*[:\.\-]?\s*', '', content).strip()
+                content = re.sub(r'\s*\(\s*\d+(?:[\.,]\d+)?\s*(?:điểm|pts?|points?|marks?)\s*\)\s*$', '', content, flags=re.IGNORECASE).strip()
 
                 options = []
-                for m in opt_matches[:4]:
-                    opt_t = m.group(2).strip()
-                    opt_t = re.sub(r'(?i)(?:đáp\s*án(?:\s*đúng)?|giải\s*thích).*', '', opt_t).strip()
+                for m in opt_matches[:6]:
+                    opt_t = (m.group(4) or m.group(2) or '').strip()
+                    opt_t = re.sub(
+                        r'(?i)(?:đáp\s*án(?:\s*đúng)?|giải\s*thích|correct\s*(?:answer|option)|answer|ans|key|explanation|explain|rationale|reason).*',
+                        '',
+                        opt_t
+                    ).strip()
                     options.append(opt_t)
 
                 while len(options) < 4:
-                    options.append(f"Phương án {len(options)+1}")
+                    options.append(f"{default_opt_prefix} {len(options)+1}")
 
-                ans_match = re.search(r'(?i)(?:đáp\s*án(?:\s*đúng)?|đ\/a)[:\s]*([A-D])', block)
+                ans_match = re.search(
+                    r'(?i)(?:đáp\s*án(?:\s*đúng)?|đ\/a|correct\s*(?:answer|option)|answer(?:\s*is)?|right\s*answer|ans|key)[:\s]*\(?([A-D])\)?',
+                    block
+                )
                 correct_idx = 0
                 if ans_match:
                     letter = ans_match.group(1).upper()
@@ -281,7 +318,7 @@ def rule_based_parse_questions(raw_text: str, subject: str = "Điện toán đá
                         correct_idx = 0
 
                 questions.append({
-                    "content": content or "Câu hỏi trắc nghiệm",
+                    "content": content or default_content,
                     "options": options,
                     "correctIndex": correct_idx,
                     "correctAnswer": options[correct_idx] if len(options) > correct_idx else options[0],
@@ -302,13 +339,15 @@ def parse_questions_with_gemini(raw_text: str, subject: str = "Điện toán đ�
 
     prompt = f"""Bạn là chuyên gia số hóa đề thi cho hệ thống Khảo thí CloudExam.
 Hãy phân tích nội dung văn bản đề thi dưới đây và trích xuất thành danh sách câu hỏi trắc nghiệm chuẩn.
+Hệ thống hỗ trợ cả đề thi Tiếng Việt và Tiếng Anh (Bilingual English / Vietnamese).
 
 YÊU CẦU QUAN TRỌNG:
-1. Trích xuất TOÀN BỘ tất cả các câu hỏi có trong văn bản, không được bỏ sót bất kỳ câu nào.
-2. Trả về DUY NHẤT một mảng JSON các object câu hỏi (hoặc object JSON có thuộc tính "questions"). Mỗi câu hỏi gồm:
-- "content": Nội dung câu hỏi (loại bỏ tiền tố "Câu 1:", "1." nếu có).
-- "options": Mảng các phần tử chuỗi các phương án lựa chọn (loại bỏ tiền tố A., B., C., D.; TUYỆT ĐỐI KHÔNG chứa đáp án hoặc giải thích bên trong lựa chọn).
-- "correctIndex": Số nguyên 0..n (0 cho A, 1 cho B, 2 cho C, 3 cho D).
+1. Trích xuất TOÀN BỘ tất cả các câu hỏi có trong văn bản (tiếng Việt hoặc tiếng Anh), không được bỏ sót bất kỳ câu nào.
+2. Giữ nguyên ngôn ngữ gốc của văn bản (đề bài tiếng Anh thì giữ nguyên tiếng Anh, tiếng Việt thì giữ nguyên tiếng Việt).
+3. Trả về DUY NHẤT một mảng JSON các object câu hỏi (hoặc object JSON có thuộc tính "questions"). Mỗi câu hỏi gồm:
+- "content": Nội dung câu hỏi (loại bỏ tiền tố "Câu 1:", "Question 1:", "Q1:", "1." nếu có).
+- "options": Mảng các phần tử chuỗi các phương án lựa chọn A, B, C, D (loại bỏ tiền tố A., B., C., D.; TUYỆT ĐỐI KHÔNG chứa đáp án hoặc giải thích bên trong lựa chọn).
+- "correctIndex": Số nguyên 0..n (0 cho A, 1 cho B, 2 cho C, 3 cho D). Nếu tài liệu không ghi rõ đáp án, hãy dùng tri thức chuyên môn để xác định đáp án đúng nhất.
 - "correctAnswer": Nội dung chuỗi của đáp án đúng (khớp với options[correctIndex]).
 - "score": 1
 - "subject": "{subject}"

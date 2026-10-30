@@ -563,8 +563,7 @@ export const QuestionBankTab = ({ questions, onRefresh }: Props) => {
               <div>
                 <h4 className="text-sm font-semibold">Nhập câu hỏi từ tệp Word (.docx)</h4>
                 <p className="text-xs text-slate-300 mt-0.5">
-                  Chọn tệp Word (.docx) hoặc dán văn bản để tự động trích xuất các câu hỏi trắc
-                  nghiệm kèm đáp án.
+                  Hỗ trợ tự động bóc tách trọn vẹn cả đề thi Tiếng Việt và Tiếng Anh (Question 1, Q1, Answer, Ans, Key) kèm đáp án.
                 </p>
               </div>
               <button
@@ -690,7 +689,7 @@ export const QuestionBankTab = ({ questions, onRefresh }: Props) => {
                     <textarea
                       value={importText}
                       onChange={(e) => setImportText(e.target.value)}
-                      placeholder="Dán nội dung đề thi vào đây (ví dụ: Câu 1: ... A. ... B. ... Đáp án: A)..."
+                      placeholder="Dán nội dung đề thi vào đây (hỗ trợ Tiếng Việt: Câu 1: ... A. ... Đáp án: A hoặc Tiếng Anh: Question 1: ... A. ... Answer: A)..."
                       rows={6}
                       className="w-full p-2.5 border border-slate-200 rounded-md text-xs outline-none focus:border-slate-400 font-mono"
                     />

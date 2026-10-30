@@ -1127,18 +1127,22 @@ export const parseQuestionsFromRawText = (
   const questions: Question[] = [];
   const lines = rawText.split('\n').map((l) => l.trim()).filter((l) => l.length > 0);
 
+  // Nhận diện tự động ngôn ngữ đề thi (Tiếng Anh hoặc Tiếng Việt)
+  const isEnglish = /\b(question|which|what|choose|select|following|answer|marks?|points?)\b/i.test(rawText);
+  const defaultOptPrefix = isEnglish ? 'Option' : 'Phương án';
+  const defaultQuestionContent = isEnglish ? 'Multiple Choice Question' : 'Câu hỏi trắc nghiệm';
+
   let curQ: {
     content: string;
     options: string[];
     correctIndex: number;
-    explanation?: string;
   } | null = null;
 
   const pushCurrentQuestion = () => {
     if (!curQ || curQ.options.length < 2) return;
     const options = [...curQ.options];
     while (options.length < 4) {
-      options.push(`Phương án ${options.length + 1}`);
+      options.push(`${defaultOptPrefix} ${options.length + 1}`);
     }
     let correctIndex = curQ.correctIndex;
     if (correctIndex < 0 || correctIndex >= options.length) {
@@ -1149,7 +1153,7 @@ export const parseQuestionsFromRawText = (
       id: qId,
       questionId: qId,
       bankId,
-      content: curQ.content || 'Câu hỏi trắc nghiệm',
+      content: curQ.content || defaultQuestionContent,
       type: 'SINGLE_CHOICE',
       options,
       correctIndex,
@@ -1163,43 +1167,55 @@ export const parseQuestionsFromRawText = (
   };
 
   for (const line of lines) {
-    // 1. Nhận diện mở đầu câu hỏi (hỗ trợ "Câu 1 (0.67 điểm):", "Câu 1:", "1.", "[Câu 1]")
-    const qMatch = line.match(/^(?:câu\s*\d+|\d+[\.:\)]|\[câu\s*\d+\])(?:\s*\([^)]*\))?[:\.\-]?\s*(.*)/i);
+    // 1. Nhận diện mở đầu câu hỏi song ngữ (Việt: "Câu 1", Anh: "Question 1", "Q1", "Q.1", "[Question 1]", số: "1.", "1)")
+    const qMatch = line.match(
+      /^(?:câu\s*\d+|question\s*\d+|q\s*\.?\s*\d+|\d+[\.:\)]|\[(?:câu|question|q)\s*\.?\s*\d+\])(?:\s*\([^)]*\))?[:\.\-]?\s*(.*)/i
+    );
     if (qMatch) {
       pushCurrentQuestion();
       let content = qMatch[1].trim();
-      // Loại bỏ hoàn toàn điểm số trong ngoặc đơn nếu còn sót: ví dụ "(0.67 điểm):"
+      // Loại bỏ điểm số trong ngoặc đơn ở đầu: ví dụ "(0.67 điểm):", "(1 point):", "(1 pt):"
       content = content.replace(/^\([^)]*\)\s*[:\.\-]?\s*/, '').trim();
+      // Loại bỏ điểm số ở cuối câu nếu có: ví dụ "... (1 pt)", "... (0.67 points)"
+      content = content.replace(/\s*\(\s*\d+(?:[\.,]\d+)?\s*(?:điểm|pts?|points?|marks?)\s*\)\s*$/i, '').trim();
+
       curQ = {
         content,
         options: [],
         correctIndex: 0,
-        explanation: '',
       };
       continue;
     }
 
     if (!curQ) continue;
 
-    // 2. Nhận diện các phương án A, B, C, D (Lọc sạch triệt để Đáp án/Giải thích bị dính vào phương án)
-    const optMatch = line.match(/^([A-F])[\.:\)]\s*(.*)/i);
+    // 2. Nhận diện các phương án A, B, C, D, E, F (Đa định dạng: A., A), (A), [A], A:, A -)
+    const optMatch = line.match(/^(?:\(?([A-F])\)|\(?([A-F])[\.:\-\)]|\[([A-F])\])\s*(.*)/i);
     if (optMatch) {
-      let optText = optMatch[2].trim();
-      optText = optText.replace(/(?:đáp\s*án(?:\s*đúng)?|giải\s*thích).*$/i, '').trim();
+      let optText = (optMatch[4] || optMatch[2] || '').trim();
+      // Lọc sạch triệt để Đáp án / Giải thích (cả tiếng Việt và tiếng Anh) nếu bị dính vào phương án
+      optText = optText
+        .replace(
+          /(?:đáp\s*án(?:\s*đúng)?|giải\s*thích|correct\s*(?:answer|option)|answer(?:\s*is)?|right\s*answer|ans|key|explanation|explain|rationale|reason).*$/i,
+          ''
+        )
+        .trim();
       curQ.options.push(optText);
       continue;
     }
 
-    // 3. Nhận diện dòng Đáp án
-    const ansMatch = line.match(/(?:đáp\s*án(?:\s*đúng)?|đ\/a)[:\s]*([A-F])/i);
+    // 3. Nhận diện dòng Đáp án song ngữ (Đáp án: B, Answer: B, Correct answer: C, Ans: A, Key: D, Answer is B)
+    const ansMatch = line.match(
+      /(?:đáp\s*án(?:\s*đúng)?|đ\/a|correct\s*(?:answer|option)|answer(?:\s*is)?|right\s*answer|ans|key)[:\s]*\(?([A-F])\)?/i
+    );
     if (ansMatch) {
       const letter = ansMatch[1].toUpperCase();
       curQ.correctIndex = letter.charCodeAt(0) - 65;
       continue;
     }
 
-    // 4. Nhận diện dòng Giải thích riêng biệt (Tuyệt đối không lưu giải thích vào ngân hàng)
-    if (/^(?:giải\s*thích|lời\s*giải)[:\s]*/i.test(line)) {
+    // 4. Bỏ qua các dòng Giải thích song ngữ (Tuyệt đối không lưu giải thích vào ngân hàng)
+    if (/^(?:giải\s*thích|lời\s*giải|explanation|explain|rationale|reason|note)[:\s]*/i.test(line)) {
       continue;
     }
 
@@ -1212,31 +1228,47 @@ export const parseQuestionsFromRawText = (
   // Đẩy câu hỏi cuối cùng
   pushCurrentQuestion();
 
-  // Fallback dự phòng: bóc tách regex theo khối nếu văn bản không có xuống dòng chuẩn
+  // Fallback dự phòng: bóc tách regex theo khối song ngữ nếu văn bản không có xuống dòng chuẩn
   if (questions.length === 0) {
-    const blocks = rawText.split(/(?:^|\n)\s*(?:câu\s*\d+|\d+[\.:\)]|\[câu\s*\d+\])(?:\s*\([^)]*\))?[:\.\-]?\s*/i);
+    const blocks = rawText.split(
+      /(?:^|\n)\s*(?:câu\s*\d+|question\s*\d+|q\s*\.?\s*\d+|\d+[\.:\)]|\[(?:câu|question|q)\s*\.?\s*\d+\])(?:\s*\([^)]*\))?[:\.\-]?\s*/i
+    );
     for (const rawBlock of blocks) {
       const block = rawBlock.trim();
       if (!block || block.length < 15) continue;
 
-      const optRegex = /(?:^|\n|\s+)([A-F])[\.:\)]\s*(.*?)(?=(?:[A-F][\.:\)]|\n*Đáp\s*án|\n*Đ\/a|\Z))/gis;
+      const optRegex =
+        /(?:^|\n|\s+)(?:\(?([A-F])\)|\(?([A-F])[\.:\-\)]|\[([A-F])\])\s*(.*?)(?=(?:(?:^|\n|\s+)(?:\(?[A-F][\.:\-\)]|\([A-F]\)|\[[A-F]\])|\s*(?:đáp\s*án|đ\/a|correct\s*(?:answer|option)|answer|ans|key)|\Z))/gis;
       const optMatches = Array.from(block.matchAll(optRegex));
 
       if (optMatches.length >= 2) {
         const firstOptIndex = optMatches[0].index;
         let content = block.slice(0, firstOptIndex).trim();
-        content = content.replace(/^(?:câu\s*\d+|\d+[\.:\)])(?:\s*\([^)]*\))?[:\.\-]?\s*/i, '').trim();
+        content = content
+          .replace(
+            /^(?:câu\s*\d+|question\s*\d+|q\s*\.?\s*\d+|\d+[\.:\)])(?:\s*\([^)]*\))?[:\.\-]?\s*/i,
+            ''
+          )
+          .trim();
         content = content.replace(/^\([^)]*\)\s*[:\.\-]?\s*/, '').trim();
+        content = content.replace(/\s*\(\s*\d+(?:[\.,]\d+)?\s*(?:điểm|pts?|points?|marks?)\s*\)\s*$/i, '').trim();
 
-        const options = optMatches.slice(0, 4).map((m) => {
-          let opt = m[2].trim();
-          return opt.replace(/(?:đáp\s*án(?:\s*đúng)?|giải\s*thích).*$/i, '').trim();
+        const options = optMatches.slice(0, 6).map((m) => {
+          let opt = (m[4] || m[2] || '').trim();
+          return opt
+            .replace(
+              /(?:đáp\s*án(?:\s*đúng)?|giải\s*thích|correct\s*(?:answer|option)|answer(?:\s*is)?|right\s*answer|ans|key|explanation|explain|rationale|reason).*$/i,
+              ''
+            )
+            .trim();
         });
         while (options.length < 4) {
-          options.push(`Phương án ${options.length + 1}`);
+          options.push(`${defaultOptPrefix} ${options.length + 1}`);
         }
 
-        const ansMatch = block.match(/(?:đáp\s*án(?:\s*đúng)?|đ\/a)[:\s]*([A-F])/i);
+        const ansMatch = block.match(
+          /(?:đáp\s*án(?:\s*đúng)?|đ\/a|correct\s*(?:answer|option)|answer(?:\s*is)?|right\s*answer|ans|key)[:\s]*\(?([A-F])\)?/i
+        );
         let correctIndex = 0;
         if (ansMatch) {
           const letter = ansMatch[1].toUpperCase();
@@ -1249,7 +1281,7 @@ export const parseQuestionsFromRawText = (
           id: qId,
           questionId: qId,
           bankId,
-          content: content || 'Câu hỏi trắc nghiệm',
+          content: content || defaultQuestionContent,
           type: 'SINGLE_CHOICE',
           options,
           correctIndex,
