@@ -32,17 +32,19 @@ export interface Question {
   questionId?: string;
   bankId: string;
   content: string;
-  type: QuestionType;
-  options: string[];      // 4 đáp án A-D
-  correctIndex: number;   // vị trí đáp án đúng (0-3)
+  type?: QuestionType;
+  options: string[];      // 2-6 lựa chọn A-F
+  correctIndex: number;   // vị trí đáp án đúng (0-5)
   correctAnswer?: string; // nội dung đáp án đúng
   score: number;
   subject: string;        // Môn học
   topic: string;          // Chủ đề
-  difficulty: Difficulty;
+  difficulty?: Difficulty;
   imageUrl?: string;
   createdAt?: string;
   explanation?: string;
+  ownerEmail?: string;
+  createdBy?: string;
 }
 
 export type QuestionInput = Omit<Question, 'id'> & { id?: string };
@@ -54,6 +56,8 @@ export interface QuestionBank {
   subject: string;
   description?: string;
   createdAt?: string;
+  ownerEmail?: string;
+  createdBy?: string;
 }
 
 export type QuestionBankInput = Omit<QuestionBank, 'id' | 'createdAt'> & { id?: string };
@@ -577,23 +581,90 @@ export const requestPresignedUploadUrl = async (params: {
 // 2. QUESTION BANKS APIS (/question-banks - DynamoDB)
 // ============================================================================
 
-export const getQuestionBanks = async (): Promise<QuestionBank[]> => {
-  const res = await api.get('/question-banks');
-  const data = res.data;
-  const list = Array.isArray(data) ? data : data.items ?? [];
-  return list.map((b: any) => ({
-    id: b.id || b.bankId,
-    bankId: b.bankId || b.id,
-    name: b.name || 'Ngân hàng câu hỏi',
-    subject: b.subject || 'Kiến trúc & Phát triển Phần mềm',
-    description: b.description || '',
-    createdAt: b.createdAt,
-  }));
+const LOCAL_CUSTOM_BANKS_KEY = 'cloudexam_custom_banks';
+
+export const getLocalBanks = (): QuestionBank[] => {
+  try {
+    const raw = localStorage.getItem(LOCAL_CUSTOM_BANKS_KEY);
+    return raw ? JSON.parse(raw) : [];
+  } catch {
+    return [];
+  }
+};
+
+export const saveLocalBank = (b: QuestionBank) => {
+  try {
+    const list = getLocalBanks();
+    const idx = list.findIndex((item) => item.id === b.id || (item.bankId && item.bankId === b.bankId));
+    if (idx >= 0) {
+      list[idx] = b;
+    } else {
+      list.push(b);
+    }
+    localStorage.setItem(LOCAL_CUSTOM_BANKS_KEY, JSON.stringify(list));
+  } catch (e) {
+    console.warn('Lỗi lưu local bank:', e);
+  }
+};
+
+export const getQuestionBanks = async (ownerEmail?: string): Promise<QuestionBank[]> => {
+  let cloudBanks: QuestionBank[] = [];
+  try {
+    const params = ownerEmail ? { ownerEmail } : undefined;
+    const res = await api.get('/question-banks', { params });
+    const data = res.data;
+    const list = Array.isArray(data) ? data : data.items ?? [];
+    cloudBanks = list.map((b: any) => ({
+      id: b.id || b.bankId,
+      bankId: b.bankId || b.id,
+      name: b.name || 'Ngân hàng câu hỏi',
+      subject: b.subject || 'Kiến trúc & Phát triển Phần mềm',
+      description: b.description || '',
+      createdAt: b.createdAt,
+      ownerEmail: b.ownerEmail || b.createdBy,
+      createdBy: b.createdBy || b.ownerEmail,
+    }));
+  } catch (err) {
+    console.warn('Lỗi lấy ngân hàng câu hỏi từ API, sử dụng mặc định:', err);
+    cloudBanks = [...DEFAULT_QUESTION_BANKS];
+  }
+
+  // Kết hợp ngân hàng câu hỏi lưu trên trình duyệt
+  const localBanks = getLocalBanks();
+  const seenIds = new Set(cloudBanks.map((b) => b.id));
+  for (const lb of localBanks) {
+    if (!seenIds.has(lb.id)) {
+      cloudBanks.push(lb);
+      seenIds.add(lb.id);
+    }
+  }
+
+  return cloudBanks;
 };
 
 export const createQuestionBank = async (data: QuestionBankInput): Promise<QuestionBank> => {
-  const res = await api.post('/question-banks', data);
-  return res.data;
+  const bankId = data.id || data.bankId || ('bank-' + Math.random().toString(36).substring(2, 10));
+  const fullBank: QuestionBank = {
+    ...data,
+    id: bankId,
+    bankId,
+    name: data.name || 'Ngân hàng câu hỏi',
+    subject: data.subject || 'Chung',
+    description: data.description || '',
+    ownerEmail: data.ownerEmail || data.createdBy,
+    createdBy: data.createdBy || data.ownerEmail,
+    createdAt: new Date().toISOString(),
+  };
+
+  saveLocalBank(fullBank);
+
+  try {
+    const res = await api.post('/question-banks', fullBank);
+    return res.data;
+  } catch (err) {
+    console.warn('POST /question-banks lỗi (đã lưu an toàn vào local cache):', err);
+    return fullBank;
+  }
 };
 
 // ============================================================================
@@ -1112,14 +1183,14 @@ export const parseQuestionsFromRawText = (
     if (!curQ) continue;
 
     // 2. Nhận diện các phương án A, B, C, D
-    const optMatch = line.match(/^([A-D])[\.:\)]\s*(.*)/i);
+    const optMatch = line.match(/^([A-F])[\.:\)]\s*(.*)/i);
     if (optMatch) {
       curQ.options.push(optMatch[2].trim());
       continue;
     }
 
     // 3. Nhận diện dòng Đáp án và Giải thích
-    const ansMatch = line.match(/(?:đáp\s*án(?:\s*đúng)?|đ\/a)[:\s]*([A-D])/i);
+    const ansMatch = line.match(/(?:đáp\s*án(?:\s*đúng)?|đ\/a)[:\s]*([A-F])/i);
     if (ansMatch) {
       const letter = ansMatch[1].toUpperCase();
       curQ.correctIndex = letter.charCodeAt(0) - 65;
@@ -1153,7 +1224,7 @@ export const parseQuestionsFromRawText = (
       const block = rawBlock.trim();
       if (!block || block.length < 15) continue;
 
-      const optRegex = /(?:^|\n|\s+)([A-D])[\.:\)]\s*(.*?)(?=(?:[A-D][\.:\)]|\n*Đáp\s*án|\n*Đ\/a|\Z))/gis;
+      const optRegex = /(?:^|\n|\s+)([A-F])[\.:\)]\s*(.*?)(?=(?:[A-F][\.:\)]|\n*Đáp\s*án|\n*Đ\/a|\Z))/gis;
       const optMatches = Array.from(block.matchAll(optRegex));
 
       if (optMatches.length >= 2) {
@@ -1167,7 +1238,7 @@ export const parseQuestionsFromRawText = (
           options.push(`Phương án ${options.length + 1}`);
         }
 
-        const ansMatch = block.match(/(?:đáp\s*án(?:\s*đúng)?|đ\/a)[:\s]*([A-D])/i);
+        const ansMatch = block.match(/(?:đáp\s*án(?:\s*đúng)?|đ\/a)[:\s]*([A-F])/i);
         let correctIndex = 0;
         if (ansMatch) {
           const letter = ansMatch[1].toUpperCase();

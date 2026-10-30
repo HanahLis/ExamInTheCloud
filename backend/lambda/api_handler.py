@@ -231,12 +231,12 @@ def rule_based_parse_questions(raw_text: str, subject: str = "Điện toán đá
         if cur_q is None:
             continue
 
-        opt_match = re.match(r'^([A-D])[\.:\)]\s*(.*)', line, re.IGNORECASE)
+        opt_match = re.match(r'^([A-F])[\.:\)]\s*(.*)', line, re.IGNORECASE)
         if opt_match:
             cur_q["options"].append(opt_match.group(2).strip())
             continue
 
-        ans_match = re.search(r'(?:đáp\s*án(?:\s*đúng)?|đ\/a)[:\s]*([A-D])', line, re.IGNORECASE)
+        ans_match = re.search(r'(?:đáp\s*án(?:\s*đúng)?|đ\/a)[:\s]*([A-F])', line, re.IGNORECASE)
         if ans_match:
             letter = ans_match.group(1).upper()
             cur_q["correctIndex"] = ord(letter) - ord('A')
@@ -599,6 +599,7 @@ def lambda_handler(event, context):
                 options = body.get("options", [])
                 correct_idx = body.get("correctIndex", 0)
                 correct_answer = body.get("correctAnswer") or (options[correct_idx] if len(options) > correct_idx else "")
+                owner = body.get("ownerEmail") or user_email or body.get("createdBy", "")
 
                 item = {
                     "id": question_id,
@@ -612,8 +613,10 @@ def lambda_handler(event, context):
                     "score": Decimal(str(body.get("score", 1))),
                     "subject": body.get("subject", "Điện toán đám mây"),
                     "topic": body.get("topic", "AWS Serverless"),
-                    "difficulty": body.get("difficulty", "EASY"),
+                    "difficulty": body.get("difficulty", "MEDIUM"),
                     "imageUrl": body.get("imageUrl", ""),
+                    "ownerEmail": owner,
+                    "createdBy": owner,
                     "createdAt": datetime.now(timezone.utc).isoformat()
                 }
                 questions_table.put_item(Item=item)
@@ -669,16 +672,27 @@ def lambda_handler(event, context):
         elif resource_path == "/question-banks":
             if http_method == "GET":
                 scan_res = question_banks_table.scan()
-                return build_response(200, scan_res.get("Items", []))
+                all_banks = scan_res.get("Items", [])
+                owner_param = query_params.get("ownerEmail") or (user_email if is_admin_or_organizer and user_email else None)
+                if owner_param:
+                    filtered = [
+                        b for b in all_banks
+                        if not b.get("ownerEmail") or b.get("ownerEmail") == owner_param or b.get("createdBy") == owner_param
+                    ]
+                    return build_response(200, filtered)
+                return build_response(200, all_banks)
 
             elif http_method == "POST":
                 bank_id = body.get("id") or f"bank-{str(uuid.uuid4())[:8]}"
+                owner = body.get("ownerEmail") or user_email or body.get("createdBy", "")
                 item = {
                     "id": bank_id,
                     "bankId": bank_id,
                     "name": body.get("name", "Ngân hàng câu hỏi mới"),
                     "subject": body.get("subject", "Điện toán đám mây"),
                     "description": body.get("description", ""),
+                    "ownerEmail": owner,
+                    "createdBy": owner,
                     "createdAt": datetime.now(timezone.utc).isoformat()
                 }
                 question_banks_table.put_item(Item=item)

@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState, type FormEvent } from 'react';
+import { useEffect, useMemo, useRef, useState, type FormEvent } from 'react';
 import { uploadQuestionImage } from '../services/s3Service';
 import {
   createQuestion,
@@ -10,23 +10,13 @@ import {
   extractTextFromDocxFile,
   DEFAULT_QUESTION_BANKS,
   type Question,
-  type Difficulty,
   type QuestionType,
   type QuestionBank,
   type ParseDocResponse,
 } from '../services/apiService';
+import { getCurrentUser } from '../services/auth';
 
-const LABELS = ['A', 'B', 'C', 'D'];
-const DIFFICULTY_LABEL: Record<Difficulty, string> = {
-  EASY: 'Dễ',
-  MEDIUM: 'Trung bình',
-  HARD: 'Khó',
-};
-
-const TYPE_LABEL: Record<QuestionType, string> = {
-  SINGLE_CHOICE: 'Một đáp án',
-  MULTIPLE_CHOICE: 'Nhiều lựa chọn',
-};
+const OPTION_LABELS = ['A', 'B', 'C', 'D', 'E', 'F'];
 
 interface Props {
   questions: Question[];
@@ -34,6 +24,13 @@ interface Props {
 }
 
 export const QuestionBankTab = ({ questions, onRefresh }: Props) => {
+  // 1. Định danh Giảng viên hiện tại (Cô lập dữ liệu theo tài khoản)
+  const currentUser = getCurrentUser();
+  const lecturerEmail = (currentUser.email || 'annv@uet.vnu.edu.vn').toLowerCase().trim();
+  const lecturerName =
+    currentUser.name || (currentUser.email ? currentUser.email.split('@')[0] : 'Giảng viên');
+
+  // 2. Ngân hàng câu hỏi của Giảng viên
   const [banks, setBanks] = useState<QuestionBank[]>([]);
   const [selectedBankFilter, setSelectedBankFilter] = useState<string>('ALL');
   const [showCreateBankModal, setShowCreateBankModal] = useState(false);
@@ -43,47 +40,58 @@ export const QuestionBankTab = ({ questions, onRefresh }: Props) => {
   const [newBankDesc, setNewBankDesc] = useState('');
   const [creatingBank, setCreatingBank] = useState(false);
 
+  // 3. Form tạo / sửa câu hỏi
   const [editingId, setEditingId] = useState<string | null>(null);
   const [bankId, setBankId] = useState<string>('bank-se-arch-01');
+  const [subject, setSubject] = useState('Kiến trúc hướng dịch vụ');
+  const [topic, setTopic] = useState('Kiến trúc hệ thống');
   const [content, setContent] = useState('');
-  const [type, setType] = useState<QuestionType>('SINGLE_CHOICE');
-  const [subject, setSubject] = useState('Kiến trúc & Phát triển Phần mềm');
-  const [topic, setTopic] = useState('Design Patterns & Architecture');
+  // Hình thức trắc nghiệm từ 2 đến 6 lựa chọn (A, B, C, D, E, F)
   const [options, setOptions] = useState<string[]>(['', '', '', '']);
   const [correctIndex, setCorrectIndex] = useState(0);
   const [score, setScore] = useState(1);
-  const [difficulty, setDifficulty] = useState<Difficulty>('EASY');
   const [file, setFile] = useState<File | null>(null);
   const [existingImage, setExistingImage] = useState('');
   const [loading, setLoading] = useState(false);
   const [uploadStatus, setUploadStatus] = useState<string>('');
   const fileInput = useRef<HTMLInputElement>(null);
 
-  // ==========================================================================
-  // STATE & REFS CHO MODAL SỐ HÓA ĐỀ THI BẰNG AI (GOOGLE GEMINI 1.5 FLASH)
-  // ==========================================================================
-  const [showAIImportModal, setShowAIImportModal] = useState(false);
-  const [aiBankId, setAiBankId] = useState<string>('bank-se-arch-01');
-  const [aiSubject, setAiSubject] = useState('Điện toán đám mây');
-  const [aiTopic, setAiTopic] = useState('Kiến trúc hệ thống');
-  const [aiInputMode, setAiInputMode] = useState<'FILE' | 'TEXT'>('FILE');
-  const [aiFile, setAiFile] = useState<File | null>(null);
-  const [aiText, setAiText] = useState('');
-  const [aiAutoSave, setAiAutoSave] = useState(true);
-  const [aiLoading, setAiLoading] = useState(false);
-  const [aiError, setAiError] = useState('');
-  const [aiSuccessMessage, setAiSuccessMessage] = useState('');
-  const [aiExtractedQuestions, setAiExtractedQuestions] = useState<Question[]>([]);
+  // 4. Modal nhập đề thi từ tệp Word (.docx)
+  const [showImportModal, setShowImportModal] = useState(false);
+  const [importBankId, setImportBankId] = useState<string>('bank-se-arch-01');
+  const [importSubject, setImportSubject] = useState('Kiến trúc hướng dịch vụ');
+  const [importTopic, setImportTopic] = useState('Kiến trúc hệ thống');
+  const [importInputMode, setImportInputMode] = useState<'FILE' | 'TEXT'>('FILE');
+  const [importFile, setImportFile] = useState<File | null>(null);
+  const [importText, setImportText] = useState('');
+  const [importAutoSave, setImportAutoSave] = useState(true);
+  const [importLoading, setImportLoading] = useState(false);
+  const [importError, setImportError] = useState('');
+  const [importSuccessMessage, setImportSuccessMessage] = useState('');
+  const [extractedQuestions, setExtractedQuestions] = useState<Question[]>([]);
   const docFileInputRef = useRef<HTMLInputElement>(null);
 
+  // Tải danh sách ngân hàng câu hỏi
   const loadBanks = async () => {
     try {
-      const list = await getQuestionBanks();
-      const banksList = list && list.length > 0 ? list : DEFAULT_QUESTION_BANKS;
-      setBanks(banksList);
-      if (banksList.length > 0 && !bankId) {
-        setBankId(banksList[0].id);
-        if (banksList[0].subject) setSubject(banksList[0].subject);
+      const list = await getQuestionBanks(lecturerEmail);
+      // Lọc các ngân hàng thuộc tài khoản giảng viên hiện tại hoặc ngân hàng dùng chung
+      const myOwned = list.filter((b) => {
+        if (!b.ownerEmail && !b.createdBy) return true;
+        return (
+          b.ownerEmail?.toLowerCase() === lecturerEmail ||
+          b.createdBy?.toLowerCase() === lecturerEmail
+        );
+      });
+      const finalList =
+        myOwned.length > 0 ? myOwned : list.length > 0 ? list : DEFAULT_QUESTION_BANKS;
+      setBanks(finalList);
+
+      if (finalList.length > 0) {
+        setBankId(finalList[0].id);
+        if (finalList[0].subject) setSubject(finalList[0].subject);
+        setImportBankId(finalList[0].id);
+        if (finalList[0].subject) setImportSubject(finalList[0].subject);
       }
     } catch (e) {
       console.error('Lỗi tải ngân hàng câu hỏi:', e);
@@ -95,16 +103,50 @@ export const QuestionBankTab = ({ questions, onRefresh }: Props) => {
 
   useEffect(() => {
     loadBanks();
-  }, []);
+  }, [lecturerEmail]);
+
+  // Ngân hàng câu hỏi của riêng giảng viên này
+  const lecturerBanks = useMemo(() => {
+    const list = banks.filter((b) => {
+      if (!b.ownerEmail && !b.createdBy) return true;
+      return (
+        b.ownerEmail?.toLowerCase() === lecturerEmail ||
+        b.createdBy?.toLowerCase() === lecturerEmail
+      );
+    });
+    return list.length > 0 ? list : banks;
+  }, [banks, lecturerEmail]);
+
+  // Lọc câu hỏi thuộc phạm vi ngân hàng của giảng viên hiện tại
+  const lecturerBankIds = useMemo(
+    () => new Set(lecturerBanks.map((b) => b.id)),
+    [lecturerBanks]
+  );
+
+  const lecturerQuestions = useMemo(() => {
+    return questions.filter((q) => {
+      if (q.bankId && lecturerBankIds.has(q.bankId)) return true;
+      if (q.ownerEmail && q.ownerEmail.toLowerCase() === lecturerEmail) return true;
+      if (q.createdBy && q.createdBy.toLowerCase() === lecturerEmail) return true;
+      return false;
+    });
+  }, [questions, lecturerBankIds, lecturerEmail]);
+
+  // Lọc theo ngân hàng được chọn
+  const filteredQuestions = useMemo(() => {
+    if (selectedBankFilter === 'ALL') return lecturerQuestions;
+    return lecturerQuestions.filter((q) => q.bankId === selectedBankFilter);
+  }, [lecturerQuestions, selectedBankFilter]);
 
   const handleBankChange = (newBankId: string) => {
     setBankId(newBankId);
-    const found = banks.find((b) => b.id === newBankId);
+    const found = lecturerBanks.find((b) => b.id === newBankId);
     if (found && found.subject) {
       setSubject(found.subject);
     }
   };
 
+  // Tạo ngân hàng câu hỏi mới
   const handleCreateBank = async (e: FormEvent) => {
     e.preventDefault();
     if (!newBankName.trim()) return alert('Vui lòng nhập tên ngân hàng câu hỏi.');
@@ -114,6 +156,8 @@ export const QuestionBankTab = ({ questions, onRefresh }: Props) => {
         name: newBankName.trim(),
         subject: newBankSubject.trim() || 'Chung',
         description: newBankDesc.trim(),
+        ownerEmail: lecturerEmail,
+        createdBy: lecturerEmail,
       });
       await loadBanks();
       setBankId(created.id);
@@ -129,141 +173,56 @@ export const QuestionBankTab = ({ questions, onRefresh }: Props) => {
     }
   };
 
-  const handleOpenAIModal = () => {
-    const targetBank = selectedBankFilter !== 'ALL' ? selectedBankFilter : banks[0]?.id || 'bank-se-arch-01';
-    setAiBankId(targetBank);
-    const foundBank = banks.find((b) => b.id === targetBank);
-    if (foundBank?.subject) {
-      setAiSubject(foundBank.subject);
-    }
-    setAiError('');
-    setAiSuccessMessage('');
-    setShowAIImportModal(true);
+  // Tùy chỉnh các phương án trả lời (Từ 2 đến 6 lựa chọn A - F)
+  const handleAddOption = () => {
+    if (options.length >= 6) return;
+    setOptions((prev) => [...prev, '']);
   };
 
-  const handleCloseAIModal = () => {
-    setShowAIImportModal(false);
-    setAiFile(null);
-    setAiText('');
-    setAiError('');
-    setAiSuccessMessage('');
-    setAiExtractedQuestions([]);
-    if (docFileInputRef.current) docFileInputRef.current.value = '';
-  };
-
-  const handleInsertSampleText = () => {
-    setAiText(
-`Câu 1: Lợi ích chính của kiến trúc Serverless trên nền tảng AWS là gì?
-A. Chi phí bằng 0 khi hệ thống không có lượt thi nào (Pay-per-request)
-B. Bắt buộc duy trì máy chủ EC2 hoạt động 24/7
-C. Không hỗ trợ tính toán bằng ngôn ngữ Python
-D. Phải tự cấu hình hệ điều hành Linux
-Đáp án: A
-
-Câu 2: Để ngăn chặn tình trạng nghẽn tải (Thundering Herd) khi hàng ngàn thí sinh nộp bài giây cuối, dịch vụ nào được CloudExam sử dụng?
-A. Amazon RDS
-B. Amazon SQS kết hợp Dead Letter Queue (DLQ)
-C. Amazon Route 53
-D. AWS CloudFormation
-Đáp án: B
-
-Câu 3: Dịch vụ nào của AWS được CloudExam sử dụng để đối soát sinh trắc học khuôn mặt thí sinh với ngưỡng tương đồng >= 80%?
-A. Amazon Rekognition (CompareFaces API)
-B. Amazon Polly
-C. Amazon Transcribe
-D. Amazon Kendra
-Đáp án: A`
-    );
-  };
-
-  const handleAIImport = async (e?: FormEvent) => {
-    if (e) e.preventDefault();
-    setAiError('');
-    setAiSuccessMessage('');
-    setAiExtractedQuestions([]);
-
-    if (aiInputMode === 'FILE' && !aiFile) {
-      setAiError('Vui lòng chọn tệp Word (.docx) hoặc (.txt) từ máy tính.');
-      return;
+  const handleRemoveOption = (indexToRemove: number) => {
+    if (options.length <= 2) {
+      return alert('Mỗi câu hỏi phải có tối thiểu 2 phương án trả lời.');
     }
-    if (aiInputMode === 'TEXT' && !aiText.trim()) {
-      setAiError('Vui lòng dán nội dung văn bản đề thi để AI phân tích.');
-      return;
-    }
-
-    setAiLoading(true);
-
-    try {
-      let fileBase64: string | undefined = undefined;
-      let docText: string | undefined = undefined;
-
-      if (aiInputMode === 'FILE' && aiFile) {
-        // Trích xuất văn bản trực tiếp từ tệp Word (.docx) bằng JSZip client-side
-        try {
-          docText = await extractTextFromDocxFile(aiFile);
-        } catch (docxErr) {
-          console.warn('Lỗi đọc nội dung docx client-side:', docxErr);
-        }
-
-        fileBase64 = await new Promise<string>((resolve, reject) => {
-          const reader = new FileReader();
-          reader.onload = () => resolve(reader.result as string);
-          reader.onerror = (err) => reject(err);
-          reader.readAsDataURL(aiFile);
-        });
-      } else if (aiInputMode === 'TEXT') {
-        docText = aiText.trim();
-      }
-
-      const res: ParseDocResponse = await parseQuestionsFromDoc({
-        bankId: aiBankId || bankId || 'bank-se-arch-01',
-        subject: aiSubject.trim() || subject || 'Kiến trúc hướng dịch vụ',
-        topic: aiTopic.trim() || topic || 'Kiến trúc hệ thống',
-        fileBase64,
-        docText,
-        text: docText,
-        autoSave: aiAutoSave,
-      });
-
-      setAiSuccessMessage(res.message || `Đã trích xuất thành công ${res.count} câu hỏi.`);
-      setAiExtractedQuestions(res.questions || []);
-
-      if (aiAutoSave) {
-        await onRefresh();
-      }
-    } catch (err: any) {
-      console.error('Lỗi số hóa đề thi bằng Gemini AI:', err);
-      setAiError(err.response?.data?.error || err.message || 'Lỗi xử lý tệp qua Google Gemini AI.');
-    } finally {
-      setAiLoading(false);
+    setOptions((prev) => prev.filter((_, i) => i !== indexToRemove));
+    if (correctIndex === indexToRemove) {
+      setCorrectIndex(0);
+    } else if (correctIndex > indexToRemove) {
+      setCorrectIndex((prev) => prev - 1);
     }
   };
 
+  const handleOptionChange = (index: number, val: string) => {
+    setOptions((prev) => prev.map((opt, i) => (i === index ? val : opt)));
+  };
+
+  // Reset form
   const resetForm = () => {
     setEditingId(null);
     setContent('');
     setOptions(['', '', '', '']);
     setCorrectIndex(0);
     setScore(1);
-    setDifficulty('EASY');
-    setType('SINGLE_CHOICE');
     setFile(null);
     setExistingImage('');
     setUploadStatus('');
     if (fileInput.current) fileInput.current.value = '';
   };
 
+  // Nạp câu hỏi vào form để chỉnh sửa
   const startEdit = (q: Question) => {
     setEditingId(q.id);
-    setBankId(q.bankId || (banks[0]?.id ?? 'bank-se-arch-01'));
+    setBankId(q.bankId || (lecturerBanks[0]?.id ?? 'bank-se-arch-01'));
     setContent(q.content);
-    setType(q.type || 'SINGLE_CHOICE');
-    setSubject(q.subject || 'Kiến trúc & Phát triển Phần mềm');
-    setTopic(q.topic || 'Software Architecture');
-    setOptions([0, 1, 2, 3].map((i) => q.options[i] ?? ''));
-    setCorrectIndex(q.correctIndex ?? 0);
+    setSubject(q.subject || 'Kiến trúc hướng dịch vụ');
+    setTopic(q.topic || 'Kiến trúc hệ thống');
+    // Nạp danh sách phương án (đảm bảo ít nhất 2 và tối đa 6)
+    const currentOptions =
+      Array.isArray(q.options) && q.options.length >= 2 ? [...q.options] : ['', ''];
+    setOptions(currentOptions.slice(0, 6));
+    setCorrectIndex(
+      q.correctIndex !== undefined && q.correctIndex < currentOptions.length ? q.correctIndex : 0
+    );
     setScore(q.score ?? 1);
-    setDifficulty(q.difficulty ?? 'EASY');
     setFile(null);
     setExistingImage(q.imageUrl ?? '');
     setUploadStatus('');
@@ -271,34 +230,44 @@ D. Amazon Kendra
     window.scrollTo({ top: 0, behavior: 'smooth' });
   };
 
+  // Lưu câu hỏi mới hoặc cập nhật câu hỏi
   const handleSubmit = async (e: FormEvent) => {
     e.preventDefault();
-    if (options.some((o) => !o.trim())) {
-      return alert('Vui lòng nhập đủ 4 đáp án A, B, C, D.');
+    if (!content.trim()) {
+      return alert('Vui lòng nhập nội dung câu hỏi.');
     }
+    if (options.length < 2) {
+      return alert('Câu hỏi phải có ít nhất 2 phương án trả lời.');
+    }
+    if (options.some((o) => !o.trim())) {
+      return alert('Vui lòng nhập đầy đủ nội dung cho tất cả các phương án trả lời.');
+    }
+
     setLoading(true);
     try {
       let imageUrl = existingImage;
       if (file) {
-        setUploadStatus('Đang tải ảnh...');
+        setUploadStatus('Đang tải ảnh lên lưu trữ...');
         imageUrl = await uploadQuestionImage(file);
         setUploadStatus('Tải ảnh thành công');
       }
 
-      const correctAnswer = options[correctIndex]?.trim() || '';
+      const correctAnswer = options[correctIndex]?.trim() || options[0]?.trim() || '';
 
       const payload = {
         bankId,
         content: content.trim(),
-        type,
+        type: 'SINGLE_CHOICE' as QuestionType,
         options: options.map((o) => o.trim()),
         correctIndex,
         correctAnswer,
-        score,
+        score: Number(score) || 1,
         subject: subject.trim(),
         topic: topic.trim(),
-        difficulty,
+        difficulty: 'MEDIUM' as const,
         imageUrl,
+        ownerEmail: lecturerEmail,
+        createdBy: lecturerEmail,
       };
 
       if (editingId) {
@@ -317,8 +286,9 @@ D. Amazon Kendra
     }
   };
 
+  // Xóa câu hỏi
   const handleDelete = async (q: Question) => {
-    if (!confirm(`Xóa câu hỏi "${q.content}"?`)) return;
+    if (!confirm(`Bạn có chắc chắn muốn xóa câu hỏi "${q.content.substring(0, 50)}..."?`)) return;
     try {
       await deleteQuestion(q.id);
       if (editingId === q.id) resetForm();
@@ -328,34 +298,125 @@ D. Amazon Kendra
     }
   };
 
-  const filteredQuestions =
-    selectedBankFilter === 'ALL'
-      ? questions
-      : questions.filter((q) => q.bankId === selectedBankFilter);
+  // Xử lý mở modal nhập đề thi từ Word
+  const handleOpenImportModal = () => {
+    const target =
+      selectedBankFilter !== 'ALL'
+        ? selectedBankFilter
+        : lecturerBanks[0]?.id || 'bank-se-arch-01';
+    setImportBankId(target);
+    const found = lecturerBanks.find((b) => b.id === target);
+    if (found?.subject) setImportSubject(found.subject);
+    setImportError('');
+    setImportSuccessMessage('');
+    setExtractedQuestions([]);
+    setShowImportModal(true);
+  };
+
+  const handleCloseImportModal = () => {
+    setShowImportModal(false);
+    setImportFile(null);
+    setImportText('');
+    setImportError('');
+    setImportSuccessMessage('');
+    setExtractedQuestions([]);
+    if (docFileInputRef.current) docFileInputRef.current.value = '';
+  };
+
+  // Thực hiện trích xuất câu hỏi từ file Word / văn bản
+  const handleStartImport = async (e?: FormEvent) => {
+    if (e) e.preventDefault();
+    setImportError('');
+    setImportSuccessMessage('');
+    setExtractedQuestions([]);
+
+    if (importInputMode === 'FILE' && !importFile) {
+      setImportError('Vui lòng chọn tệp Word (.docx) hoặc (.txt) từ máy tính.');
+      return;
+    }
+    if (importInputMode === 'TEXT' && !importText.trim()) {
+      setImportError('Vui lòng dán nội dung văn bản đề thi để trích xuất.');
+      return;
+    }
+
+    setImportLoading(true);
+    try {
+      let fileBase64: string | undefined = undefined;
+      let docText: string | undefined = undefined;
+
+      if (importInputMode === 'FILE' && importFile) {
+        try {
+          docText = await extractTextFromDocxFile(importFile);
+        } catch (docxErr) {
+          console.warn('Lỗi đọc nội dung docx client-side:', docxErr);
+        }
+
+        fileBase64 = await new Promise<string>((resolve, reject) => {
+          const reader = new FileReader();
+          reader.onload = () => resolve(reader.result as string);
+          reader.onerror = (err) => reject(err);
+          reader.readAsDataURL(importFile);
+        });
+      } else if (importInputMode === 'TEXT') {
+        docText = importText.trim();
+      }
+
+      const res: ParseDocResponse = await parseQuestionsFromDoc({
+        bankId: importBankId || bankId || 'bank-se-arch-01',
+        subject: importSubject.trim() || subject || 'Kiến trúc hướng dịch vụ',
+        topic: importTopic.trim() || topic || 'Kiến trúc hệ thống',
+        fileBase64,
+        docText,
+        text: docText,
+        autoSave: importAutoSave,
+      });
+
+      setImportSuccessMessage(
+        res.message || `Đã trích xuất thành công ${res.count} câu hỏi vào ngân hàng.`
+      );
+      setExtractedQuestions(res.questions || []);
+
+      if (importAutoSave) {
+        await onRefresh();
+      }
+    } catch (err: any) {
+      console.error('Lỗi trích xuất đề thi:', err);
+      setImportError(
+        err.response?.data?.error || err.message || 'Lỗi xử lý tệp đề thi. Vui lòng thử lại.'
+      );
+    } finally {
+      setImportLoading(false);
+    }
+  };
 
   return (
     <div className="space-y-4">
-      {/* Thanh lọc & Quản lý ngân hàng */}
-      <div className="bg-white p-4 rounded-lg border border-slate-200">
+      {/* 1. Thanh tiêu đề & Quản lý ngân hàng câu hỏi của Giảng viên */}
+      <div className="bg-white p-4 rounded-lg border border-slate-200 shadow-xs">
         <div className="flex flex-wrap items-center justify-between gap-3">
           <div>
             <h3 className="text-sm font-semibold text-slate-800">
-              Ngân hàng câu hỏi
+              Ngân hàng câu hỏi của tôi
             </h3>
+            <p className="text-xs text-slate-500 mt-0.5">
+              Tài khoản giảng viên:{' '}
+              <span className="font-medium text-slate-700">{lecturerName}</span> (
+              {lecturerEmail})
+            </p>
           </div>
 
           <div className="flex items-center gap-2">
             <button
               type="button"
-              onClick={handleOpenAIModal}
-              className="px-3.5 py-1.5 bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-700 hover:to-indigo-700 text-white text-xs font-semibold rounded-md shadow-sm transition flex items-center gap-1.5 cursor-pointer"
-              title="Tải tệp Word (.docx) để Google Gemini 1.5 Flash tự động bóc tách thành câu hỏi trắc nghiệm"
+              onClick={handleOpenImportModal}
+              className="px-3 py-1.5 bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-medium rounded-md shadow-xs transition flex items-center gap-1.5 cursor-pointer"
             >
-              <span className="text-sm">✨</span>
-              <span>Số hóa đề thi bằng AI (Word / DOCX)</span>
+              <span>📥</span>
+              <span>Nhập câu hỏi từ file Word</span>
             </button>
 
             <button
+              type="button"
               onClick={() => setShowCreateBankModal(true)}
               className="px-3 py-1.5 bg-slate-900 text-white text-xs font-medium rounded-md hover:bg-slate-800 transition cursor-pointer"
             >
@@ -364,6 +425,7 @@ D. Amazon Kendra
           </div>
         </div>
 
+        {/* Bộ lọc ngân hàng */}
         <div className="mt-3 pt-3 border-t border-slate-100 flex flex-wrap items-center justify-between gap-3">
           <div className="flex items-center gap-2">
             <span className="text-xs text-slate-500">Lọc theo ngân hàng:</span>
@@ -372,9 +434,9 @@ D. Amazon Kendra
               onChange={(e) => setSelectedBankFilter(e.target.value)}
               className="text-xs p-1.5 border border-slate-200 rounded-md bg-white text-slate-700 outline-none"
             >
-              <option value="ALL">Tất cả ({questions.length} câu)</option>
-              {banks.map((b) => {
-                const count = questions.filter((q) => q.bankId === b.id).length;
+              <option value="ALL">Tất cả ({lecturerQuestions.length} câu)</option>
+              {lecturerBanks.map((b) => {
+                const count = lecturerQuestions.filter((q) => q.bankId === b.id).length;
                 return (
                   <option key={b.id} value={b.id}>
                     {b.name} ({count} câu)
@@ -385,8 +447,8 @@ D. Amazon Kendra
           </div>
 
           <div className="flex flex-wrap gap-1.5 text-xs">
-            {banks.map((b) => {
-              const count = questions.filter((q) => q.bankId === b.id).length;
+            {lecturerBanks.map((b) => {
+              const count = lecturerQuestions.filter((q) => q.bankId === b.id).length;
               const isSelected = selectedBankFilter === b.id;
               return (
                 <button
@@ -399,7 +461,11 @@ D. Amazon Kendra
                   }`}
                 >
                   <span>{b.name}</span>
-                  <span className={`text-[10px] px-1 rounded ${isSelected ? 'bg-slate-700 text-white' : 'bg-slate-100 text-slate-600'}`}>
+                  <span
+                    className={`text-[10px] px-1 rounded ${
+                      isSelected ? 'bg-slate-700 text-white' : 'bg-slate-100 text-slate-600'
+                    }`}
+                  >
                     {count}
                   </span>
                 </button>
@@ -409,13 +475,16 @@ D. Amazon Kendra
         </div>
       </div>
 
-      {/* Modal tạo ngân hàng mới */}
+      {/* Modal tạo ngân hàng câu hỏi mới */}
       {showCreateBankModal && (
         <div className="fixed inset-0 bg-black/30 z-50 flex items-center justify-center p-4">
           <div className="bg-white rounded-lg p-5 max-w-md w-full border border-slate-200 shadow-sm">
             <div className="flex justify-between items-center mb-3">
-              <h4 className="text-sm font-semibold text-slate-800">Tạo ngân hàng câu hỏi mới</h4>
+              <h4 className="text-sm font-semibold text-slate-800">
+                Tạo ngân hàng câu hỏi mới
+              </h4>
               <button
+                type="button"
                 onClick={() => setShowCreateBankModal(false)}
                 className="text-slate-400 hover:text-slate-600 text-sm cursor-pointer"
               >
@@ -431,7 +500,7 @@ D. Amazon Kendra
                   type="text"
                   value={newBankName}
                   onChange={(e) => setNewBankName(e.target.value)}
-                  placeholder="Ví dụ: Đề thi Điện toán đám mây"
+                  placeholder="Ví dụ: Đề thi Kiến trúc hướng dịch vụ"
                   className="w-full p-2 border border-slate-200 rounded-md text-xs outline-none focus:border-slate-400"
                   required
                 />
@@ -445,7 +514,7 @@ D. Amazon Kendra
                   type="text"
                   value={newBankSubject}
                   onChange={(e) => setNewBankSubject(e.target.value)}
-                  placeholder="Ví dụ: Điện toán đám mây"
+                  placeholder="Ví dụ: Kiến trúc hướng dịch vụ"
                   className="w-full p-2 border border-slate-200 rounded-md text-xs outline-none focus:border-slate-400"
                   required
                 />
@@ -453,12 +522,12 @@ D. Amazon Kendra
 
               <div>
                 <label className="block text-xs font-medium text-slate-700 mb-1">
-                  Mô tả
+                  Mô tả (tùy chọn)
                 </label>
                 <textarea
                   value={newBankDesc}
                   onChange={(e) => setNewBankDesc(e.target.value)}
-                  placeholder="Mô tả nội dung ngân hàng câu hỏi..."
+                  placeholder="Mô tả tóm tắt nội dung ngân hàng câu hỏi..."
                   rows={2}
                   className="w-full p-2 border border-slate-200 rounded-md text-xs outline-none focus:border-slate-400"
                 />
@@ -485,51 +554,45 @@ D. Amazon Kendra
         </div>
       )}
 
-      {/* Modal Số hóa Đề thi bằng AI (Google Gemini 1.5 Flash) */}
-      {showAIImportModal && (
+      {/* Modal Nhập câu hỏi từ tệp Word (.docx) */}
+      {showImportModal && (
         <div className="fixed inset-0 bg-black/40 z-50 flex items-center justify-center p-4 backdrop-blur-xs overflow-y-auto">
           <div className="bg-white rounded-xl max-w-2xl w-full border border-slate-200 shadow-xl overflow-hidden my-8">
-            {/* Header */}
-            <div className="bg-gradient-to-r from-purple-700 via-indigo-700 to-blue-700 p-5 text-white flex justify-between items-start">
+            {/* Header Modal */}
+            <div className="bg-slate-900 p-4 text-white flex justify-between items-start">
               <div>
-                <div className="flex items-center gap-2">
-                  <span className="text-xl">✨</span>
-                  <h4 className="text-base font-bold">Số hóa Đề thi bằng AI (Google Gemini 1.5 Flash)</h4>
-                  <span className="px-2 py-0.5 rounded-full text-[10px] bg-purple-200/30 text-purple-100 border border-purple-300/40 font-medium">
-                    Free Tier 0 USD
-                  </span>
-                </div>
-                <p className="text-xs text-purple-100/90 mt-1">
-                  Tải lên tệp Word (.docx) hoặc dán văn bản để AI tự động trích xuất các câu hỏi trắc nghiệm A-B-C-D kèm đáp án và lời giải.
+                <h4 className="text-sm font-semibold">Nhập câu hỏi từ tệp Word (.docx)</h4>
+                <p className="text-xs text-slate-300 mt-0.5">
+                  Chọn tệp Word (.docx) hoặc dán văn bản để tự động trích xuất các câu hỏi trắc
+                  nghiệm kèm đáp án.
                 </p>
               </div>
               <button
                 type="button"
-                onClick={handleCloseAIModal}
-                className="text-white/80 hover:text-white text-lg p-1 rounded hover:bg-white/10 transition cursor-pointer"
+                onClick={handleCloseImportModal}
+                className="text-slate-400 hover:text-white text-base p-1 rounded transition cursor-pointer"
               >
                 ✕
               </button>
             </div>
 
-            {/* Modal Body */}
+            {/* Body Modal */}
             <div className="p-5 space-y-4 max-h-[75vh] overflow-y-auto">
-              {/* Cấu hình ngân hàng & môn học */}
-              <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 bg-slate-50 p-3 rounded-lg border border-slate-200/80">
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 bg-slate-50 p-3 rounded-lg border border-slate-200">
                 <div>
                   <label className="block text-xs font-semibold text-slate-700 mb-1">
                     Ngân hàng câu hỏi đích *
                   </label>
                   <select
-                    value={aiBankId}
+                    value={importBankId}
                     onChange={(e) => {
-                      setAiBankId(e.target.value);
-                      const f = banks.find((b) => b.id === e.target.value);
-                      if (f?.subject) setAiSubject(f.subject);
+                      setImportBankId(e.target.value);
+                      const f = lecturerBanks.find((b) => b.id === e.target.value);
+                      if (f?.subject) setImportSubject(f.subject);
                     }}
-                    className="w-full p-2 border border-slate-300 rounded-md text-xs bg-white text-slate-800 outline-none focus:border-indigo-500"
+                    className="w-full p-2 border border-slate-300 rounded-md text-xs bg-white text-slate-800 outline-none"
                   >
-                    {banks.map((b) => (
+                    {lecturerBanks.map((b) => (
                       <option key={b.id} value={b.id}>
                         {b.name}
                       </option>
@@ -543,10 +606,10 @@ D. Amazon Kendra
                   </label>
                   <input
                     type="text"
-                    value={aiSubject}
-                    onChange={(e) => setAiSubject(e.target.value)}
-                    placeholder="Ví dụ: Điện toán đám mây"
-                    className="w-full p-2 border border-slate-300 rounded-md text-xs bg-white text-slate-800 outline-none focus:border-indigo-500"
+                    value={importSubject}
+                    onChange={(e) => setImportSubject(e.target.value)}
+                    placeholder="Ví dụ: Kiến trúc hướng dịch vụ"
+                    className="w-full p-2 border border-slate-300 rounded-md text-xs bg-white text-slate-800 outline-none"
                   />
                 </div>
 
@@ -556,174 +619,135 @@ D. Amazon Kendra
                   </label>
                   <input
                     type="text"
-                    value={aiTopic}
-                    onChange={(e) => setAiTopic(e.target.value)}
-                    placeholder="Ví dụ: Serverless & SQS"
-                    className="w-full p-2 border border-slate-300 rounded-md text-xs bg-white text-slate-800 outline-none focus:border-indigo-500"
+                    value={importTopic}
+                    onChange={(e) => setImportTopic(e.target.value)}
+                    placeholder="Ví dụ: Kiến trúc hệ thống"
+                    className="w-full p-2 border border-slate-300 rounded-md text-xs bg-white text-slate-800 outline-none"
                   />
                 </div>
               </div>
 
-              {/* Tabs chọn hình thức nhập */}
+              {/* Chế độ nhập */}
               <div>
-                <div className="flex border-b border-slate-200">
+                <div className="flex border-b border-slate-200 mb-3">
                   <button
                     type="button"
-                    onClick={() => setAiInputMode('FILE')}
-                    className={`px-4 py-2 text-xs font-semibold border-b-2 transition flex items-center gap-1.5 cursor-pointer ${
-                      aiInputMode === 'FILE'
-                        ? 'border-indigo-600 text-indigo-700 bg-indigo-50/40'
+                    onClick={() => setImportInputMode('FILE')}
+                    className={`pb-2 px-3 text-xs font-medium border-b-2 transition cursor-pointer ${
+                      importInputMode === 'FILE'
+                        ? 'border-indigo-600 text-indigo-700'
                         : 'border-transparent text-slate-500 hover:text-slate-700'
                     }`}
                   >
-                    <span>📁</span>
-                    <span>Tải tệp Word (.docx) / Văn bản (.txt)</span>
+                    Tải tệp Word (.docx) / Văn bản (.txt)
                   </button>
                   <button
                     type="button"
-                    onClick={() => setAiInputMode('TEXT')}
-                    className={`px-4 py-2 text-xs font-semibold border-b-2 transition flex items-center gap-1.5 cursor-pointer ${
-                      aiInputMode === 'TEXT'
-                        ? 'border-indigo-600 text-indigo-700 bg-indigo-50/40'
+                    onClick={() => setImportInputMode('TEXT')}
+                    className={`pb-2 px-3 text-xs font-medium border-b-2 transition cursor-pointer ${
+                      importInputMode === 'TEXT'
+                        ? 'border-indigo-600 text-indigo-700'
                         : 'border-transparent text-slate-500 hover:text-slate-700'
                     }`}
                   >
-                    <span>📝</span>
-                    <span>Dán văn bản đề thi thô</span>
+                    Dán văn bản thô
                   </button>
                 </div>
 
-                {/* Tab 1: File Upload */}
-                {aiInputMode === 'FILE' && (
-                  <div className="pt-3 space-y-2">
-                    <div
-                      onClick={() => docFileInputRef.current?.click()}
-                      className={`border-2 border-dashed rounded-xl p-6 text-center cursor-pointer transition ${
-                        aiFile
-                          ? 'border-emerald-400 bg-emerald-50/30'
-                          : 'border-slate-300 hover:border-indigo-400 bg-slate-50/50 hover:bg-indigo-50/20'
-                      }`}
+                {importInputMode === 'FILE' ? (
+                  <div className="p-4 border-2 border-dashed border-slate-200 rounded-lg text-center bg-slate-50/50 hover:bg-slate-50 transition">
+                    <input
+                      ref={docFileInputRef}
+                      type="file"
+                      accept=".docx,.txt"
+                      onChange={(e) => {
+                        const f = e.target.files?.[0] || null;
+                        setImportFile(f);
+                        if (f && !importTopic) {
+                          setImportTopic(f.name.replace(/\.[^/.]+$/, ''));
+                        }
+                      }}
+                      className="hidden"
+                      id="doc-file-upload-input"
+                    />
+                    <label
+                      htmlFor="doc-file-upload-input"
+                      className="cursor-pointer flex flex-col items-center justify-center space-y-1"
                     >
-                      <input
-                        ref={docFileInputRef}
-                        type="file"
-                        accept=".docx,.doc,.txt"
-                        onChange={(e) => setAiFile(e.target.files?.[0] || null)}
-                        className="hidden"
-                      />
-                      {aiFile ? (
-                        <div className="flex items-center justify-center gap-3">
-                          <div className="w-10 h-10 rounded-lg bg-emerald-100 text-emerald-700 flex items-center justify-center text-xl font-bold">
-                            📄
-                          </div>
-                          <div className="text-left">
-                            <p className="text-xs font-bold text-slate-800">{aiFile.name}</p>
-                            <p className="text-[11px] text-slate-500">
-                              {(aiFile.size / 1024).toFixed(1)} KB · Sẵn sàng bóc tách bằng Gemini AI
-                            </p>
-                          </div>
-                          <button
-                            type="button"
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              setAiFile(null);
-                              if (docFileInputRef.current) docFileInputRef.current.value = '';
-                            }}
-                            className="text-xs text-rose-600 hover:underline px-2 py-1 ml-2"
-                          >
-                            Đổi tệp khác
-                          </button>
-                        </div>
-                      ) : (
-                        <div className="space-y-1.5">
-                          <div className="w-12 h-12 mx-auto rounded-full bg-indigo-100 text-indigo-600 flex items-center justify-center text-2xl">
-                            📄
-                          </div>
-                          <p className="text-xs font-semibold text-slate-700">
-                            Nhấn để chọn tệp hoặc kéo thả tệp Word đề thi vào đây
-                          </p>
-                          <p className="text-[11px] text-slate-400">
-                            Hỗ trợ định dạng: Microsoft Word (.docx), Văn bản (.txt). Kích thước tối đa 10MB.
-                          </p>
-                        </div>
-                      )}
-                    </div>
-                  </div>
-                )}
-
-                {/* Tab 2: Textarea Paste */}
-                {aiInputMode === 'TEXT' && (
-                  <div className="pt-3 space-y-2">
-                    <div className="flex justify-between items-center">
-                      <span className="text-xs text-slate-500">
-                        Nhập hoặc dán trực tiếp danh sách câu hỏi trắc nghiệm:
+                      <span className="text-2xl">📄</span>
+                      <span className="text-xs font-semibold text-slate-700">
+                        {importFile ? importFile.name : 'Bấm vào đây để chọn tệp .docx hoặc .txt'}
                       </span>
-                      <button
-                        type="button"
-                        onClick={handleInsertSampleText}
-                        className="text-[11px] font-medium text-indigo-600 hover:text-indigo-800 hover:underline cursor-pointer"
-                      >
-                        + Dán nội dung mẫu (3 câu)
-                      </button>
-                    </div>
+                      <span className="text-[11px] text-slate-400">
+                        {importFile
+                          ? `${(importFile.size / 1024).toFixed(1)} KB`
+                          : 'Hỗ trợ tệp Microsoft Word (.docx) và văn bản thuần (.txt)'}
+                      </span>
+                    </label>
+                  </div>
+                ) : (
+                  <div>
                     <textarea
-                      value={aiText}
-                      onChange={(e) => setAiText(e.target.value)}
-                      rows={7}
-                      placeholder={`Ví dụ:\nCâu 1: Lợi ích chính của Serverless là gì?\nA. Giảm chi phí khi nhàn rỗi\nB. Cần tự duy trì máy chủ\nC. Chi phí cố định hàng tháng\nD. Không hỗ trợ co giãn\nĐáp án: A`}
-                      className="w-full p-2.5 border border-slate-300 rounded-lg text-xs font-mono outline-none focus:border-indigo-500 bg-slate-50/50"
+                      value={importText}
+                      onChange={(e) => setImportText(e.target.value)}
+                      placeholder="Dán nội dung đề thi vào đây (ví dụ: Câu 1: ... A. ... B. ... Đáp án: A)..."
+                      rows={6}
+                      className="w-full p-2.5 border border-slate-200 rounded-md text-xs outline-none focus:border-slate-400 font-mono"
                     />
                   </div>
                 )}
               </div>
 
-              {/* Tùy chọn tự động lưu */}
-              <div className="flex items-center gap-2 pt-1">
+              <div className="flex items-center gap-2">
                 <input
                   type="checkbox"
-                  id="aiAutoSaveCheckbox"
-                  checked={aiAutoSave}
-                  onChange={(e) => setAiAutoSave(e.target.checked)}
-                  className="w-4 h-4 text-indigo-600 rounded border-slate-300 cursor-pointer"
+                  id="chk-auto-save"
+                  checked={importAutoSave}
+                  onChange={(e) => setImportAutoSave(e.target.checked)}
+                  className="w-3.5 h-3.5 text-indigo-600 rounded cursor-pointer"
                 />
-                <label htmlFor="aiAutoSaveCheckbox" className="text-xs text-slate-700 cursor-pointer">
-                  Tự động lưu toàn bộ câu hỏi trích xuất được vào bảng DynamoDB (<code className="text-slate-600 font-mono">CloudExam_Questions_dev</code>)
+                <label
+                  htmlFor="chk-auto-save"
+                  className="text-xs text-slate-700 cursor-pointer"
+                >
+                  Tự động lưu toàn bộ câu hỏi trích xuất vào ngân hàng câu hỏi
                 </label>
               </div>
 
-              {/* Thông báo lỗi nếu có */}
-              {aiError && (
-                <div className="p-3 rounded-lg bg-rose-50 border border-rose-200 text-rose-700 text-xs flex items-start gap-2">
-                  <span>⚠️</span>
-                  <div className="flex-1">{aiError}</div>
+              {importError && (
+                <div className="p-3 rounded-md bg-rose-50 border border-rose-200 text-xs text-rose-700">
+                  {importError}
                 </div>
               )}
 
-              {/* Thông báo thành công nếu có */}
-              {aiSuccessMessage && (
-                <div className="p-3 rounded-lg bg-emerald-50 border border-emerald-200 text-emerald-800 text-xs flex items-start gap-2">
-                  <span>✅</span>
-                  <div className="flex-1 font-medium">{aiSuccessMessage}</div>
+              {importSuccessMessage && (
+                <div className="p-3 rounded-md bg-emerald-50 border border-emerald-200 text-xs text-emerald-800 font-medium">
+                  {importSuccessMessage}
                 </div>
               )}
 
-              {/* Danh sách câu hỏi đã bóc tách xem trước */}
-              {aiExtractedQuestions.length > 0 && (
+              {/* Xem trước câu hỏi đã trích xuất */}
+              {extractedQuestions.length > 0 && (
                 <div className="space-y-2 pt-2 border-t border-slate-200">
                   <div className="flex justify-between items-center">
                     <span className="text-xs font-bold text-slate-800">
-                      Xem trước câu hỏi đã trích xuất ({aiExtractedQuestions.length} câu):
+                      Danh sách câu hỏi trích xuất ({extractedQuestions.length} câu):
                     </span>
                     <span className="text-[11px] text-emerald-700 font-medium">
-                      Đã đồng bộ vào Ngân hàng câu hỏi
+                      Đã đồng bộ vào ngân hàng
                     </span>
                   </div>
-                  <div className="space-y-2 max-h-60 overflow-y-auto pr-1">
-                    {aiExtractedQuestions.map((q, idx) => (
-                      <div key={idx} className="p-3 rounded-lg border border-slate-200 bg-slate-50/60 text-xs space-y-1.5">
-                        <div className="flex items-center gap-2">
+                  <div className="space-y-2 max-h-56 overflow-y-auto pr-1">
+                    {extractedQuestions.map((q, idx) => (
+                      <div
+                        key={idx}
+                        className="p-3 rounded-lg border border-slate-200 bg-slate-50 text-xs space-y-1.5"
+                      >
+                        <div className="flex items-start gap-1.5">
                           <span className="font-bold text-indigo-700">Câu {idx + 1}:</span>
-                          <span className="font-medium text-slate-800">{q.content}</span>
+                          <span className="font-medium text-slate-800 flex-1">
+                            {q.content}
+                          </span>
                         </div>
                         <div className="grid grid-cols-1 sm:grid-cols-2 gap-1 pl-4">
                           {q.options?.map((opt, oIdx) => {
@@ -731,13 +755,22 @@ D. Amazon Kendra
                             return (
                               <div
                                 key={oIdx}
-                                className={`px-2 py-1 rounded text-[11px] ${
+                                className={`p-1.5 rounded border text-[11px] flex items-center gap-1.5 ${
                                   isCorrect
-                                    ? 'bg-emerald-100/80 text-emerald-800 font-bold border border-emerald-300'
-                                    : 'text-slate-600'
+                                    ? 'bg-emerald-50 border-emerald-300 text-emerald-900 font-semibold'
+                                    : 'border-slate-200 bg-white text-slate-700'
                                 }`}
                               >
-                                {LABELS[oIdx]}. {opt} {isCorrect && '✓ (Đáp án đúng)'}
+                                <span
+                                  className={`w-4 h-4 rounded-full flex items-center justify-center text-[10px] ${
+                                    isCorrect
+                                      ? 'bg-emerald-600 text-white'
+                                      : 'bg-slate-100 text-slate-600'
+                                  }`}
+                                >
+                                  {OPTION_LABELS[oIdx]}
+                                </span>
+                                <span className="flex-1 truncate">{opt}</span>
                               </div>
                             );
                           })}
@@ -747,38 +780,32 @@ D. Amazon Kendra
                   </div>
                 </div>
               )}
-            </div>
 
-            {/* Modal Footer */}
-            <div className="bg-slate-50 px-5 py-3 border-t border-slate-200 flex justify-between items-center">
-              <div className="text-[11px] text-slate-500 flex items-center gap-1.5">
-                <span className="w-2 h-2 rounded-full bg-emerald-500 inline-block"></span>
-                <span>Mô hình: Google Gemini 1.5 Flash (1.500 req/ngày Free)</span>
-              </div>
-              <div className="flex gap-2">
+              <div className="flex justify-end gap-2 pt-2 border-t border-slate-200">
                 <button
                   type="button"
-                  onClick={handleCloseAIModal}
+                  onClick={handleCloseImportModal}
                   className="px-3 py-1.5 border border-slate-300 rounded-md text-xs font-medium text-slate-700 hover:bg-slate-100 transition cursor-pointer"
                 >
-                  {aiExtractedQuestions.length > 0 ? 'Đóng cửa sổ' : 'Hủy bỏ'}
+                  {extractedQuestions.length > 0 ? 'Đóng cửa sổ' : 'Hủy bỏ'}
                 </button>
                 <button
                   type="button"
-                  disabled={aiLoading}
-                  onClick={handleAIImport}
-                  className="px-4 py-1.5 bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-700 hover:to-indigo-700 disabled:opacity-50 text-white text-xs font-semibold rounded-md shadow-sm transition flex items-center gap-1.5 cursor-pointer"
+                  disabled={importLoading}
+                  onClick={handleStartImport}
+                  className="px-4 py-1.5 bg-indigo-600 hover:bg-indigo-700 disabled:opacity-50 text-white text-xs font-semibold rounded-md shadow-xs transition cursor-pointer flex items-center gap-1.5"
                 >
-                  {aiLoading ? (
+                  {importLoading ? (
                     <>
                       <div className="w-3.5 h-3.5 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
-                      <span>Gemini đang xử lý...</span>
+                      <span>Đang trích xuất...</span>
                     </>
                   ) : (
-                    <>
-                      <span>✨</span>
-                      <span>{aiExtractedQuestions.length > 0 ? 'Trích xuất thêm tệp khác' : 'Bắt đầu trích xuất bằng AI'}</span>
-                    </>
+                    <span>
+                      {extractedQuestions.length > 0
+                        ? 'Trích xuất thêm tệp khác'
+                        : 'Trích xuất câu hỏi'}
+                    </span>
                   )}
                 </button>
               </div>
@@ -787,60 +814,28 @@ D. Amazon Kendra
         </div>
       )}
 
-      {/* Banner giới thiệu tính năng AI Số hóa đề thi */}
-      <div className="bg-gradient-to-r from-purple-50 via-indigo-50 to-blue-50 border border-purple-200/80 rounded-lg p-4 flex flex-wrap items-center justify-between gap-3 shadow-xs">
-        <div className="flex items-center gap-3">
-          <div className="w-10 h-10 rounded-lg bg-gradient-to-br from-purple-600 to-indigo-600 text-white flex items-center justify-center font-bold text-lg shadow-sm">
-            ✨
-          </div>
-          <div>
-            <div className="text-xs font-bold text-slate-800 flex items-center gap-2">
-              <span>Số hóa Đề thi bằng AI (Google Gemini 1.5 Flash)</span>
-              <span className="px-2 py-0.5 rounded text-[10px] bg-purple-100 text-purple-700 font-semibold border border-purple-200">
-                0 USD Multi-Cloud Satellite
-              </span>
-            </div>
-            <div className="text-[11px] text-slate-600 mt-0.5">
-              Tải lên tệp tài liệu Word (.docx / .txt) hoặc dán văn bản đề thi thô. Hệ thống sử dụng Google Gemini 1.5 Flash AI để bóc tách tự động thành câu hỏi trắc nghiệm A-B-C-D chỉ trong vài giây!
-            </div>
-          </div>
-        </div>
-        <button
-          type="button"
-          onClick={handleOpenAIModal}
-          className="px-3.5 py-2 bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-700 hover:to-indigo-700 text-white text-xs font-semibold rounded-md shadow-sm transition flex items-center gap-1.5 cursor-pointer"
-        >
-          <span>Tải file Word đề thi ngay</span>
-          <span>→</span>
-        </button>
-      </div>
-
-      {/* Form thêm / sửa câu hỏi */}
-      <div className="bg-white p-5 rounded-lg border border-slate-200">
+      {/* 2. Form Thêm / Chỉnh sửa câu hỏi */}
+      <div className="bg-white p-5 rounded-lg border border-slate-200 shadow-xs">
         <div className="flex justify-between items-center mb-3">
           <h3 className="text-sm font-semibold text-slate-800">
             {editingId ? 'Chỉnh sửa câu hỏi' : 'Thêm câu hỏi mới'}
           </h3>
-          {editingId && (
-            <span className="text-[11px] px-2 py-0.5 rounded bg-slate-100 text-slate-600 font-mono">
-              ID: {editingId}
-            </span>
-          )}
         </div>
 
-        <form onSubmit={handleSubmit} className="space-y-3.5">
-          <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-2.5 bg-slate-50 p-3 rounded-md border border-slate-100">
+        <form onSubmit={handleSubmit} className="space-y-4">
+          {/* Hàng 1: Tên ngân hàng, Môn học, Chủ đề */}
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 bg-slate-50 p-3 rounded-md border border-slate-100">
             <div>
-              <label className="block text-xs font-medium text-slate-600 mb-1">
-                Ngân hàng câu hỏi
+              <label className="block text-xs font-medium text-slate-700 mb-1">
+                Ngân hàng câu hỏi *
               </label>
               <select
                 value={bankId}
                 onChange={(e) => handleBankChange(e.target.value)}
-                className="w-full p-1.5 border border-slate-200 rounded text-xs bg-white text-slate-700 outline-none"
+                className="w-full p-2 border border-slate-200 rounded text-xs bg-white text-slate-800 outline-none focus:border-slate-400"
                 required
               >
-                {banks.map((b) => (
+                {lecturerBanks.map((b) => (
                   <option key={b.id} value={b.id}>
                     {b.name}
                   </option>
@@ -849,42 +844,35 @@ D. Amazon Kendra
             </div>
 
             <div>
-              <label className="block text-xs font-medium text-slate-600 mb-1">Môn học</label>
+              <label className="block text-xs font-medium text-slate-700 mb-1">
+                Môn học *
+              </label>
               <input
                 type="text"
                 value={subject}
                 onChange={(e) => setSubject(e.target.value)}
-                placeholder="Ví dụ: Điện toán đám mây"
-                className="w-full p-1.5 border border-slate-200 rounded text-xs bg-white outline-none"
+                placeholder="Ví dụ: Kiến trúc hướng dịch vụ"
+                className="w-full p-2 border border-slate-200 rounded text-xs bg-white text-slate-800 outline-none focus:border-slate-400"
                 required
               />
             </div>
 
             <div>
-              <label className="block text-xs font-medium text-slate-600 mb-1">Chủ đề</label>
+              <label className="block text-xs font-medium text-slate-700 mb-1">
+                Chủ đề *
+              </label>
               <input
                 type="text"
                 value={topic}
                 onChange={(e) => setTopic(e.target.value)}
-                placeholder="Ví dụ: Serverless"
-                className="w-full p-1.5 border border-slate-200 rounded text-xs bg-white outline-none"
+                placeholder="Ví dụ: Kiến trúc hệ thống"
+                className="w-full p-2 border border-slate-200 rounded text-xs bg-white text-slate-800 outline-none focus:border-slate-400"
                 required
               />
             </div>
-
-            <div>
-              <label className="block text-xs font-medium text-slate-600 mb-1">Hình thức</label>
-              <select
-                value={type}
-                onChange={(e) => setType(e.target.value as QuestionType)}
-                className="w-full p-1.5 border border-slate-200 rounded text-xs bg-white text-slate-700 outline-none"
-              >
-                <option value="SINGLE_CHOICE">Trắc nghiệm 1 đáp án</option>
-                <option value="MULTIPLE_CHOICE">Trắc nghiệm nhiều lựa chọn</option>
-              </select>
-            </div>
           </div>
 
+          {/* Hàng 2: Nội dung câu hỏi */}
           <div>
             <label className="block text-xs font-medium text-slate-700 mb-1">
               Nội dung câu hỏi *
@@ -892,84 +880,98 @@ D. Amazon Kendra
             <textarea
               value={content}
               onChange={(e) => setContent(e.target.value)}
-              className="w-full p-2.5 border border-slate-200 rounded-md outline-none focus:border-slate-400 text-xs"
+              className="w-full p-2.5 border border-slate-200 rounded-md outline-none focus:border-slate-400 text-xs leading-relaxed"
               rows={3}
               placeholder="Nhập nội dung câu hỏi..."
               required
             />
           </div>
 
-          <div>
-            <div className="flex justify-between items-center mb-1.5">
-              <label className="block text-xs font-medium text-slate-700">
-                Các lựa chọn trả lời và đánh dấu đáp án đúng *
-              </label>
-              <span className="text-[11px] text-slate-400">
-                Chọn nút tròn để chỉ định đáp án đúng
-              </span>
-            </div>
-            <div className="space-y-1.5">
-              {options.map((opt, i) => (
-                <div
-                  key={i}
-                  className={`flex items-center gap-2.5 p-1.5 rounded-md border transition ${
-                    correctIndex === i ? 'border-emerald-300 bg-emerald-50/40' : 'border-slate-200'
-                  }`}
+          {/* Hàng 3: Hình thức trắc nghiệm từ 2 đến 6 lựa chọn (A, B, C, D, E, F) */}
+          <div className="space-y-2">
+            <div className="flex flex-wrap justify-between items-center">
+              <div>
+                <label className="block text-xs font-medium text-slate-700">
+                  Các lựa chọn trả lời và đánh dấu đáp án đúng *
+                </label>
+                <p className="text-[11px] text-slate-500">
+                  Hỗ trợ từ 2 đến 6 phương án (A, B, C, D, E, F). Chọn nút tròn để đánh dấu đáp
+                  án đúng.
+                </p>
+              </div>
+
+              {options.length < 6 && (
+                <button
+                  type="button"
+                  onClick={handleAddOption}
+                  className="text-xs text-indigo-600 hover:text-indigo-800 font-medium px-2 py-1 rounded bg-indigo-50 hover:bg-indigo-100 transition cursor-pointer"
                 >
-                  <input
-                    type="radio"
-                    name="correct"
-                    checked={correctIndex === i}
-                    onChange={() => setCorrectIndex(i)}
-                    className="ml-2 w-3.5 h-3.5 text-emerald-600 cursor-pointer"
-                    aria-label={`Đáp án ${LABELS[i]} là đáp án đúng`}
-                  />
-                  <span
-                    className={`w-4 font-semibold text-xs ${
-                      correctIndex === i ? 'text-emerald-700' : 'text-slate-600'
+                  + Thêm lựa chọn ({OPTION_LABELS[options.length]})
+                </button>
+              )}
+            </div>
+
+            <div className="space-y-2">
+              {options.map((opt, i) => {
+                const isSelected = correctIndex === i;
+                return (
+                  <div
+                    key={i}
+                    className={`flex items-center gap-2 p-2 rounded-md border transition ${
+                      isSelected
+                        ? 'border-emerald-500 bg-emerald-50/60'
+                        : 'border-slate-200 bg-white'
                     }`}
                   >
-                    {LABELS[i]}
-                  </span>
-                  <input
-                    type="text"
-                    value={opt}
-                    onChange={(e) =>
-                      setOptions((prev) => prev.map((o, idx) => (idx === i ? e.target.value : o)))
-                    }
-                    placeholder={`Nội dung lựa chọn ${LABELS[i]}...`}
-                    className="flex-1 p-1.5 text-xs border border-slate-200 rounded outline-none focus:border-slate-400 bg-white"
-                    required
-                  />
-                  {correctIndex === i && (
-                    <span className="text-[10px] font-medium text-emerald-700 px-2 py-0.5 rounded bg-emerald-100 mr-1">
-                      Đáp án đúng
+                    <input
+                      type="radio"
+                      name="correct-choice-radio"
+                      checked={isSelected}
+                      onChange={() => setCorrectIndex(i)}
+                      className="ml-1 w-4 h-4 text-emerald-600 cursor-pointer accent-emerald-600"
+                      title="Chọn làm đáp án đúng"
+                    />
+                    <span
+                      className={`w-4 font-bold text-xs ${
+                        isSelected ? 'text-emerald-700' : 'text-slate-600'
+                      }`}
+                    >
+                      {OPTION_LABELS[i]}
                     </span>
-                  )}
-                </div>
-              ))}
+                    <input
+                      type="text"
+                      value={opt}
+                      onChange={(e) => handleOptionChange(i, e.target.value)}
+                      placeholder={`Nội dung lựa chọn ${OPTION_LABELS[i]}...`}
+                      className="flex-1 p-1.5 text-xs border border-slate-200 rounded outline-none focus:border-slate-400 bg-white"
+                      required
+                    />
+                    {isSelected && (
+                      <span className="text-[10px] font-bold text-emerald-700 bg-emerald-100 border border-emerald-300 px-2 py-0.5 rounded shrink-0">
+                        ✓ Đáp án đúng
+                      </span>
+                    )}
+                    {options.length > 2 && (
+                      <button
+                        type="button"
+                        onClick={() => handleRemoveOption(i)}
+                        className="text-xs text-slate-400 hover:text-rose-600 px-1.5 py-0.5 rounded hover:bg-rose-50 transition cursor-pointer"
+                        title="Xóa lựa chọn này"
+                      >
+                        ✕
+                      </button>
+                    )}
+                  </div>
+                );
+              })}
             </div>
           </div>
 
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-3 pt-1">
+          {/* Hàng 4: Điểm số & Ảnh minh họa (Không có mức độ) */}
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-1">
             <div>
               <label className="block text-xs font-medium text-slate-700 mb-1">
-                Mức độ
-              </label>
-              <select
-                value={difficulty}
-                onChange={(e) => setDifficulty(e.target.value as Difficulty)}
-                className="w-full p-2 border border-slate-200 rounded-md text-xs bg-white text-slate-700 outline-none"
-              >
-                <option value="EASY">Dễ</option>
-                <option value="MEDIUM">Trung bình</option>
-                <option value="HARD">Khó</option>
-              </select>
-            </div>
-
-            <div>
-              <label className="block text-xs font-medium text-slate-700 mb-1">
-                Điểm số
+                Điểm số *
               </label>
               <input
                 type="number"
@@ -984,7 +986,7 @@ D. Amazon Kendra
 
             <div>
               <label className="block text-xs font-medium text-slate-700 mb-1">
-                Ảnh minh họa (tùy chọn)
+                Ảnh minh họa (nếu có)
               </label>
               <input
                 ref={fileInput}
@@ -997,16 +999,14 @@ D. Amazon Kendra
           </div>
 
           {uploadStatus && (
-            <p className="text-xs text-slate-600 font-medium">
-              {uploadStatus}
-            </p>
+            <p className="text-xs text-slate-600 font-medium">{uploadStatus}</p>
           )}
 
           {existingImage && !file && (
             <div className="flex items-center gap-3 p-2 bg-slate-50 rounded-md border border-slate-200">
               <img
                 src={existingImage}
-                alt="Ảnh đính kèm"
+                alt="Ảnh minh họa"
                 className="h-12 w-12 object-cover rounded border"
               />
               <div className="flex-1 min-w-0">
@@ -1045,8 +1045,8 @@ D. Amazon Kendra
         </form>
       </div>
 
-      {/* Danh sách câu hỏi */}
-      <div className="bg-white p-5 rounded-lg border border-slate-200">
+      {/* 3. Danh sách câu hỏi */}
+      <div className="bg-white p-5 rounded-lg border border-slate-200 shadow-xs">
         <div className="flex flex-wrap justify-between items-center mb-3 gap-2">
           <div>
             <h3 className="text-sm font-semibold text-slate-800">
@@ -1054,125 +1054,114 @@ D. Amazon Kendra
             </h3>
             <p className="text-xs text-slate-500">
               {selectedBankFilter === 'ALL'
-                ? 'Tất cả câu hỏi hiện có.'
+                ? 'Tất cả câu hỏi trong ngân hàng của bạn.'
                 : `Ngân hàng: ${
-                    banks.find((b) => b.id === selectedBankFilter)?.name ?? selectedBankFilter
+                    lecturerBanks.find((b) => b.id === selectedBankFilter)?.name ??
+                    selectedBankFilter
                   }`}
             </p>
           </div>
-          <span className="text-xs text-slate-400">
-            Tổng điểm: {filteredQuestions.reduce((sum, q) => sum + (q.score || 0), 0)}
+          <span className="text-xs font-medium text-slate-600">
+            Tổng điểm:{' '}
+            {filteredQuestions.reduce((sum, q) => sum + (Number(q.score) || 0), 0)} điểm
           </span>
         </div>
 
         {filteredQuestions.length === 0 && (
           <div className="text-center py-8 border border-dashed rounded-md border-slate-200">
-            <p className="text-xs text-slate-400">
-              Chưa có câu hỏi nào.
-            </p>
+            <p className="text-xs text-slate-400">Chưa có câu hỏi nào trong ngân hàng này.</p>
           </div>
         )}
 
+        {/* Danh sách hiển thị: chỉ câu hỏi, các câu trả lời (đáp án in xanh) và điểm ở cuối */}
         <div className="divide-y divide-slate-100">
           {filteredQuestions.map((q, index) => {
-            const bank = banks.find((b) => b.id === q.bankId);
             return (
-              <div key={q.id} className="py-3.5 flex justify-between items-start gap-3">
-                <div className="flex-1 space-y-2">
-                  <div className="flex flex-wrap items-center gap-1.5">
-                    <span className="text-xs font-mono font-medium text-slate-400">
-                      #{index + 1}
-                    </span>
-                    <span className="text-[10px] font-mono px-1.5 py-0.5 rounded bg-slate-100 text-slate-600">
-                      ID: {q.id}
-                    </span>
-                    <span className="text-[10px] px-1.5 py-0.5 rounded bg-slate-100 text-slate-700">
-                      {bank?.name || q.bankId}
-                    </span>
-                    <span className="text-[10px] px-1.5 py-0.5 rounded bg-slate-100 text-slate-600">
-                      {q.subject || 'Chung'}
-                    </span>
-                    <span className="text-[10px] px-1.5 py-0.5 rounded bg-slate-100 text-slate-500 font-mono">
-                      {TYPE_LABEL[q.type] || q.type}
-                    </span>
-                  </div>
-
-                  <p className="font-medium text-slate-800 text-sm">{q.content}</p>
-
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-1.5 text-xs">
-                    {q.options.map((opt, i) => {
-                      const isCorrect = i === q.correctIndex;
-                      return (
-                        <div
-                          key={i}
-                          className={`p-2 rounded border flex items-center gap-2 ${
-                            isCorrect
-                              ? 'border-emerald-200 bg-emerald-50/60 text-emerald-900 font-medium'
-                              : 'border-slate-100 bg-slate-50/40 text-slate-600'
-                          }`}
-                        >
-                          <span
-                            className={`w-4 h-4 rounded-full flex items-center justify-center text-[10px] font-semibold ${
-                              isCorrect ? 'bg-emerald-600 text-white' : 'bg-slate-200 text-slate-600'
-                            }`}
-                          >
-                            {LABELS[i]}
-                          </span>
-                          <span className="flex-1 truncate">{opt}</span>
-                          {isCorrect && (
-                            <span className="text-[9px] font-semibold text-emerald-700">
-                              Đúng
-                            </span>
-                          )}
-                        </div>
-                      );
-                    })}
-                  </div>
-
-                  <div className="flex flex-wrap items-center gap-2 text-xs pt-0.5">
-                    <span
-                      className={`px-1.5 py-0.5 rounded text-[10px] font-medium border ${
-                        q.difficulty === 'HARD'
-                          ? 'bg-rose-50 text-rose-700 border-rose-200'
-                          : q.difficulty === 'MEDIUM'
-                          ? 'bg-amber-50 text-amber-700 border-amber-200'
-                          : 'bg-emerald-50 text-emerald-700 border-emerald-200'
-                      }`}
-                    >
-                      {DIFFICULTY_LABEL[q.difficulty] ?? q.difficulty}
-                    </span>
-                    <span className="text-slate-500 text-[11px]">
-                      {q.score} điểm
-                    </span>
-
-                    {q.imageUrl && (
-                      <div className="flex items-center gap-1 ml-2">
-                        <a
-                          href={q.imageUrl}
-                          target="_blank"
-                          rel="noreferrer"
-                          className="text-xs text-slate-600 hover:text-slate-900 underline"
-                        >
-                          Xem ảnh
-                        </a>
-                      </div>
-                    )}
-                  </div>
+              <div key={q.id} className="py-4 space-y-3">
+                {/* 1. Câu hỏi */}
+                <div>
+                  <span className="font-bold text-slate-900 text-sm mr-2">
+                    Câu {index + 1}:
+                  </span>
+                  <span className="text-slate-800 text-sm font-medium leading-relaxed">
+                    {q.content}
+                  </span>
                 </div>
 
-                <div className="flex flex-col gap-1 text-xs shrink-0">
-                  <button
-                    onClick={() => startEdit(q)}
-                    className="px-2.5 py-1 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded transition cursor-pointer"
-                  >
-                    Sửa
-                  </button>
-                  <button
-                    onClick={() => handleDelete(q)}
-                    className="px-2.5 py-1 text-rose-600 hover:bg-rose-50 rounded transition cursor-pointer"
-                  >
-                    Xóa
-                  </button>
+                {/* Ảnh minh họa nếu có */}
+                {q.imageUrl && (
+                  <div className="pt-1">
+                    <img
+                      src={q.imageUrl}
+                      alt="Ảnh minh họa"
+                      className="max-h-48 rounded border border-slate-200 object-contain bg-slate-50"
+                    />
+                  </div>
+                )}
+
+                {/* 2. Các câu trả lời (đáp án đúng in màu xanh) */}
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 pt-1">
+                  {q.options.map((opt, i) => {
+                    const isCorrect = i === q.correctIndex;
+                    return (
+                      <div
+                        key={i}
+                        className={`p-2.5 rounded-md border text-xs flex items-start gap-2.5 transition ${
+                          isCorrect
+                            ? 'border-emerald-500 bg-emerald-50/70 text-emerald-950 font-semibold shadow-xs'
+                            : 'border-slate-200 bg-slate-50/50 text-slate-700'
+                        }`}
+                      >
+                        <span
+                          className={`w-5 h-5 rounded-full flex items-center justify-center text-[11px] font-bold shrink-0 mt-0.5 ${
+                            isCorrect
+                              ? 'bg-emerald-600 text-white'
+                              : 'bg-slate-200 text-slate-600'
+                          }`}
+                        >
+                          {OPTION_LABELS[i] || String.fromCharCode(65 + i)}
+                        </span>
+                        <span
+                          className={`flex-1 leading-relaxed ${
+                            isCorrect ? 'text-emerald-950 font-semibold' : 'text-slate-700'
+                          }`}
+                        >
+                          {opt}
+                        </span>
+                        {isCorrect && (
+                          <span className="text-[10px] font-bold text-emerald-700 bg-emerald-100 border border-emerald-300 px-1.5 py-0.5 rounded shrink-0">
+                            ✓ Đáp án đúng
+                          </span>
+                        )}
+                      </div>
+                    );
+                  })}
+                </div>
+
+                {/* 3. Cuối cùng là điểm và các nút thao tác */}
+                <div className="flex justify-between items-center pt-2 border-t border-slate-100 text-xs">
+                  <div className="flex items-center gap-1.5">
+                    <button
+                      type="button"
+                      onClick={() => startEdit(q)}
+                      className="px-2.5 py-1 text-slate-700 hover:text-slate-900 bg-slate-100 hover:bg-slate-200 rounded transition cursor-pointer font-medium"
+                    >
+                      Sửa
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => handleDelete(q)}
+                      className="px-2.5 py-1 text-rose-600 hover:text-rose-700 hover:bg-rose-50 rounded transition cursor-pointer font-medium"
+                    >
+                      Xóa
+                    </button>
+                  </div>
+
+                  <div className="text-right">
+                    <span className="font-semibold text-slate-700 bg-slate-100 px-2.5 py-1 rounded-md">
+                      {q.score} điểm
+                    </span>
+                  </div>
                 </div>
               </div>
             );
