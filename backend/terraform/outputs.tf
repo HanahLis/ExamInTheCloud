@@ -173,3 +173,17 @@ output "step_functions_state_machine_arn" {
   description = "ARN của AWS Step Functions State Machine quản lý ca thi"
   value       = aws_sfn_state_machine.exam_lifecycle.arn
 }
+
+
+# ------------------------------------------------------------------------------
+# 8. GitHub Actions CI/CD Outputs (OIDC STS)
+# ------------------------------------------------------------------------------
+output "github_actions_role_arn" {
+  description = "IAM Role ARN cho GitHub Actions OIDC STS deployment pipeline"
+  value       = aws_iam_role.github_actions_deploy.arn
+}
+
+output "github_oidc_provider_arn" {
+  description = "ARN của GitHub OIDC Identity Provider"
+  value       = aws_iam_openid_connect_provider.github.arn
+}

@@ -1,6 +1,5 @@
 # ==============================================================================
 # AMAZON SQS: EXAM SUBMISSION QUEUE & DEAD LETTER QUEUE (DLQ)
-# Phụ trách: Nguyễn Thị Ngọc Hà (24020115) — Trưởng nhóm / Hạ tầng SQS
 # Task H-01: Module SQS tiếp nhận bài nộp thi và DLQ xử lý lỗi (maxReceiveCount = 3)
 # ==============================================================================
 
