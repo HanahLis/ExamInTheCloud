@@ -78,9 +78,51 @@ Lưu thông tin các ngân hàng đề thi.
 
 ---
 
-## 3. Thiết kế mở rộng cho các giai đoạn tiếp theo
+### 2.5. Bảng `CloudExam_Submissions_{env}` (Mới cập nhật)
+Lưu kết quả chấm thi tự động từ Lambda Grading Worker (tiêu thụ từ Amazon SQS).
 
-Trong các giai đoạn sau (Giai đoạn làm bài & chấm điểm thi):
-- Bảng `CloudExam_Submissions`: Lưu bài nộp của thí sinh (`sessionId`, `studentCode`, `answers`, `score`, `submittedAt`).
-- Bảng `CloudExam_FaceLogs`: Lưu lịch sử đối sánh khuôn mặt từ Amazon Rekognition (`sessionId`, `studentCode`, `similarityScore`, `status: PASS/FAIL`, `capturedImageUrl`).
+| Thuộc tính (Attribute) | Kiểu dữ liệu | Vai trò | Mô tả chi tiết |
+| :--- | :--- | :--- | :--- |
+| `id` | String | **Partition Key (PK)** | ID bài nộp (UUID duy nhất). |
+| `sessionId` | String | GSI Hash Key | Mã ca thi (ví dụ: `SESSION_STAMPEDE_01`). |
+| `candidateEmail` | String | Attribute | Email thí sinh nộp bài. |
+| `score` | Number | GSI Range Key | Điểm số đạt được (phục vụ sắp xếp bảng điểm). |
+| `maxScore` | Number | Attribute | Điểm tối đa của đề thi. |
+| `correctCount` | Number | Attribute | Số câu trả lời đúng. |
+| `totalQuestions` | Number | Attribute | Tổng số câu hỏi trong bài thi. |
+| `answers` | Map | Attribute | Chi tiết câu trả lời của thí sinh. |
+| `submittedAt` | String | Attribute | Thời điểm nộp bài (ISO 8601 UTC). |
+| `status` | String | Attribute | Trạng thái bài nộp (`COMPLETED`, `QUEUED`). |
+
+* **Global Secondary Index (GSI):** `SessionResultsIndex` (PK: `sessionId`, SK: `score` DESC) – Cho phép truy xuất ngay lập tức danh sách điểm số giảm dần của một ca thi mà không cần Scan bảng.
+
+---
+
+## 3. Kiến trúc CSDL Đa Quốc Gia (Multi-Tenancy Architecture)
+
+Nhằm phục vụ kỳ thi đa quốc gia (Việt Nam `cloudexam.vn` và Lào `edulao.la`), hệ thống áp dụng mô hình **Single-Table Multi-Tenancy**:
+* **Cơ chế phân tách dữ liệu:** Tiền tố phân vùng (Partition Key Prefix) theo mã quốc gia ISO:
+  - Thí sinh / Đề thi Việt Nam: `TENANT#VN#{entityId}` (ví dụ: `TENANT#VN#bank-cloud-01`, `TENANT#VN#q-aws-001`).
+  - Thí sinh / Đề thi Lào: `TENANT#LA#{entityId}` (ví dụ: `TENANT#LA#bank-cloud-lao`, `TENANT#LA#q-aws-001`).
+* **Lợi ích kiến trúc:**
+  - Tiết kiệm 100% chi phí quản trị đa database, duy trì hạn mức $0 FinOps Free Tier.
+  - Cô lập an toàn tuyệt đối dữ liệu giữa các quốc gia ở mức truy vấn DynamoDB KeyCondition.
+
+---
+
+## 4. Chống Thảm họa Đa Vùng (Multi-Region Disaster Recovery)
+
+* **DynamoDB Global Tables:** Cơ sở dữ liệu được cấu hình đồng bộ tự động 2 chiều giữa **Singapore (`ap-southeast-1`)** và **Jakarta (`ap-southeast-3`)**.
+* **Chỉ số RPO / RTO:**
+  - **RPO (Recovery Point Objective):** $< 1$ giây (Độ trễ nhân bản của mạng trục AWS).
+  - **RTO (Recovery Time Objective):** $< 2$ phút (Tự động kích hoạt qua Route 53 DNS Failover).
+
+---
+
+## 5. Tích hợp Bộ nhớ đệm Upstash Serverless Redis (Live Leaderboard)
+
+Để tránh tiêu tốn đơn vị đọc (RCU) của DynamoDB khi hàng trăm thí sinh liên tục truy vấn bảng xếp hạng trực tiếp trong phòng thi:
+* **Mô hình kết hợp:** DynamoDB đóng vai trò nguồn chân lý (Source of Truth), trong khi **Upstash Redis** lưu trữ bảng xếp hạng thời gian thực thông qua kiểu dữ liệu Sorted Set (`ZADD leaderboard:{sessionId} {score} {candidateEmail}`).
+* **Độ trễ truy vấn:** $< 5$ mili-giây, chi phí duy trì 0.00 USD (nằm trong 10.000 lệnh/ngày miễn phí).
+
 
