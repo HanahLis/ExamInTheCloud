@@ -48,7 +48,10 @@ except ImportError:
             self.operation_name = operation_name
 
     mock_exceptions.ClientError = ClientError
+    mock_boto3.resource.return_value.Table.side_effect = lambda name: MagicMock(name=name)
     sys.modules["boto3"] = mock_boto3
+    sys.modules["boto3.dynamodb"] = MagicMock()
+    sys.modules["boto3.dynamodb.conditions"] = MagicMock()
     sys.modules["botocore"] = mock_botocore
     sys.modules["botocore.exceptions"] = mock_exceptions
 

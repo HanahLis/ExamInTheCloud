@@ -17,7 +17,11 @@ import xml.etree.ElementTree as ET
 import boto3
 from decimal import Decimal
 from datetime import datetime, timezone
-from boto3.dynamodb.conditions import Key
+try:
+    from boto3.dynamodb.conditions import Key, Attr
+except (ImportError, ModuleNotFoundError):
+    Key = None
+    Attr = None
 
 # Khởi tạo AWS Resources
 REGION = os.getenv("AWS_REGION", "ap-southeast-1")
