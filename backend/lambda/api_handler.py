@@ -38,6 +38,20 @@ UPSTASH_REDIS_REST_URL = os.getenv("UPSTASH_REDIS_REST_URL", "").strip().rstrip(
 UPSTASH_REDIS_REST_TOKEN = os.getenv("UPSTASH_REDIS_REST_TOKEN", "").strip()
 CLOUDFLARE_TURNSTILE_SECRET_KEY = os.getenv("CLOUDFLARE_TURNSTILE_SECRET_KEY", "").strip()
 
+def get_gemini_api_key():
+    global GEMINI_API_KEY
+    if GEMINI_API_KEY:
+        return GEMINI_API_KEY
+    # Task 3 & Mục 2.2.7: Tích hợp AWS SSM Parameter Store (/cloudexam/gemini/api_key)
+    try:
+        ssm = boto3.client("ssm", region_name=REGION)
+        resp = ssm.get_parameter(Name="/cloudexam/gemini/api_key", WithDecryption=True)
+        GEMINI_API_KEY = resp.get("Parameter", {}).get("Value", "").strip()
+        return GEMINI_API_KEY
+    except Exception as ssm_err:
+        print(f"[INFO] Không thể lấy GEMINI_API_KEY từ SSM Parameter Store: {ssm_err}")
+        return ""
+
 dynamodb = boto3.resource("dynamodb", region_name=REGION)
 s3_client = boto3.client("s3", region_name=REGION)
 sqs_client = boto3.client("sqs", region_name=REGION)
@@ -339,7 +353,8 @@ def rule_based_parse_questions(raw_text: str, subject: str = "Điện toán đá
 
 def parse_questions_with_gemini(raw_text: str, subject: str = "Điện toán đám mây", topic: str = "Kiến trúc hệ thống", model: str = "") -> tuple:
     """Gọi Google Gemini API (hỗ trợ gemini-4-argon, gemini-2.5-flash, gemini-2.0-flash, v.v.) để phân tích đề thi sang JSON chuẩn."""
-    if not GEMINI_API_KEY:
+    active_key = get_gemini_api_key()
+    if not active_key:
         print("[WARN] GEMINI_API_KEY chưa cấu hình, sử dụng rule-based fallback parser.")
         return rule_based_parse_questions(raw_text, subject, topic), "Rule-based Fallback"
 
@@ -368,7 +383,7 @@ Nội dung đề thi:
 {raw_text[:12000]}
 """
 
-    gemini_url = f"https://generativelanguage.googleapis.com/v1beta/models/{active_model}:generateContent?key={GEMINI_API_KEY}"
+    gemini_url = f"https://generativelanguage.googleapis.com/v1beta/models/{active_model}:generateContent?key={active_key}"
     payload = {
         "contents": [{
             "parts": [{"text": prompt}]
@@ -407,7 +422,8 @@ def explain_answer_with_gemini(content: str, options: list, chosen_idx: int, cor
     status_label = "CHÍNH XÁC" if chosen_idx == correct_idx else "CHƯA ĐÚNG"
     active_model = model.strip() if model else GEMINI_MODEL
 
-    if not GEMINI_API_KEY:
+    active_key = get_gemini_api_key()
+    if not active_key:
         fallback_msg = (
             f"Đáp án chính xác là: {correct_answer} (Phương án {chr(ord('A') + correct_idx) if 0 <= correct_idx < 4 else ''}).\n"
             f"Lựa chọn của bạn: {chosen_answer} ({status_label}).\n"
@@ -435,7 +451,7 @@ YÊU CẦU:
 3. Đưa ra mẹo nhớ hoặc kết luận 1 câu ngắn gọn.
 """
 
-    gemini_url = f"https://generativelanguage.googleapis.com/v1beta/models/{active_model}:generateContent?key={GEMINI_API_KEY}"
+    gemini_url = f"https://generativelanguage.googleapis.com/v1beta/models/{active_model}:generateContent?key={active_key}"
     payload = {
         "contents": [{
             "parts": [{"text": prompt}]
@@ -866,6 +882,34 @@ def lambda_handler(event, context):
             except Exception as s3_err:
                 print(f"Error generating presigned url: {s3_err}")
                 return build_response(500, {"error": "Lỗi sinh Presigned URL từ Amazon S3", "details": str(s3_err)})
+
+        elif (resource_path == "/auth/face-presign" or raw_path.endswith("/auth/face-presign")) and http_method == "POST":
+            session_id = body.get("sessionId", "session-unknown")
+            student_code = body.get("studentCode") or body.get("email") or str(uuid.uuid4())[:8]
+            clean_code = re.sub(r"[^a-zA-Z0-9_\-]", "_", student_code)
+            s3_key = f"temp-faces/{session_id}_{clean_code}.jpg"
+
+            try:
+                presigned_url = s3_client.generate_presigned_url(
+                    ClientMethod="put_object",
+                    Params={
+                        "Bucket": BUCKET_NAME,
+                        "Key": s3_key,
+                        "ContentType": "image/jpeg"
+                    },
+                    ExpiresIn=60
+                )
+                file_url = f"https://{BUCKET_NAME}.s3.{REGION}.amazonaws.com/{s3_key}"
+                return build_response(200, {
+                    "uploadUrl": presigned_url,
+                    "fileUrl": file_url,
+                    "s3Key": s3_key,
+                    "expiresIn": 60,
+                    "message": "S3 Presigned URL điểm danh sinh thành công (hiệu lực 60 giây, Direct-to-Storage)"
+                })
+            except Exception as s3_err:
+                print(f"Error generating face presigned url: {s3_err}")
+                return build_response(500, {"error": "Lỗi sinh Presigned URL điểm danh từ Amazon S3", "details": str(s3_err)})
 
         elif resource_path == "/questions":
             if http_method == "GET":

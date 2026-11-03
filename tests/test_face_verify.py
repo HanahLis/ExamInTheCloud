@@ -358,7 +358,7 @@ class TestFaceVerifyHandler(unittest.TestCase):
             })
         }
         response = face_verify_handler.lambda_handler(event, None)
-        self.assertEqual(response["statusCode"], 200)
+        self.assertEqual(response["statusCode"], 403)
         body = json.loads(response["body"])
         self.assertEqual(body["status"], "FAIL")
         self.assertFalse(body["verified"])

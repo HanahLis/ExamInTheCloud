@@ -577,6 +577,20 @@ export const requestPresignedUploadUrl = async (params: {
   return requestPresignedUrl(params.fileName, params.contentType, params.prefix || 'questions');
 };
 
+export interface FacePresignedUrlResponse {
+  uploadUrl: string;
+  s3Key: string;
+  expiresIn?: number;
+}
+
+export const requestFacePresignedUrl = async (
+  sessionId: string,
+  studentCode: string
+): Promise<FacePresignedUrlResponse> => {
+  const res = await api.post('/auth/face-presign', { sessionId, studentCode });
+  return res.data;
+};
+
 // ============================================================================
 // 2. QUESTION BANKS APIS (/question-banks - DynamoDB)
 // ============================================================================

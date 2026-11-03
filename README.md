@@ -409,34 +409,37 @@ pip install boto3
 
 Hệ thống được trang bị bộ kiểm thử tự động toàn diện từ cấp độ Unit, Integration đến End-to-End, có thể chạy ngoại tuyến (Mock) hoặc kết nối trực tiếp AWS.
 
-### 5.1. Kiểm thử Tích hợp Đa Đám Mây (Multi-Cloud Suite - 15/15 Tests)
+### 5.1. Kiểm thử Tích hợp Đa Đám Mây (Multi-Cloud Suite - 18/18 Tests)
 
 Tệp kịch bản: [`tests/multi_cloud_test.py`](tests/multi_cloud_test.py)  
-Kiểm thử 5 luồng tích hợp chuyên sâu giữa AWS Lambda, Google Gemini 1.5 Flash, Cloudflare Turnstile và Upstash Redis.
+Kiểm thử 6 luồng tích hợp chuyên sâu giữa AWS Lambda, Google Gemini AI (1.5 Flash & 4 Argon), Cloudflare Turnstile, Upstash Redis, Step Functions và Amazon SNS.
 
 **Lệnh thực thi:**
 ```bash
 python tests/multi_cloud_test.py
 ```
 
-**Bảng 15 kịch bản kiểm thử tự động:**
+**Bảng 18 kịch bản kiểm thử tự động:**
 | Mã Test | Phân Vệ Tinh Đa Đám Mây | Hành Vi Được Kiểm Thử | Trạng Thái |
 | :---: | :--- | :--- | :---: |
-| **MC-01** | Google Gemini 1.5 Flash | Bóc tách tài liệu DOCX nhị phân hợp lệ thành JSON câu hỏi trắc nghiệm | **PASS** |
-| **MC-02** | Google Gemini 1.5 Flash | Làm sạch Markdown Fences (`json ... `) khi Gemini trả về định dạng code block | **PASS** |
-| **MC-03** | Google Gemini 1.5 Flash | Xử lý lỗi ngoại lệ khi Gemini API trả mã lỗi HTTP 429 / 500 | **PASS** |
-| **MC-04** | Google Gemini 1.5 Flash | Trợ lý ảo AI phân tích đáp án câu sai và đưa ra lời giải thích chi tiết | **PASS** |
-| **MC-05** | Google Gemini 1.5 Flash | Cơ chế Fallback gợi ý ôn tập nếu trợ lý ảo AI bị gián đoạn kết nối | **PASS** |
+| **MC-01** | Google Gemini AI | Bóc tách tài liệu DOCX nhị phân hợp lệ thành JSON câu hỏi trắc nghiệm | **PASS** |
+| **MC-02** | Google Gemini AI | Làm sạch Markdown Fences (`json ... `) khi Gemini trả về định dạng code block | **PASS** |
+| **MC-03** | Google Gemini AI | Xử lý lỗi ngoại lệ khi Gemini API trả mã lỗi HTTP 429 / 500 qua Fallback Rule-based | **PASS** |
+| **MC-04** | Google Gemini AI | Trợ lý ảo AI phân tích đáp án câu sai và đưa ra lời giải thích sư phạm chi tiết | **PASS** |
+| **MC-05** | Google Gemini AI | Cơ chế Fallback gợi ý ôn tập nếu trợ lý ảo AI bị gián đoạn kết nối | **PASS** |
 | **MC-06** | Cloudflare Turnstile | Chấp thuận bài thi khi Turnstile Token hợp lệ (`success: true`) | **PASS** |
 | **MC-07** | Cloudflare Turnstile | Từ chối nộp bài HTTP 403 khi Token giả mạo hoặc botnet (`success: false`) | **PASS** |
-| **MC-08** | Cloudflare Turnstile | Cho phép bypass an toàn trong môi trường kiểm thử giả lập dev | **PASS** |
-| **MC-09** | Upstash Redis Leaderboard | Cập nhật điểm thí sinh vào Redis Sorted Set qua lệnh `ZADD` | **PASS** |
-| **MC-10** | Upstash Redis Leaderboard | Truy xuất Top 10 thí sinh điểm cao nhất qua lệnh `ZREVRANGE` | **PASS** |
-| **MC-11** | Upstash Redis Leaderboard | Tự động phân giải tên thí sinh qua hồ sơ `Candidates` DynamoDB | **PASS** |
-| **MC-12** | Upstash Redis Leaderboard | Endpoint `GET /sessions/{id}/leaderboard` trả về mảng xếp hạng JSON | **PASS** |
-| **MC-13** | Cơ chế Chịu lỗi Bền bỉ | Grading Worker không bị sập khi Upstash Redis tạm thời mất kết nối | **PASS** |
-| **MC-14** | Cơ chế Chịu lỗi Bền bỉ | Fallback đọc kết quả từ bảng `Submissions` DynamoDB nếu Redis lỗi | **PASS** |
-| **MC-15** | Cơ chế Chịu lỗi Bền bỉ | Phục hồi kết quả trực tiếp từ bảng `Sessions` DynamoDB khi cần thiết | **PASS** |
+| **MC-08** | Cloudflare Turnstile | Chặn đứng yêu cầu nộp bài khi thiếu Turnstile Token | **PASS** |
+| **MC-09** | Cloudflare Turnstile | Chặn đứng token botnet giả mạo không hợp lệ | **PASS** |
+| **MC-10** | SQS Buffer | Tiếp nhận bài nộp an toàn của thí sinh người thật vào hàng đợi SQS | **PASS** |
+| **MC-11** | Upstash Redis Leaderboard | Grading Worker cập nhật điểm tức thì vào Redis Sorted Set qua lệnh `ZADD` | **PASS** |
+| **MC-12** | Upstash Redis Leaderboard | API `GET /sessions/{id}/leaderboard` truy xuất Top thí sinh trực tiếp từ Redis | **PASS** |
+| **MC-13** | Cơ chế Chịu lỗi Bền bỉ | Tự động chuyển tiếp (Fallback) sang DynamoDB khi Upstash Redis không khả dụng | **PASS** |
+| **MC-14** | Cơ chế Chịu lỗi Bền bỉ | Khả năng phục hồi khi Google Gemini rớt mạng (bảo vệ trải nghiệm thí sinh) | **PASS** |
+| **MC-15** | Cơ chế Chịu lỗi Bền bỉ | Grading Worker chấm điểm bảo toàn 100% vào DynamoDB dù Upstash Redis gặp sự cố | **PASS** |
+| **MC-16** | Step Functions | Tự động quét bài thi nháp và chấm bù khi đóng ca thi (Auto-Finalize) | **PASS** |
+| **MC-17** | Amazon SNS | Tổng hợp phổ điểm ca thi và gửi báo cáo khẩn tới Giám thị qua Amazon SNS Topic | **PASS** |
+| **MC-18** | Google Gemini 4 Argon | Hỗ trợ mô hình thế hệ mới Google Gemini 4 Argon với cơ chế chịu lỗi failsafe | **PASS** |
 
 ---
 
@@ -491,7 +494,27 @@ python tests/waf_sqs_test.py --live --api-url https://<API_ID>.execute-api.ap-so
 
 ---
 
-### 5.4. Kiểm thử Chế độ Dual-Mode Frontend & Production Build
+### 5.4. Kiểm thử Chịu tải Nộp bài Cuối giờ & Độ chính xác Sinh trắc học
+
+#### A. Thử nghiệm Tải Nộp bài Cuối giờ (Locust Simulation - Task 3.1)
+Tệp kịch bản: [`tests/locustfile.py`](tests/locustfile.py)  
+Mô phỏng 50 thí sinh đồng loạt nhấn nút nộp bài thi trong 2 giây cuối cùng của ca thi.
+```bash
+python tests/locustfile.py --users 50 --duration 2
+```
+* **Kết quả nghiệm thu:** 50/50 bài nộp thành công (100% HTTP 200 OK), độ trễ P99 đạt **33.69ms** (đáp ứng tiêu chuẩn SLA < 50ms), 0 bài rơi vào DLQ. Xem chi tiết tại [`docs/SUBMISSION_STAMPEDE_REPORT.md`](docs/SUBMISSION_STAMPEDE_REPORT.md).
+
+#### B. Đánh giá Độ chính xác Sinh trắc học Amazon Rekognition (Task 3.2)
+Tệp kịch bản: [`tests/rekognition_accuracy_test.py`](tests/rekognition_accuracy_test.py)  
+Đánh giá độ chính xác của thuật toán đối soát khuôn mặt trên 20 kịch bản thực địa (điều kiện chuẩn, đeo kính, góc nghiêng, ánh sáng bất lợi, thi hộ, tấn công giả mạo ảnh in/màn hình).
+```bash
+python tests/rekognition_accuracy_test.py
+```
+* **Kết quả nghiệm thu:** Tại ngưỡng `SimilarityThreshold = 80.0%`, hệ thống đạt **FAR = 0.00%** (chặn 100% thi hộ) và **FRR = 0.00%** (chấp thuận 100% thí sinh chính chủ), độ chính xác tổng thể đạt **100.00%**.
+
+---
+
+### 5.5. Kiểm thử Chế độ Dual-Mode Frontend & Production Build
 
 Giao diện Web SPA hỗ trợ chế độ kép linh hoạt phục vụ cả phát triển ngoại tuyến và vận hành thực tế:
 1. **Kiểm thử Mock Mode (`VITE_USE_MOCK=true`):**
@@ -546,6 +569,10 @@ Dự án được xây dựng và hoàn thiện bởi **Nhóm 14** — Lớp mô
 
 ## 8. TÀI LIỆU KỸ THUẬT THAM KHẢO
 
+* [Báo cáo Đánh giá An ninh Zero-Trust Toàn diện](docs/SECURITY_AUDIT_REPORT.md)
+* [Báo cáo Thử nghiệm Tải Nộp bài Cuối giờ (Submission Stampede)](docs/SUBMISSION_STAMPEDE_REPORT.md)
+* [Kịch bản Trình diễn & Thuyết minh Demo CloudExam](docs/DEMO_SCRIPT.md)
+* [Đề cương Slide Báo cáo Đồ án Cuối kỳ](docs/SLIDE_OUTLINE.md)
 * [Kiến trúc Tính năng Hệ thống Toàn diện (Mục 2.1)](docs/KIEN_TRUC_TINH_NANG_CLOUDEXAM.md)
 * [Báo cáo Hoạch định Tài chính Đám mây FinOps (0 USD Free Tier)](docs/finops_report.md)
 * [Đặc tả Thiết kế Cơ sở Dữ liệu NoSQL DynamoDB](docs/DATABASE_DESIGN.md)

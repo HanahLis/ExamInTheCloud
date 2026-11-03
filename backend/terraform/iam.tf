@@ -86,7 +86,8 @@ resource "aws_iam_role_policy" "lambda_core_api_policy" {
         ]
         Resource = [
           "${aws_s3_bucket.image_storage.arn}/questions/*",
-          "${aws_s3_bucket.image_storage.arn}/faces/*"
+          "${aws_s3_bucket.image_storage.arn}/faces/*",
+          "${aws_s3_bucket.image_storage.arn}/temp-faces/*"
         ]
       },
 
@@ -167,12 +168,16 @@ resource "aws_iam_role_policy" "lambda_face_verify_policy" {
         Effect = "Allow"
         Action = [
           "dynamodb:GetItem",
-          "dynamodb:Query"
+          "dynamodb:Query",
+          "dynamodb:UpdateItem",
+          "dynamodb:PutItem"
         ]
         Resource = [
           aws_dynamodb_table.candidates.arn,
           "${aws_dynamodb_table.candidates.arn}/index/*",
-          aws_dynamodb_table.exam_sessions.arn
+          aws_dynamodb_table.exam_sessions.arn,
+          aws_dynamodb_table.submissions.arn,
+          "${aws_dynamodb_table.submissions.arn}/index/*"
         ]
       },
 
@@ -184,12 +189,19 @@ resource "aws_iam_role_policy" "lambda_face_verify_policy" {
           "s3:GetObject"
         ]
         Resource = [
-          "${aws_s3_bucket.image_storage.arn}/faces/*"
+          "${aws_s3_bucket.image_storage.arn}/faces/*",
+          "${aws_s3_bucket.image_storage.arn}/temp-faces/*"
         ]
       },
 
       # 2.4. Quyền Amazon Rekognition (Chỉ cấp đúng Action CompareFaces)
       # API CompareFaces của AWS Rekognition xử lý ảnh stateless, không gắn với resource ARN cụ thể
+      {
+        Sid      = "SNSPublishAlert"
+        Effect   = "Allow"
+        Action   = ["sns:Publish"]
+        Resource = aws_sns_topic.alerts.arn
+      },
       {
         Sid    = "RekognitionCompareFacesOnly"
         Effect = "Allow"
@@ -269,6 +281,8 @@ resource "aws_iam_role_policy" "lambda_exam_workflow_policy" {
         ]
         Resource = [
           aws_dynamodb_table.exam_sessions.arn,
+          aws_dynamodb_table.submissions.arn,
+          "${aws_dynamodb_table.submissions.arn}/index/*",
           aws_dynamodb_table.questions.arn
         ]
       }
@@ -369,6 +383,8 @@ resource "aws_iam_role_policy" "lambda_grading_worker_policy" {
         ]
         Resource = [
           aws_dynamodb_table.exam_sessions.arn,
+          aws_dynamodb_table.submissions.arn,
+          "${aws_dynamodb_table.submissions.arn}/index/*",
           aws_dynamodb_table.submissions.arn,
           "${aws_dynamodb_table.submissions.arn}/index/*"
         ]

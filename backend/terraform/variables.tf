@@ -67,7 +67,7 @@ variable "enable_waf" {
 variable "waf_rate_limit" {
   description = "Ngưỡng số lượng request tối đa trong 5 phút từ một IP trước khi bị WAF chặn"
   type        = number
-  default     = 100
+  default     = 2000
 }
 
 # ==============================================================================
@@ -132,3 +132,4 @@ variable "github_repo" {
   type        = string
   default     = "*"
 }
+

@@ -147,6 +147,13 @@ resource "aws_api_gateway_resource" "face_verify" {
   path_part   = "face-verify"
 }
 
+# /auth/face-presign (Cấp S3 Presigned URL tải ảnh webcam điểm danh TTL 60s - Bảng 2.3 [L-05d])
+resource "aws_api_gateway_resource" "face_presign" {
+  rest_api_id = aws_api_gateway_rest_api.main.id
+  parent_id   = aws_api_gateway_resource.auth.id
+  path_part   = "face-presign"
+}
+
 # /exam
 resource "aws_api_gateway_resource" "exam" {
   rest_api_id = aws_api_gateway_rest_api.main.id
@@ -214,6 +221,7 @@ locals {
     "session_leaderboard"  = aws_api_gateway_resource.session_leaderboard.id
     "auth"                 = aws_api_gateway_resource.auth.id
     "face_verify"          = aws_api_gateway_resource.face_verify.id
+    "face_presign"         = aws_api_gateway_resource.face_presign.id
     "exam"                 = aws_api_gateway_resource.exam.id
     "exam_submit"          = aws_api_gateway_resource.exam_submit.id
     "exam_explain_answers" = aws_api_gateway_resource.exam_explain_answers.id
@@ -304,7 +312,8 @@ locals {
     { key = "sreport_post", resource_id = aws_api_gateway_resource.session_send_report.id, http_method = "POST" },
     { key = "s_autofinalize_post", resource_id = aws_api_gateway_resource.session_auto_finalize.id, http_method = "POST" },
     { key = "saveprog_post", resource_id = aws_api_gateway_resource.exam_save_progress.id, http_method = "POST" },
-    { key = "exam_explain_post", resource_id = aws_api_gateway_resource.exam_explain_answers.id, http_method = "POST" }
+    { key = "exam_explain_post", resource_id = aws_api_gateway_resource.exam_explain_answers.id, http_method = "POST" },
+    { key = "face_presign_post", resource_id = aws_api_gateway_resource.face_presign.id, http_method = "POST" }
   ]
 }
 
@@ -379,6 +388,7 @@ resource "aws_api_gateway_deployment" "main" {
       aws_api_gateway_resource.sessions.id,
       aws_api_gateway_resource.session_leaderboard.id,
       aws_api_gateway_resource.face_verify.id,
+      aws_api_gateway_resource.face_presign.id,
       aws_api_gateway_resource.exam_submit.id,
       aws_api_gateway_resource.exam_explain_answers.id,
       aws_api_gateway_authorizer.cognito_authorizer.id,

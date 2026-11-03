@@ -14,7 +14,7 @@ resource "aws_lambda_function" "core_api" {
   function_name    = "${var.project_name}-core-api-${var.environment}"
   role             = aws_iam_role.lambda_core_api.arn
   handler          = "api_handler.lambda_handler"
-  runtime          = "python3.11"
+  runtime          = "python3.12"
   architectures    = ["arm64"] # Graviton2 arm64 (tiết kiệm chi phí điện toán)
   timeout          = 15
   memory_size      = 256
@@ -49,13 +49,18 @@ resource "aws_lambda_function" "core_api" {
 
 # 3. Lambda Face Verification Function
 resource "aws_lambda_function" "face_verify" {
-  function_name    = "${var.project_name}-face-verify-${var.environment}"
-  role             = aws_iam_role.lambda_face_verify.arn
-  handler          = "face_verify_handler.lambda_handler"
-  runtime          = "python3.11"
-  architectures    = ["arm64"] # Graviton2 arm64
-  timeout          = 30
-  memory_size      = 512
+  function_name = "${var.project_name}-face-verify-${var.environment}"
+  role          = aws_iam_role.lambda_face_verify.arn
+  handler       = "face_verify_handler.lambda_handler"
+  runtime       = "python3.12"
+  architectures = ["arm64"] # Graviton2 arm64
+  timeout       = 30
+  memory_size   = 512
+
+  vpc_config {
+    subnet_ids         = [aws_subnet.private_a.id, aws_subnet.private_b.id]
+    security_group_ids = [aws_security_group.lambda_vpc_sg.id]
+  }
   filename         = data.archive_file.lambda_payload.output_path
   source_code_hash = data.archive_file.lambda_payload.output_base64sha256
 
@@ -63,6 +68,7 @@ resource "aws_lambda_function" "face_verify" {
     variables = {
       ENV            = var.environment
       S3_BUCKET_NAME = var.s3_bucket_name
+      SNS_TOPIC_ARN  = aws_sns_topic.alerts.arn
     }
   }
 
@@ -77,7 +83,7 @@ resource "aws_lambda_function" "grading_worker" {
   function_name    = "${var.project_name}-grading-worker-${var.environment}"
   role             = aws_iam_role.lambda_grading_worker.arn
   handler          = "grading_worker.lambda_handler"
-  runtime          = "python3.11"
+  runtime          = "python3.12"
   architectures    = ["arm64"] # Graviton2 arm64
   timeout          = 30
   memory_size      = 256

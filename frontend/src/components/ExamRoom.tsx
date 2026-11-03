@@ -10,6 +10,7 @@ import {
   getExamPaper,
   saveExamProgress,
   requestPresignedUploadUrl,
+  requestFacePresignedUrl,
   uploadBinaryToS3,
   type ExamSession,
   type Question,
@@ -288,21 +289,34 @@ export const ExamRoom = ({ sessionId, currentUserEmail = '', onExit }: Props) =>
     try {
       let s3Key = '';
 
-      // Mô hình Direct-to-Storage (Task 18): Tải ảnh nhị phân trực tiếp lên S3 qua Presigned URL
-      // Triệt tiêu hoàn toàn gánh nặng truyền dữ liệu nhị phân qua API Gateway & Lambda (0MB)
+      // Mô hình Direct-to-Storage (Task 18 & Quy trình B Báo cáo):
+      // Gọi POST /auth/face-presign lấy URL presigned S3 tải trực tiếp ảnh thẻ tạm temp-faces/{sessionId}_{studentCode}.jpg
       if (capturedBlob) {
         try {
-          const presign = await requestPresignedUploadUrl({
-            fileName: `verify_${candidateEmail.replace(/[^a-zA-Z0-9]/g, '_')}_${Date.now()}.jpg`,
-            contentType: 'image/jpeg',
-            prefix: 'faces',
-          });
-          if (presign && presign.uploadUrl) {
-            await uploadBinaryToS3(presign.uploadUrl, capturedBlob, 'image/jpeg');
-            s3Key = presign.s3Key || '';
+          const matchedCand = candidates.find(
+            (c) => c.email.toLowerCase() === candidateEmail.toLowerCase()
+          );
+          const studentCode = matchedCand?.studentCode || candidateEmail.split('@')[0];
+          const facePresign = await requestFacePresignedUrl(sessionId, studentCode);
+          if (facePresign && facePresign.uploadUrl) {
+            await uploadBinaryToS3(facePresign.uploadUrl, capturedBlob, 'image/jpeg');
+            s3Key = facePresign.s3Key || '';
           }
-        } catch (s3Err) {
-          console.warn('Upload S3 trực tiếp gặp sự cố, fallback sang truyền Base64:', s3Err);
+        } catch (faceErr) {
+          console.warn('Lỗi lấy face-presign, fallback sang presigned thông thường:', faceErr);
+          try {
+            const presign = await requestPresignedUploadUrl({
+              fileName: `verify_${candidateEmail.replace(/[^a-zA-Z0-9]/g, '_')}_${Date.now()}.jpg`,
+              contentType: 'image/jpeg',
+              prefix: 'faces',
+            });
+            if (presign && presign.uploadUrl) {
+              await uploadBinaryToS3(presign.uploadUrl, capturedBlob, 'image/jpeg');
+              s3Key = presign.s3Key || '';
+            }
+          } catch (s3Err) {
+            console.warn('Upload S3 trực tiếp gặp sự cố, fallback sang truyền Base64:', s3Err);
+          }
         }
       }
 
