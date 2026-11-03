@@ -102,15 +102,15 @@ resource "aws_iam_role_policy" "lambda_core_api_policy" {
         Resource = aws_sqs_queue.exam_submission.arn
       },
       {
-        Sid = "StepFunctionsExecution"
-        Effect = "Allow"
-        Action = ["states:StartExecution", "states:DescribeExecution", "states:StopExecution"]
+        Sid      = "StepFunctionsExecution"
+        Effect   = "Allow"
+        Action   = ["states:StartExecution", "states:DescribeExecution", "states:StopExecution"]
         Resource = aws_sfn_state_machine.exam_lifecycle.arn
       },
       {
-        Sid = "SNSPublishAlerts"
-        Effect = "Allow"
-        Action = ["sns:Publish"]
+        Sid      = "SNSPublishAlerts"
+        Effect   = "Allow"
+        Action   = ["sns:Publish"]
         Resource = aws_sns_topic.alerts.arn
       }
     ]
@@ -195,6 +195,20 @@ resource "aws_iam_role_policy" "lambda_face_verify_policy" {
         Effect = "Allow"
         Action = [
           "rekognition:CompareFaces"
+        ]
+        Resource = "*"
+      },
+
+      # 2.5. Quyền VPC Network Interfaces cho Lambda chạy trong Private Subnet
+      {
+        Sid    = "LambdaVPCAccess"
+        Effect = "Allow"
+        Action = [
+          "ec2:CreateNetworkInterface",
+          "ec2:DescribeNetworkInterfaces",
+          "ec2:DeleteNetworkInterface",
+          "ec2:AssignPrivateIpAddresses",
+          "ec2:UnassignPrivateIpAddresses"
         ]
         Resource = "*"
       }
@@ -320,15 +334,15 @@ resource "aws_iam_role_policy" "lambda_grading_worker_policy" {
         Resource = aws_sqs_queue.exam_submission.arn
       },
       {
-        Sid = "StepFunctionsExecution"
-        Effect = "Allow"
-        Action = ["states:StartExecution", "states:DescribeExecution", "states:StopExecution"]
+        Sid      = "StepFunctionsExecution"
+        Effect   = "Allow"
+        Action   = ["states:StartExecution", "states:DescribeExecution", "states:StopExecution"]
         Resource = aws_sfn_state_machine.exam_lifecycle.arn
       },
       {
-        Sid = "SNSPublishAlerts"
-        Effect = "Allow"
-        Action = ["sns:Publish"]
+        Sid      = "SNSPublishAlerts"
+        Effect   = "Allow"
+        Action   = ["sns:Publish"]
         Resource = aws_sns_topic.alerts.arn
       },
       # 4.3. Quyền đọc câu hỏi từ DynamoDB Questions để đối soát đáp án
