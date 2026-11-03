@@ -182,6 +182,13 @@ resource "aws_api_gateway_resource" "session_send_report" {
   path_part   = "send-report"
 }
 
+# /sessions/{id}/auto-finalize
+resource "aws_api_gateway_resource" "session_auto_finalize" {
+  rest_api_id = aws_api_gateway_rest_api.main.id
+  parent_id   = aws_api_gateway_resource.session_id.id
+  path_part   = "auto-finalize"
+}
+
 # /exam/save-progress
 resource "aws_api_gateway_resource" "exam_save_progress" {
   rest_api_id = aws_api_gateway_rest_api.main.id
@@ -295,6 +302,7 @@ locals {
     { key = "sub_post", resource_id = aws_api_gateway_resource.exam_submit.id, http_method = "POST" },
     { key = "spaper_get", resource_id = aws_api_gateway_resource.session_paper.id, http_method = "GET" },
     { key = "sreport_post", resource_id = aws_api_gateway_resource.session_send_report.id, http_method = "POST" },
+    { key = "s_autofinalize_post", resource_id = aws_api_gateway_resource.session_auto_finalize.id, http_method = "POST" },
     { key = "saveprog_post", resource_id = aws_api_gateway_resource.exam_save_progress.id, http_method = "POST" },
     { key = "exam_explain_post", resource_id = aws_api_gateway_resource.exam_explain_answers.id, http_method = "POST" }
   ]

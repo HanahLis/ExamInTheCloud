@@ -278,7 +278,6 @@ resource "aws_iam_role_policy" "lambda_exam_workflow_policy" {
 
 # ==============================================================================
 # 4. IAM ROLE CHO LAMBDA GRADING WORKER (Tiêu thụ SQS chấm điểm trắc nghiệm)
-# Phụ trách: Nguyễn Thị Ngọc Hà (24020115) — Trưởng nhóm
 # Task H-03: Cập nhật IAM Policy cấp quyền SQS Receive/Delete cho Grading Worker
 # ==============================================================================
 resource "aws_iam_role" "lambda_grading_worker" {
@@ -373,6 +372,86 @@ resource "aws_iam_role_policy" "lambda_grading_worker_policy" {
           aws_dynamodb_table.submissions.arn,
           "${aws_dynamodb_table.submissions.arn}/index/*"
         ]
+      }
+    ]
+  })
+}
+
+
+# ==============================================================================
+# 5. IAM ROLE & OIDC PROVIDER CHO CI/CD GITHUB ACTIONS (OIDC STS - ZERO LONG-LIVED KEYS)
+# ==============================================================================
+
+resource "aws_iam_openid_connect_provider" "github" {
+  url            = "https://token.actions.githubusercontent.com"
+  client_id_list = ["sts.amazonaws.com"]
+  thumbprint_list = [
+    "6938fd4d98bab03faadb97b34396831e3780aea1",
+    "1c587612c3807569d68a4d32a498a44ce0944062"
+  ]
+
+  tags = {
+    Name        = "${var.project_name}-github-oidc-provider"
+    Environment = var.environment
+  }
+}
+
+resource "aws_iam_role" "github_actions_deploy" {
+  name = "${var.project_name}-role-github-actions-deploy-${var.environment}"
+
+  assume_role_policy = jsonencode({
+    Version = "2012-10-17"
+    Statement = [
+      {
+        Effect = "Allow"
+        Principal = {
+          Federated = aws_iam_openid_connect_provider.github.arn
+        }
+        Action = "sts:AssumeRoleWithWebIdentity"
+        Condition = {
+          StringEquals = {
+            "token.actions.githubusercontent.com:aud" = "sts.amazonaws.com"
+          }
+          StringLike = {
+            "token.actions.githubusercontent.com:sub" = "repo:${var.github_repo}:*"
+          }
+        }
+      }
+    ]
+  })
+
+  tags = {
+    Name        = "${var.project_name}-github-actions-deploy-role"
+    Environment = var.environment
+  }
+}
+
+resource "aws_iam_role_policy" "github_actions_deploy_policy" {
+  name = "${var.project_name}-policy-github-actions-deploy-${var.environment}"
+  role = aws_iam_role.github_actions_deploy.id
+
+  policy = jsonencode({
+    Version = "2012-10-17"
+    Statement = [
+      {
+        Sid    = "CloudExamInfrastructureDeployment"
+        Effect = "Allow"
+        Action = [
+          "s3:*",
+          "lambda:*",
+          "apigateway:*",
+          "dynamodb:*",
+          "sqs:*",
+          "sns:*",
+          "states:*",
+          "iam:*",
+          "wafv2:*",
+          "cloudfront:*",
+          "logs:*",
+          "cognito-idp:*",
+          "budgets:*"
+        ]
+        Resource = "*"
       }
     ]
   })

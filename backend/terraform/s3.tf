@@ -59,7 +59,6 @@ resource "aws_s3_bucket_cors_configuration" "image_storage_cors" {
 }
 
 # 5. Bucket Policy: Chuẩn hóa phân quyền đọc công khai cho thư mục faces/ và questions/
-# Phụ trách: Nguyễn Thị Ngọc Hà (24020115) — Trưởng nhóm / Task H-04
 resource "aws_s3_bucket_policy" "image_storage_read_policy" {
   bucket     = aws_s3_bucket.image_storage.id
   depends_on = [aws_s3_bucket_public_access_block.image_storage_public_access]
@@ -83,7 +82,6 @@ resource "aws_s3_bucket_policy" "image_storage_read_policy" {
 
 # ------------------------------------------------------------------------------
 # 6. Cấu hình Vòng đời S3 (S3 Lifecycle Rules) dọn dẹp ảnh tạm sau 24h
-# Phụ trách: Phạm Tuấn Phong (24021596) — Task P-05
 # Chiến lược FinOps: Giữ dung lượng lưu trữ bucket luôn dưới 5GB Free Tier
 # ------------------------------------------------------------------------------
 resource "aws_s3_bucket_lifecycle_configuration" "image_storage_lifecycle" {
