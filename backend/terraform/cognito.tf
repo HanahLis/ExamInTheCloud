@@ -106,9 +106,20 @@ resource "aws_cognito_user_pool_client" "web_client" {
   allowed_oauth_scopes                 = ["openid", "email", "profile"]
   supported_identity_providers         = ["COGNITO"]
 
-  # Cấu hình Callback URL & Logout URL
-  callback_urls = var.frontend_callback_urls
-  logout_urls   = var.frontend_logout_urls
+  # Cấu hình Callback URL & Logout URL (Bao gồm cả Localhost và AWS CloudFront CDN)
+  callback_urls = distinct(concat(
+    var.frontend_callback_urls,
+    [
+      "https://${aws_cloudfront_distribution.spa_distribution.domain_name}/callback",
+      "https://${aws_cloudfront_distribution.spa_distribution.domain_name}"
+    ]
+  ))
+  logout_urls = distinct(concat(
+    var.frontend_logout_urls,
+    [
+      "https://${aws_cloudfront_distribution.spa_distribution.domain_name}"
+    ]
+  ))
 
   # Luồng xác thực trực tiếp
   explicit_auth_flows = [

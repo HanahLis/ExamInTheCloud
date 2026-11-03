@@ -76,7 +76,6 @@ resource "aws_cloudfront_distribution" "spa_distribution" {
 
     forwarded_values {
       query_string = false
-      headers      = ["x-tenant-id", "Host"]
 
       cookies {
         forward = "none"
@@ -162,4 +161,22 @@ output "cloudfront_distribution_domain_name" {
 output "cloudfront_distribution_id" {
   description = "ID của CloudFront Distribution (dùng cho Invalidation CI/CD)"
   value       = aws_cloudfront_distribution.spa_distribution.id
+}
+
+# 7. Tu dong build va upload Frontend len S3 & CloudFront khi terraform apply
+resource "terraform_data" "frontend_build_deploy" {
+  triggers_replace = [
+    aws_cloudfront_distribution.spa_distribution.id,
+    aws_s3_bucket.frontend_hosting.id
+  ]
+
+  provisioner "local-exec" {
+    command = "python ${path.module}/../../scripts/deploy_frontend.py"
+  }
+
+  depends_on = [
+    aws_s3_bucket.frontend_hosting,
+    aws_s3_bucket_policy.frontend_hosting_oac_policy,
+    aws_cloudfront_distribution.spa_distribution
+  ]
 }

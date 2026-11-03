@@ -504,7 +504,7 @@ YÊU CẦU:
         f"Lựa chọn của bạn: {chosen_answer} ({status_label}).\n"
         f"Gợi ý: Phương án '{correct_answer}' là định nghĩa và nguyên lý chuẩn xác trong {subject or 'chương trình'}."
     )
-    return fallback_msg, f"Deterministic Fallback ({active_model} Error)"
+    return fallback_msg, f"Deterministic Fallback ({primary_model} Error)"
 
 
 def fetch_upstash_leaderboard(session_id: str) -> tuple:

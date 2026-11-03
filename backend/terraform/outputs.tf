@@ -187,3 +187,11 @@ output "github_oidc_provider_arn" {
   description = "ARN của GitHub OIDC Identity Provider"
   value       = aws_iam_openid_connect_provider.github.arn
 }
+
+# ------------------------------------------------------------------------------
+# 9. CloudFront CDN & Live Website Demo Outputs
+# ------------------------------------------------------------------------------
+output "cloudexam_website_url" {
+  description = "Trang web chính thức CloudExam được host toàn cầu trên AWS CloudFront CDN"
+  value       = "https://${aws_cloudfront_distribution.spa_distribution.domain_name}"
+}

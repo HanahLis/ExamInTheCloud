@@ -16,7 +16,7 @@ resource "aws_lambda_function" "core_api" {
   handler          = "api_handler.lambda_handler"
   runtime          = "python3.12"
   architectures    = ["arm64"] # Graviton2 arm64 (tiết kiệm chi phí điện toán)
-  timeout          = 15
+  timeout          = 30
   memory_size      = 256
   filename         = data.archive_file.lambda_payload.output_path
   source_code_hash = data.archive_file.lambda_payload.output_base64sha256
