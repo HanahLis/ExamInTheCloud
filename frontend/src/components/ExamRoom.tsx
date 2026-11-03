@@ -200,7 +200,7 @@ export const ExamRoom = ({ sessionId, currentUserEmail = '', onExit }: Props) =>
     }
   };
 
-  // Trả lời câu hỏi tự luận: Lưu văn bản tức thì vào localStorage
+  // Trả lời câu hỏi tự luận: Lưu văn bản tức thì vào localStorage (Local-First 0ms), đệm đẩy Cloud
   const handleTextAnswer = (questionId: string, text: string) => {
     const updated = { ...answers, [questionId]: text };
     setAnswers(updated);
@@ -212,9 +212,14 @@ export const ExamRoom = ({ sessionId, currentUserEmail = '', onExit }: Props) =>
         answers: updated,
         updatedAt: new Date().toISOString()
       }));
-      setLastSavedTime('Đã lưu bài làm tự luận');
+      setLastSavedTime('Đã lưu cục bộ (Local-First 0ms)');
     } catch (e) {
       console.warn('Lỗi ghi localStorage:', e);
+    }
+
+    dirtyCountRef.current += 1;
+    if (dirtyCountRef.current >= 10) {
+      syncDraftToCloud(updated);
     }
   };
 
@@ -426,8 +431,9 @@ export const ExamRoom = ({ sessionId, currentUserEmail = '', onExit }: Props) =>
           {step === 'IN_EXAM' && (
             <div className="flex items-center gap-3">
               <div className="text-right">
-                <span className="text-[10px] text-slate-400 block">
-                  {isSavingDraft ? 'Đang lưu ngầm...' : lastSavedTime || 'Đồng bộ Cloud'}
+                <span className="text-[10px] text-slate-500 flex items-center justify-end gap-1">
+                  <span className={`inline-block w-1.5 h-1.5 rounded-full ${isSavingDraft ? 'bg-amber-500 animate-ping' : 'bg-emerald-500'}`}></span>
+                  {isSavingDraft ? 'Đang đồng bộ Cloud...' : (lastSavedTime || 'Đã lưu cục bộ (Local-First 0ms)')}
                 </span>
                 <span className="text-base font-mono font-semibold text-slate-800">{formatTimer(timeLeft)}</span>
               </div>
@@ -700,7 +706,7 @@ export const ExamRoom = ({ sessionId, currentUserEmail = '', onExit }: Props) =>
                 Bài thi trắc nghiệm ({sessionQuestions.length} câu)
               </h3>
               <p className="text-xs text-slate-500">
-                Đã trả lời: {Object.keys(answers).length}/{sessionQuestions.length} câu | {lastSavedTime || 'Đồng bộ tức thì lên Cloud'}
+                Đã trả lời: {Object.keys(answers).length}/{sessionQuestions.length} câu | {lastSavedTime || 'Đã lưu cục bộ (Local-First 0ms)'}
               </p>
             </div>
             <button
