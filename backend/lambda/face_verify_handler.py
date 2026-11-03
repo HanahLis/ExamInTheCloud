@@ -26,6 +26,7 @@ except ImportError:
 
 import boto3
 from botocore.exceptions import ClientError
+from botocore.config import Config
 
 REGION = os.getenv("AWS_REGION", "ap-southeast-1")
 ENV = os.getenv("ENV", "dev")
@@ -36,7 +37,9 @@ SNS_TOPIC_ARN = os.getenv("SNS_TOPIC_ARN", "")
 dynamodb = boto3.resource("dynamodb", region_name=REGION)
 rekognition = boto3.client("rekognition", region_name=REGION)
 s3 = boto3.client("s3", region_name=REGION)
-sns_client = boto3.client("sns", region_name=REGION)
+# Dat timeout ngan cho SNS de tranh block Lambda neu chay trong Isolated Private Subnet
+sns_config = Config(connect_timeout=1, read_timeout=1, retries={"max_attempts": 0})
+sns_client = boto3.client("sns", region_name=REGION, config=sns_config)
 
 candidates_table = dynamodb.Table(f"CloudExam_Candidates_{ENV}")
 sessions_table = dynamodb.Table(f"CloudExam_Sessions_{ENV}")

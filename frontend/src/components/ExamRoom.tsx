@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from 'react';
 import {
   getSession,
   getCandidates,
+  createCandidate,
   verifyFace,
   submitExam,
   updateSessionCandidates,
@@ -44,6 +45,7 @@ export const ExamRoom = ({ sessionId, currentUserEmail = '', onExit }: Props) =>
   const [capturedBlob, setCapturedBlob] = useState<Blob | null>(null);
   const [isVerifying, setIsVerifying] = useState(false);
   const [verifyResult, setVerifyResult] = useState<FaceVerifyResponse | null>(null);
+  const [isSettingRefFace, setIsSettingRefFace] = useState(false);
 
   // Tiến trình làm bài và lưu ngầm lên Cloud (Kiến trúc Local-First & Throttled Sync - Task 23)
   const [answers, setAnswers] = useState<Record<string, number | string>>({});
@@ -337,6 +339,49 @@ export const ExamRoom = ({ sessionId, currentUserEmail = '', onExit }: Props) =>
       });
     } finally {
       setIsVerifying(false);
+    }
+  };
+
+  const handleSetAsReferenceFace = async () => {
+    if (!capturedBlob || !currentCandidateObj) return;
+    setIsSettingRefFace(true);
+    try {
+      const presign = await requestFacePresignedUrl(
+        sessionId,
+        currentCandidateObj.studentCode || 'ref'
+      );
+      let targetS3Key = '';
+      if (presign && presign.uploadUrl) {
+        await uploadBinaryToS3(presign.uploadUrl, capturedBlob, 'image/jpeg');
+        targetS3Key = presign.s3Key || '';
+      } else {
+        const p2 = await requestPresignedUploadUrl({
+          fileName: `faces/${currentCandidateObj.studentCode || 'cand'}_${Date.now()}.jpg`,
+          contentType: 'image/jpeg',
+          prefix: 'faces',
+        });
+        await uploadBinaryToS3(p2.uploadUrl, capturedBlob, 'image/jpeg');
+        targetS3Key = p2.s3Key || '';
+      }
+
+      await createCandidate({
+        ...currentCandidateObj,
+        faceImageUrl: targetS3Key,
+      });
+
+      setCandidates((prev) =>
+        prev.map((c) =>
+          c.email.toLowerCase() === candidateEmail.toLowerCase()
+            ? { ...c, faceImageUrl: targetS3Key }
+            : c
+        )
+      );
+      setVerifyResult(null);
+      alert('Đã cập nhật ảnh này làm ảnh thẻ mẫu của thí sinh! Bạn có thể bấm "Xác thực sinh trắc học" ngay bây giờ để kiểm tra khớp 100%.');
+    } catch (err: any) {
+      alert('Lỗi cập nhật ảnh hồ sơ: ' + (err?.message || err));
+    } finally {
+      setIsSettingRefFace(false);
     }
   };
 
@@ -666,6 +711,18 @@ export const ExamRoom = ({ sessionId, currentUserEmail = '', onExit }: Props) =>
                   Tải ảnh từ máy
                   <input type="file" accept="image/*" onChange={handleFileUpload} className="hidden" />
                 </label>
+
+                {capturedBlob && currentCandidateObj && (
+                  <button
+                    type="button"
+                    onClick={handleSetAsReferenceFace}
+                    disabled={isSettingRefFace}
+                    className="py-1 px-3 bg-indigo-50 border border-indigo-200 text-indigo-700 rounded text-xs hover:bg-indigo-100 transition cursor-pointer font-medium"
+                    title="Đặt ảnh này làm ảnh hồ sơ thí sinh để đối soát khớp 100%"
+                  >
+                    {isSettingRefFace ? 'Đang cập nhật hồ sơ...' : 'Dùng làm ảnh thẻ mẫu (Test khớp 100%)'}
+                  </button>
+                )}
               </div>
             </div>
           </div>

@@ -261,9 +261,9 @@ ExamInTheCloud/
 
 ---
 
-## 4. HƯỚNG DẪN CÀI ĐẶT & TRIỂN KHAI
+## 4. HƯỚNG DẪN CÀI ĐẶT & TRIỂN KHAI TRÊN TÀI KHOẢN AWS CỦA BẠN
 
-### 4.1. Yêu cầu Tiên quyết
+### 4.1. Yêu cầu Tiên quyết & Cấu hình AWS CLI
 
 Trước khi bắt đầu cài đặt, hãy đảm bảo máy tính của bạn đã được trang bị:
 * **Node.js:** Phiên bản `18.x` hoặc `20.x` trở lên (`node -v`, `npm -v`).
@@ -274,12 +274,17 @@ Trước khi bắt đầu cài đặt, hãy đảm bảo máy tính của bạn 
   aws configure
   # AWS Access Key ID: <YOUR_KEY>
   # AWS Secret Access Key: <YOUR_SECRET>
-  # Default region name: ap-southeast-1
+  # Default region name: ap-southeast-1 (Singapore - khuyến nghị độ trễ tối ưu)
   # Default output format: json
   ```
+* **Kiểm tra thông tin tài khoản AWS:**
+  ```bash
+  aws sts get-caller-identity
+  ```
+  *(Lưu lại chuỗi **Account ID gồm 12 chữ số** để đặt tên duy nhất cho S3 Bucket và Cognito Domain)*.
 * **API Keys Đa Đám Mây (Tùy chọn - Hoàn toàn miễn phí):**
   * *Google Gemini API Key:* Lấy từ [Google AI Studio](https://aistudio.google.com/) (Free Tier 1.500 req/ngày).
-  * *Upstash Redis REST URL & Token:* Lấy từ [Upstash Console](https://console.upstash.com/) (Serverless Redis Free).
+  * *Upstash Redis REST URL & Token:* Lấy từ [Upstash Console](https://console.upstash.com/) (Serverless Redis Free 10.000 cmd/ngày).
   * *Cloudflare Turnstile Secret Key:* Lấy từ [Cloudflare Dashboard](https://dash.cloudflare.com/) (Invisible CAPTCHA Free).
 
 ---
@@ -296,14 +301,18 @@ Trước khi bắt đầu cài đặt, hãy đảm bảo máy tính của bạn 
    # Trên Windows PowerShell:
    # Copy-Item terraform.tfvars.example terraform.tfvars
    ```
-3. Điền các giá trị vào `terraform.tfvars`:
+3. Mở tệp `terraform.tfvars` và điều chỉnh các giá trị định danh của bạn:
    ```hcl
-   aws_region     = "ap-southeast-1"
-   environment    = "dev"
-   project_name   = "cloudexam"
+   aws_region   = "ap-southeast-1"
+   environment  = "dev"
+   project_name = "cloudexam"
+
+   # [BẮT BUỘC ĐỔI] Thay <YOUR_AWS_ACCOUNT_ID> bằng 12 chữ số Account ID của bạn (S3 yêu cầu tên duy nhất toàn cầu)
    s3_bucket_name = "cloudexam-storage-<YOUR_AWS_ACCOUNT_ID>-dev"
 
+   # [BẮT BUỘC ĐỔI] Thay <YOUR_ALIAS> bằng tên viết liền hoặc MSSV (Cognito yêu cầu prefix duy nhất trong Region)
    cognito_domain_prefix = "cloudexam-auth-<YOUR_ALIAS>-dev"
+
    frontend_callback_urls = [
      "http://localhost:5173/callback",
      "http://localhost:3000/callback"
@@ -313,14 +322,14 @@ Trước khi bắt đầu cài đặt, hãy đảm bảo máy tính của bạn 
      "http://localhost:3000/"
    ]
 
-   # Khóa tích hợp Đa Đám Mây (Tùy chọn)
-   gemini_api_key                  = "AIzaSy..."
-   upstash_redis_rest_url          = "https://...upstash.io"
-   upstash_redis_rest_token        = "AX..."
-   cloudflare_turnstile_secret_key = "0x4AAAAAA..."
-
-   # Bật tường lửa WAFv2 (true hoặc false)
+   # FinOps: Bật (true) hoặc Tắt (false) tường lửa WAFv2
    enable_waf = true
+
+   # Khóa tích hợp Đa Đám Mây (Tùy chọn)
+   # gemini_api_key                  = "AIzaSy..."
+   # upstash_redis_rest_url          = "https://...upstash.io"
+   # upstash_redis_rest_token        = "AX..."
+   # cloudflare_turnstile_secret_key = "0x4AAAAAA..."
    ```
 4. Khởi tạo và kiểm tra tính hợp lệ của Terraform:
    ```bash
@@ -332,7 +341,10 @@ Trước khi bắt đầu cài đặt, hãy đảm bảo máy tính của bạn 
    terraform plan
    terraform apply -auto-approve
    ```
-6. Lưu lại các giá trị đầu ra tại mục **Outputs** (ví dụ: `api_gateway_url`, `cognito_user_pool_id`, `cognito_client_id`, `s3_bucket_name`).
+6. Sau khi hoàn tất (khoảng 2-3 phút), Terraform sẽ in ra danh sách các giá trị tại mục **Outputs**. Bạn cũng có thể xem lại bất kỳ lúc nào bằng lệnh:
+   ```bash
+   terraform output
+   ```
 
 ---
 
@@ -343,11 +355,11 @@ Cài đặt thư viện AWS SDK Boto3 cho Python (nếu chưa có):
 pip install boto3
 ```
 
-1. **Nạp Ngân hàng câu hỏi & Thí sinh mặc định:**
+1. **Nạp Ngân hàng câu hỏi & Thí sinh mặc định vào DynamoDB:**
    ```bash
    python backend/data/seed_dynamodb.py
    ```
-2. **Nạp Dữ liệu Đa Quốc Gia (Việt Nam & Lào):**
+2. **Nạp Dữ liệu Đa Quốc Gia & Đa Thuê bạ (Việt Nam & Lào):**
    ```bash
    # Chạy thử kiểm tra cấu trúc dữ liệu không ghi vào AWS:
    python backend/data/seed_multitenant.py --dry-run
@@ -355,9 +367,11 @@ pip install boto3
    # Ghi dữ liệu chính thức vào các bảng DynamoDB:
    python backend/data/seed_multitenant.py --region ap-southeast-1 --env dev
    ```
-3. **Đồng bộ Ảnh Thẻ Chân Dung Thí sinh lên S3:**
+3. **Đồng bộ Ảnh Thẻ Chân Dung Thí sinh lên S3 Bucket:**
+   *(Phục vụ kiểm thử đối soát khuôn mặt sinh trắc học với Amazon Rekognition)*
    ```bash
-   python backend/data/upload_sample_faces.py --bucket <S3_BUCKET_NAME_OUTPUT_TỪ_TERRAFORM>
+   # Thay tên bucket bằng giá trị s3_bucket_name xuất ra từ Terraform Output:
+   python backend/data/upload_sample_faces.py --bucket cloudexam-storage-<YOUR_AWS_ACCOUNT_ID>-dev
    ```
 
 ---
@@ -372,31 +386,45 @@ pip install boto3
    ```bash
    npm install
    ```
-3. Cấu hình tệp môi trường `frontend/.env` (hoặc `.env.local`):
+3. Cấu hình tệp môi trường `frontend/.env` từ file mẫu:
+   ```bash
+   cp .env.example .env
+   # Trên Windows PowerShell:
+   # Copy-Item .env.example .env
+   ```
 
-   * **Cách A: Chạy chế độ Mock (Không cần tài khoản AWS, dữ liệu giả lập sẵn sàng thử nghiệm):**
+   > [!IMPORTANT]
+   > Tệp `.env` chứa thông tin định danh môi trường của bạn và đã được cấu hình trong `.gitignore` để không bị vô tình commit lên Git. Tuyệt đối không xóa dòng `.env` trong `.gitignore`.
+
+   * **Cách A: Chạy chế độ Mock (Ngoại tuyến, không cần AWS, dữ liệu giả lập sẵn sàng):**
+     Mở `.env` và chỉ cần đặt:
      ```env
      VITE_USE_MOCK=true
      ```
 
    * **Cách B: Chạy kết nối Hệ thống AWS Thật (Live AWS Cloud):**
-     ```env
-     VITE_USE_MOCK=false
-     VITE_COGNITO_DOMAIN=https://<COGNITO_DOMAIN_PREFIX>.auth.ap-southeast-1.amazoncognito.com
-     VITE_COGNITO_CLIENT_ID=<COGNITO_APP_CLIENT_ID>
-     VITE_COGNITO_REDIRECT_URI=http://localhost:5173/callback
-     VITE_API_BASE_URL=https://<API_ID>.execute-api.ap-southeast-1.amazonaws.com/dev
-     VITE_AWS_REGION=ap-southeast-1
-     VITE_S3_BUCKET_NAME=<S3_BUCKET_NAME>
-     VITE_COGNITO_USER_POOL_ID=<COGNITO_USER_POOL_ID>
-     ```
+     Mở `.env`, đặt `VITE_USE_MOCK=false` và điền các giá trị từ kết quả `terraform output` ở Bước 1 theo bảng ánh xạ sau:
+
+     | Biến trong `frontend/.env` | Lấy từ Output của Terraform | Ví dụ thực tế |
+     | :--- | :--- | :--- |
+     | `VITE_USE_MOCK` | Đặt là `false` | `false` |
+     | `VITE_AWS_REGION` | Biến `aws_region` | `ap-southeast-1` |
+     | `VITE_API_BASE_URL` | `api_gateway_base_url` | `https://xxxx.execute-api.ap-southeast-1.amazonaws.com/dev` |
+     | `VITE_COGNITO_DOMAIN` | `cognito_domain` | `https://cloudexam-auth-xxx-dev.auth.ap-southeast-1.amazoncognito.com` |
+     | `VITE_COGNITO_USER_POOL_ID` | `cognito_user_pool_id` | `ap-southeast-1_xxxxxxxxx` |
+     | `VITE_COGNITO_CLIENT_ID` | `cognito_app_client_id` | `2kmj6t3bri0obt8qhf33korqep` |
+     | `VITE_COGNITO_REDIRECT_URI` | Mặc định URL callback dev | `http://localhost:5173/callback` |
+     | `VITE_IDENTITY_POOL_ID` | `cognito_identity_pool_id` | `ap-southeast-1:xxxx-xxxx-...` |
+     | `VITE_S3_BUCKET_NAME` | `s3_bucket_name` | `cloudexam-storage-<YOUR_ACCOUNT_ID>-dev` |
 
 4. Khởi chạy máy chủ phát triển (Development Server):
    ```bash
    npm run dev
    ```
    * Mở trình duyệt tại: `http://localhost:5173`
-   * Bấm **Đăng nhập bằng AWS Cognito** để trải nghiệm luồng PKCE hoặc thử nghiệm ngay các tính năng phòng thi!
+   * **Tài khoản đăng nhập kiểm thử mặc định:**
+     * **Giảng viên (Quản trị đề & ca thi):** `annv@uet.vnu.edu.vn` (Mật khẩu: `12345678` hoặc `CloudExam@2026`)
+     * **Thí sinh (Vào phòng thi):** `duc.tm24@vnu.edu.vn` (Mật khẩu: `12345678`)
 
 5. Kiểm tra build đóng gói ứng dụng:
    ```bash

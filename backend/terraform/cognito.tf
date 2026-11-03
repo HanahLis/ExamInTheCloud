@@ -88,7 +88,7 @@ resource "aws_cognito_user_pool" "main" {
 # 2. Cấu hình Hosted UI Domain
 # Domain có định dạng: https://<domain_prefix>.auth.<region>.amazoncognito.com
 resource "aws_cognito_user_pool_domain" "hosted_ui" {
-  domain       = var.cognito_domain_prefix
+  domain       = lower(var.cognito_domain_prefix)
   user_pool_id = aws_cognito_user_pool.main.id
 }
 

@@ -113,9 +113,32 @@ resource "aws_iam_role_policy" "lambda_core_api_policy" {
         Effect   = "Allow"
         Action   = ["sns:Publish"]
         Resource = aws_sns_topic.alerts.arn
+      },
+      # 1.5. Quyen VPC Network Interfaces cho Lambda chay trong Private Subnet
+      {
+        Sid    = "LambdaVPCAccess"
+        Effect = "Allow"
+        Action = [
+          "ec2:CreateNetworkInterface",
+          "ec2:DescribeNetworkInterfaces",
+          "ec2:DeleteNetworkInterface",
+          "ec2:AssignPrivateIpAddresses",
+          "ec2:UnassignPrivateIpAddresses"
+        ]
+        Resource = "*"
       }
     ]
   })
+}
+
+resource "aws_iam_role_policy_attachment" "lambda_core_api_vpc" {
+  role       = aws_iam_role.lambda_core_api.name
+  policy_arn = "arn:aws:iam::aws:policy/service-role/AWSLambdaVPCAccessExecutionRole"
+}
+
+resource "aws_iam_role_policy_attachment" "lambda_face_verify_vpc" {
+  role       = aws_iam_role.lambda_face_verify.name
+  policy_arn = "arn:aws:iam::aws:policy/service-role/AWSLambdaVPCAccessExecutionRole"
 }
 
 

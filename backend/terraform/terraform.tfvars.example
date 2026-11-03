@@ -1,15 +1,50 @@
-aws_region     = "ap-southeast-1"
-environment    = "dev"
-project_name   = "cloudexam"
-s3_bucket_name = "cloudexam-storage-409289618109-dev"
+# ==============================================================================
+# CLOUDEXAM - BIẾN CẤU HÌNH TERRAFORM (terraform.tfvars)
+# Sao chép tệp này thành terraform.tfvars trước khi chạy terraform apply:
+#   cp terraform.tfvars.example terraform.tfvars
+# ==============================================================================
 
-# Cấu hình Cognito (Mạnh)
-cognito_domain_prefix = "cloudexam-auth-dev-uet"
+# AWS Region triển khai (mặc định: ap-southeast-1 - Singapore)
+aws_region   = "ap-southeast-1"
+environment  = "dev"
+project_name = "cloudexam"
+
+# [BẮT BUỘC ĐỔI] Tên S3 Bucket lưu ảnh thẻ và sơ đồ (phải là duy nhất toàn cầu trên toàn AWS)
+# Thay <YOUR_AWS_ACCOUNT_ID> bằng ID tài khoản AWS gồm 12 chữ số của bạn
+s3_bucket_name = "cloudexam-storage-<YOUR_AWS_ACCOUNT_ID>-dev"
+
+# [BẮT BUỘC ĐỔI] Tiền tố tên miền Cognito Hosted UI (phải là duy nhất trong AWS Region)
+# Thay <YOUR_NAME_OR_ID> để tránh trùng lặp
+cognito_domain_prefix = "cloudexam-auth-<YOUR_NAME_OR_ID>-dev"
+
+# Danh sách Callback URLs của Frontend SPA
 frontend_callback_urls = [
   "http://localhost:5173/callback",
   "http://localhost:3000/callback"
 ]
+
+# Danh sách Logout URLs của Frontend SPA
 frontend_logout_urls = [
   "http://localhost:5173/",
   "http://localhost:3000/"
 ]
+
+# FinOps: Bật (true) hoặc Tắt (false) tường lửa AWS WAFv2 Web ACL để tiết kiệm chi phí
+enable_waf = true
+
+# ==============================================================================
+# CẤU HÌNH VỆ TINH ĐA ĐÁM MÂY (MULTI-CLOUD - TÙY CHỌN, HOÀN TOÀN MIỄN PHÍ)
+# ==============================================================================
+# 1. Google Gemini AI Studio (Bóc tách đề thi DOCX & Trợ lý ảo giải thích đề)
+# Lấy API Key miễn phí tại: https://aistudio.google.com/
+# gemini_api_key = "AIzaSy..."
+# gemini_model   = "gemini-1.5-flash"
+
+# 2. Upstash Serverless Redis (Bảng xếp hạng thời gian thực <5ms)
+# Lấy REST URL & Token miễn phí tại: https://console.upstash.com/
+# upstash_redis_rest_url   = "https://xxxx.upstash.io"
+# upstash_redis_rest_token = "AXxxxx..."
+
+# 3. Cloudflare Turnstile (Xác thực CAPTCHA tàng hình chống bot nộp bài)
+# Lấy Secret Key miễn phí tại: https://dash.cloudflare.com/
+# cloudflare_turnstile_secret_key = "0x4AAAAAA..."

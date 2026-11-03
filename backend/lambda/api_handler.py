@@ -15,6 +15,7 @@ import urllib.parse
 import zipfile
 import xml.etree.ElementTree as ET
 import boto3
+from botocore.config import Config
 from decimal import Decimal
 from datetime import datetime, timezone
 try:
@@ -54,9 +55,11 @@ def get_gemini_api_key():
 
 dynamodb = boto3.resource("dynamodb", region_name=REGION)
 s3_client = boto3.client("s3", region_name=REGION)
-sqs_client = boto3.client("sqs", region_name=REGION)
+sqs_config = Config(connect_timeout=2, read_timeout=2, retries={'max_attempts': 1})
+sqs_client = boto3.client("sqs", region_name=REGION, config=sqs_config)
 sfn_client = boto3.client("stepfunctions", region_name=REGION)
-sns_client = boto3.client("sns", region_name=REGION)
+sns_config = Config(connect_timeout=2, read_timeout=2, retries={'max_attempts': 1})
+sns_client = boto3.client("sns", region_name=REGION, config=sns_config)
 
 questions_table = dynamodb.Table(f"CloudExam_Questions_{ENV}")
 candidates_table = dynamodb.Table(f"CloudExam_Candidates_{ENV}")
@@ -765,6 +768,7 @@ def lambda_handler(event, context):
     resource_path = event.get("resource", "")
     raw_path = event.get("path", "")
     path_parameters = event.get("pathParameters") or {}
+    query_params = event.get("queryStringParameters") or {}
 
     # Xử lý Direct Invocation từ Step Functions State Machine
     if action == "AUTO_FINALIZE":

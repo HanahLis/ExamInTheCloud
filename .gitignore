@@ -11,7 +11,9 @@
 *.exe
 
 # Environment & Credentials
-.env.local
+.env
+.env.*
+!.env.example
 *.pem
 credentials.csv
 
@@ -22,4 +24,3 @@ __pycache__/
 # Node
 node_modules/
 dist/
-

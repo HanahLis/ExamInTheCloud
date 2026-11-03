@@ -110,10 +110,17 @@ resource "aws_sfn_state_machine" "exam_lifecycle" {
         Type = "Choice"
         Choices = [
           {
-            Variable           = "$.waitBeforeStartSeconds"
-            IsPresent          = true
-            NumericGreaterThan = 0
-            Next               = "WaitUntilStartTime"
+            And = [
+              {
+                Variable  = "$.waitBeforeStartSeconds"
+                IsPresent = true
+              },
+              {
+                Variable           = "$.waitBeforeStartSeconds"
+                NumericGreaterThan = 0
+              }
+            ]
+            Next = "WaitUntilStartTime"
           }
         ]
         Default = "StartExamSession"

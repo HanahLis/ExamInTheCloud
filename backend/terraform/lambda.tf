@@ -21,10 +21,10 @@ resource "aws_lambda_function" "core_api" {
   filename         = data.archive_file.lambda_payload.output_path
   source_code_hash = data.archive_file.lambda_payload.output_base64sha256
 
-  vpc_config {
-    subnet_ids         = [aws_subnet.private_a.id, aws_subnet.private_b.id]
-    security_group_ids = [aws_security_group.lambda_vpc_sg.id]
-  }
+  # vpc_config {
+  #   subnet_ids         = [aws_subnet.private_a.id, aws_subnet.private_b.id]
+  #   security_group_ids = [aws_security_group.lambda_vpc_sg.id]
+  # }
 
   environment {
     variables = {
@@ -45,6 +45,11 @@ resource "aws_lambda_function" "core_api" {
     Name        = "${var.project_name}-core-api"
     Environment = var.environment
   }
+
+  depends_on = [
+    aws_iam_role_policy.lambda_core_api_policy,
+    aws_iam_role_policy_attachment.lambda_core_api_vpc
+  ]
 }
 
 # 3. Lambda Face Verification Function
@@ -57,10 +62,10 @@ resource "aws_lambda_function" "face_verify" {
   timeout       = 30
   memory_size   = 512
 
-  vpc_config {
-    subnet_ids         = [aws_subnet.private_a.id, aws_subnet.private_b.id]
-    security_group_ids = [aws_security_group.lambda_vpc_sg.id]
-  }
+  # vpc_config {
+  #   subnet_ids         = [aws_subnet.private_a.id, aws_subnet.private_b.id]
+  #   security_group_ids = [aws_security_group.lambda_vpc_sg.id]
+  # }
   filename         = data.archive_file.lambda_payload.output_path
   source_code_hash = data.archive_file.lambda_payload.output_base64sha256
 
@@ -68,7 +73,7 @@ resource "aws_lambda_function" "face_verify" {
     variables = {
       ENV            = var.environment
       S3_BUCKET_NAME = var.s3_bucket_name
-      SNS_TOPIC_ARN  = aws_sns_topic.alerts.arn
+      SNS_TOPIC_ARN  = ""
     }
   }
 
@@ -76,6 +81,11 @@ resource "aws_lambda_function" "face_verify" {
     Name        = "${var.project_name}-face-verify"
     Environment = var.environment
   }
+
+  depends_on = [
+    aws_iam_role_policy.lambda_face_verify_policy,
+    aws_iam_role_policy_attachment.lambda_face_verify_vpc
+  ]
 }
 
 # 4. Lambda Grading Worker Function (Chấm điểm bất đồng bộ từ SQS)
@@ -115,4 +125,8 @@ resource "aws_lambda_event_source_mapping" "sqs_to_grading_worker" {
   maximum_batching_window_in_seconds = 2
   function_response_types            = ["ReportBatchItemFailures"]
   enabled                            = true
+
+  depends_on = [
+    aws_iam_role_policy.lambda_grading_worker_policy
+  ]
 }

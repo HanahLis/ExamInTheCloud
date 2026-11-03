@@ -1074,11 +1074,24 @@ export const verifyFace = async (req: FaceVerifyRequest): Promise<FaceVerifyResp
 
   try {
     // 4. Gửi yêu cầu đối soát khuôn mặt tới Amazon Rekognition qua Lambda
-    const res = await api.post('/auth/face-verify', {
+    // Ưu tiên truyền capturedS3Key (~100 bytes) để tối ưu và tránh vượt giới hạn kích thước request body WAF
+    const payload: {
+      sessionId: string;
+      email: string;
+      capturedS3Key?: string;
+      capturedImage?: string;
+    } = {
       sessionId: req.sessionId,
-      capturedImage: req.capturedImage,
       email: targetEmail || 'annv@uet.vnu.edu.vn',
-    });
+    };
+
+    if (req.capturedS3Key) {
+      payload.capturedS3Key = req.capturedS3Key;
+    } else if (req.capturedImage) {
+      payload.capturedImage = req.capturedImage;
+    }
+
+    const res = await api.post('/auth/face-verify', payload);
     return res.data;
   } catch (err: any) {
     const errorData = err?.response?.data;

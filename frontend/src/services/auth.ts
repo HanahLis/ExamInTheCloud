@@ -38,6 +38,12 @@ export const DATABASE_ACCOUNTS_MAP: Record<
   string,
   { role: 'Organizer' | 'Candidate'; name: string; email: string; studentCode?: string }
 > = {
+  'tranducmanh2006@gmail.com': {
+    role: 'Organizer',
+    name: 'Trần Đức Mạnh',
+    email: 'tranducmanh2006@gmail.com',
+    studentCode: '24021561',
+  },
   'annv@uet.vnu.edu.vn': {
     role: 'Organizer',
     name: 'PGS. TS. Nguyễn Văn An',
