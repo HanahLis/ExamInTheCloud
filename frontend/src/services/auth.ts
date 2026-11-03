@@ -1,6 +1,13 @@
 const DOMAIN = import.meta.env.VITE_COGNITO_DOMAIN; // gồm cả https://
 const CLIENT_ID = import.meta.env.VITE_COGNITO_CLIENT_ID;
-const REDIRECT_URI = import.meta.env.VITE_COGNITO_REDIRECT_URI;
+export const getRedirectUri = (): string => {
+  if (typeof window !== 'undefined' && window.location.origin) {
+    if (!window.location.origin.includes('localhost') && !window.location.origin.includes('127.0.0.1')) {
+      return `${window.location.origin}/callback`;
+    }
+  }
+  return import.meta.env.VITE_COGNITO_REDIRECT_URI || 'http://localhost:5173/callback';
+};
 
 export interface AuthUser {
   email: string;
@@ -233,7 +240,7 @@ export const redirectToCognitoLogin = async () => {
   const params = new URLSearchParams({
     response_type: 'code',
     client_id: CLIENT_ID,
-    redirect_uri: REDIRECT_URI,
+    redirect_uri: getRedirectUri(),
     scope: 'openid email profile',
     state,
     code_challenge: await sha256Challenge(verifier),
@@ -265,7 +272,7 @@ const exchangeCode = async () => {
       grant_type: 'authorization_code',
       client_id: CLIENT_ID,
       code,
-      redirect_uri: REDIRECT_URI,
+      redirect_uri: getRedirectUri(),
       code_verifier: verifier,
     }),
   });
