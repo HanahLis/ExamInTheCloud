@@ -84,7 +84,7 @@ variable "gemini_api_key" {
 variable "gemini_model" {
   description = "Tên mô hình Google Gemini AI được sử dụng (ví dụ: gemini-4-argon, gemini-2.5-flash, gemini-2.0-flash)"
   type        = string
-  default     = "gemini-4-argon"
+  default     = "gemini-3.8-flash"
 }
 
 variable "upstash_redis_rest_url" {

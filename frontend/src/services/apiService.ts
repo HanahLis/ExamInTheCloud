@@ -142,6 +142,8 @@ export interface ParseDocRequest {
   subject?: string;
   topic?: string;
   autoSave?: boolean;
+  model?: string;
+  apiKey?: string;
 }
 
 export interface ParseDocResponse {
@@ -165,6 +167,8 @@ export interface ExplainAnswerRequest {
   userAnswer?: string;
   correctAnswer?: string;
   subject?: string;
+  model?: string;
+  apiKey?: string;
 }
 
 export interface ExplainAnswerResponse {
@@ -1119,12 +1123,18 @@ export const verifyFace = async (req: FaceVerifyRequest): Promise<FaceVerifyResp
       return errorData;
     }
 
+    let friendlyMessage = msg;
+    if (msg === 'Forbidden' || err?.response?.status === 403) {
+      friendlyMessage =
+        'Khuôn mặt không khớp với ảnh hồ sơ thí sinh (Độ tương đồng < 80%) hoặc phiên làm việc đã hết hạn. Hãy bấm nút [Dùng làm ảnh thẻ mẫu (Test khớp 100%)] ở phía trên rồi bấm Xác thực lại.';
+    }
+
     return {
       status: 'FAIL',
       verified: false,
-      similarity: 0,
+      similarity: errorData?.similarity ?? 0,
       candidateName: candidateName || targetEmail,
-      message: msg || 'Xác thực sinh trắc học không thành công.',
+      message: friendlyMessage || 'Xác thực sinh trắc học không thành công.',
     };
   } finally {
     // 5. Khôi phục lại ảnh thẻ gốc của giảng viên / tài khoản khảo thí
@@ -1558,7 +1568,13 @@ export const parseQuestionsFromDoc = async (payload: ParseDocRequest): Promise<P
 
   // 3. Nếu chưa đủ câu hỏi, thử gọi API Gateway AWS Lambda
   try {
-    const res = await api.post('/questions/parse-doc', payload);
+    const activeApiKey = payload.apiKey || import.meta.env.VITE_GEMINI_API_KEY || '';
+    const activeModel = payload.model || import.meta.env.VITE_GEMINI_MODEL || 'gemini-3.8-flash';
+    const res = await api.post('/questions/parse-doc', {
+      ...payload,
+      apiKey: activeApiKey || undefined,
+      model: activeModel,
+    });
     if (res.data && res.data.questions && res.data.questions.length > parsed.length) {
       return res.data;
     }
@@ -1601,7 +1617,13 @@ export const fetchLeaderboard = async (sessionId: string): Promise<LeaderboardRe
 export const getLiveLeaderboard = fetchLeaderboard;
 
 export const explainAnswerWithAI = async (payload: ExplainAnswerRequest): Promise<ExplainAnswerResponse> => {
-  const res = await api.post('/exam/explain-answers', payload);
+  const activeApiKey = payload.apiKey || import.meta.env.VITE_GEMINI_API_KEY || '';
+  const activeModel = payload.model || import.meta.env.VITE_GEMINI_MODEL || 'gemini-3.8-flash';
+  const res = await api.post('/exam/explain-answers', {
+    ...payload,
+    apiKey: activeApiKey || undefined,
+    model: activeModel,
+  });
   return res.data;
 };
 

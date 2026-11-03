@@ -34,7 +34,7 @@ SNS_TOPIC_ARN = os.getenv("SNS_TOPIC_ARN", "")
 
 # Khởi tạo Cấu hình Multi-Cloud (Google Gemini, Upstash Redis, Cloudflare Turnstile)
 GEMINI_API_KEY = os.getenv("GEMINI_API_KEY", "").strip()
-GEMINI_MODEL = os.getenv("GEMINI_MODEL", "gemini-4-argon").strip() or "gemini-4-argon"
+GEMINI_MODEL = os.getenv("GEMINI_MODEL", "gemini-3.8-flash").strip() or "gemini-3.8-flash"
 UPSTASH_REDIS_REST_URL = os.getenv("UPSTASH_REDIS_REST_URL", "").strip().rstrip("/")
 UPSTASH_REDIS_REST_TOKEN = os.getenv("UPSTASH_REDIS_REST_TOKEN", "").strip()
 CLOUDFLARE_TURNSTILE_SECRET_KEY = os.getenv("CLOUDFLARE_TURNSTILE_SECRET_KEY", "").strip()
@@ -354,17 +354,26 @@ def rule_based_parse_questions(raw_text: str, subject: str = "Điện toán đá
     return questions
 
 
-def parse_questions_with_gemini(raw_text: str, subject: str = "Điện toán đám mây", topic: str = "Kiến trúc hệ thống", model: str = "") -> tuple:
-    """Gọi Google Gemini API (hỗ trợ gemini-4-argon, gemini-2.5-flash, gemini-2.0-flash, v.v.) để phân tích đề thi sang JSON chuẩn."""
-    active_key = get_gemini_api_key()
+def parse_questions_with_gemini(raw_text: str, subject: str = "Điện toán đám mây", topic: str = "Kiến trúc hệ thống", model: str = "", api_key: str = "") -> tuple:
+    """Gọi Google Gemini API (hỗ trợ gemini-3.8-flash, gemini-2.5-flash, gemini-2.0-flash, gemini-1.5-flash, v.v.) để phân tích đề thi sang JSON chuẩn."""
+    active_key = api_key.strip() if api_key else get_gemini_api_key()
     if not active_key:
         print("[WARN] GEMINI_API_KEY chưa cấu hình, sử dụng rule-based fallback parser.")
         return rule_based_parse_questions(raw_text, subject, topic), "Rule-based Fallback"
 
-    active_model = model.strip() if model else GEMINI_MODEL
+    primary_model = (model.strip() if model else GEMINI_MODEL).replace(" ", "-")
 
-    prompt = f"""Bạn là chuyên gia số hóa đề thi cho hệ thống Khảo thí CloudExam.
-Hãy phân tích nội dung văn bản đề thi dưới đây và trích xuất thành danh sách câu hỏi trắc nghiệm chuẩn.
+    # Danh sách model kiểm chứng thực tế trên Google AI Studio
+    # Ưu tiên model người dùng cấu hình, sau đó tuần tự dự phòng sang các model flash siêu tốc
+    models_to_try = [primary_model]
+    for fb in ["gemini-3.1-flash-lite", "gemini-3.6-flash", "gemini-3-flash-preview", "gemini-3.8-flash"]:
+        if fb not in models_to_try:
+            models_to_try.append(fb)
+
+    prompt = f"""Bạn là chuyên gia số hóa và biên soạn đề thi cho hệ thống Khảo thí CloudExam.
+Hãy xử lý nội dung văn bản dưới đây:
+- Nếu văn bản là đề thi có sẵn, hãy trích xuất toàn bộ câu hỏi và đáp án thành danh sách câu hỏi trắc nghiệm chuẩn.
+- Nếu văn bản là yêu cầu tạo/soạn câu hỏi (ví dụ: 'Tạo 5 câu hỏi trắc nghiệm về...', 'Soạn câu hỏi về...'), hãy sử dụng tri thức chuyên môn để tự động sinh ra số lượng câu hỏi trắc nghiệm chất lượng cao tương ứng.
 Hệ thống hỗ trợ cả đề thi Tiếng Việt và Tiếng Anh (Bilingual English / Vietnamese).
 
 YÊU CẦU QUAN TRỌNG:
@@ -386,46 +395,47 @@ Nội dung đề thi:
 {raw_text[:12000]}
 """
 
-    gemini_url = f"https://generativelanguage.googleapis.com/v1beta/models/{active_model}:generateContent?key={active_key}"
-    payload = {
-        "contents": [{
-            "parts": [{"text": prompt}]
-        }],
-        "generationConfig": {
-            "temperature": 0.1,
-            "responseMimeType": "application/json"
+    for target_model in models_to_try:
+        gemini_url = f"https://generativelanguage.googleapis.com/v1beta/models/{target_model}:generateContent?key={active_key}"
+        payload = {
+            "contents": [{
+                "parts": [{"text": prompt}]
+            }],
+            "generationConfig": {
+                "temperature": 0.1,
+                "responseMimeType": "application/json"
+            }
         }
-    }
 
-    try:
-        req_data = json.dumps(payload).encode("utf-8")
-        req = urllib.request.Request(
-            gemini_url,
-            data=req_data,
-            headers={"Content-Type": "application/json"},
-            method="POST"
-        )
-        with urllib.request.urlopen(req, timeout=12) as resp:
-            resp_body = json.loads(resp.read().decode("utf-8"))
-            candidates = resp_body.get("candidates", [])
-            if candidates:
-                text_out = candidates[0].get("content", {}).get("parts", [{}])[0].get("text", "")
-                parsed = json.loads(text_out)
-                questions_list = parsed if isinstance(parsed, list) else parsed.get("questions", [])
-                if isinstance(questions_list, list) and len(questions_list) > 0:
-                    return questions_list, f"Google Gemini ({active_model})"
-    except Exception as e:
-        print(f"[WARN] Lỗi khi gọi Google Gemini API ({active_model}): {str(e)}, kích hoạt fallback parser.")
+        try:
+            req_data = json.dumps(payload).encode("utf-8")
+            req = urllib.request.Request(
+                gemini_url,
+                data=req_data,
+                headers={"Content-Type": "application/json"},
+                method="POST"
+            )
+            with urllib.request.urlopen(req, timeout=25) as resp:
+                resp_body = json.loads(resp.read().decode("utf-8"))
+                candidates = resp_body.get("candidates", [])
+                if candidates:
+                    text_out = candidates[0].get("content", {}).get("parts", [{}])[0].get("text", "")
+                    parsed = json.loads(text_out)
+                    questions_list = parsed if isinstance(parsed, list) else parsed.get("questions", [])
+                    if isinstance(questions_list, list) and len(questions_list) > 0:
+                        return questions_list, f"Google Gemini ({target_model})"
+        except Exception as e:
+            print(f"[WARN] Thử gọi Gemini AI model {target_model} không thành công: {str(e)}")
+            continue
 
-    return rule_based_parse_questions(raw_text, subject, topic), f"Rule-based Fallback ({active_model} Error)"
+    return rule_based_parse_questions(raw_text, subject, topic), f"Rule-based Fallback ({primary_model} Error)"
 
 
-def explain_answer_with_gemini(content: str, options: list, chosen_idx: int, correct_idx: int, chosen_answer: str, correct_answer: str, subject: str = "", model: str = "") -> tuple:
+def explain_answer_with_gemini(content: str, options: list, chosen_idx: int, correct_idx: int, chosen_answer: str, correct_answer: str, subject: str = "", model: str = "", api_key: str = "") -> tuple:
     """Tạo lời giải thích chi tiết cho câu hỏi từ Google Gemini AI."""
     status_label = "CHÍNH XÁC" if chosen_idx == correct_idx else "CHƯA ĐÚNG"
-    active_model = model.strip() if model else GEMINI_MODEL
-
-    active_key = get_gemini_api_key()
+    primary_model = (model.strip() if model else GEMINI_MODEL).replace(" ", "-")
+    active_key = api_key.strip() if api_key else get_gemini_api_key()
     if not active_key:
         fallback_msg = (
             f"Đáp án chính xác là: {correct_answer} (Phương án {chr(ord('A') + correct_idx) if 0 <= correct_idx < 4 else ''}).\n"
@@ -454,33 +464,40 @@ YÊU CẦU:
 3. Đưa ra mẹo nhớ hoặc kết luận 1 câu ngắn gọn.
 """
 
-    gemini_url = f"https://generativelanguage.googleapis.com/v1beta/models/{active_model}:generateContent?key={active_key}"
-    payload = {
-        "contents": [{
-            "parts": [{"text": prompt}]
-        }],
-        "generationConfig": {
-            "temperature": 0.2
-        }
-    }
+    models_to_try = [primary_model]
+    for fb in ["gemini-3.1-flash-lite", "gemini-3.6-flash", "gemini-3-flash-preview", "gemini-3.8-flash"]:
+        if fb not in models_to_try:
+            models_to_try.append(fb)
 
-    try:
-        req_data = json.dumps(payload).encode("utf-8")
-        req = urllib.request.Request(
-            gemini_url,
-            data=req_data,
-            headers={"Content-Type": "application/json"},
-            method="POST"
-        )
-        with urllib.request.urlopen(req, timeout=10) as resp:
-            resp_body = json.loads(resp.read().decode("utf-8"))
-            candidates = resp_body.get("candidates", [])
-            if candidates:
-                text_out = candidates[0].get("content", {}).get("parts", [{}])[0].get("text", "")
-                if text_out:
-                    return text_out.strip(), f"Google Gemini ({active_model})"
-    except Exception as e:
-        print(f"[WARN] Lỗi gọi Gemini AI ({active_model}) giải thích: {str(e)}")
+    for target_model in models_to_try:
+        gemini_url = f"https://generativelanguage.googleapis.com/v1beta/models/{target_model}:generateContent?key={active_key}"
+        payload = {
+            "contents": [{
+                "parts": [{"text": prompt}]
+            }],
+            "generationConfig": {
+                "temperature": 0.2
+            }
+        }
+
+        try:
+            req_data = json.dumps(payload).encode("utf-8")
+            req = urllib.request.Request(
+                gemini_url,
+                data=req_data,
+                headers={"Content-Type": "application/json"},
+                method="POST"
+            )
+            with urllib.request.urlopen(req, timeout=25) as resp:
+                resp_body = json.loads(resp.read().decode("utf-8"))
+                candidates = resp_body.get("candidates", [])
+                if candidates:
+                    text_out = candidates[0].get("content", {}).get("parts", [{}])[0].get("text", "")
+                    if text_out:
+                        return text_out.strip(), f"Google Gemini ({target_model})"
+        except Exception as e:
+            print(f"[WARN] Lỗi gọi Gemini AI ({target_model}) giải thích: {str(e)}")
+            continue
 
     fallback_msg = (
         f"Đáp án chính xác là: {correct_answer}.\n"
@@ -809,7 +826,8 @@ def lambda_handler(event, context):
             auto_save = body.get("autoSave", True)
 
             req_model = body.get("model") or ""
-            extracted_questions, source = parse_questions_with_gemini(raw_text, subject=subject, topic=topic, model=req_model)
+            req_key = body.get("apiKey") or body.get("geminiApiKey") or body.get("api_key") or ""
+            extracted_questions, source = parse_questions_with_gemini(raw_text, subject=subject, topic=topic, model=req_model, api_key=req_key)
             saved_questions = []
 
             for q in extracted_questions:
@@ -1715,6 +1733,7 @@ def lambda_handler(event, context):
                 correct_answer = options[correct_idx]
 
             req_model = body.get("model") or ""
+            req_key = body.get("apiKey") or body.get("geminiApiKey") or body.get("api_key") or ""
             explanation_text, source = explain_answer_with_gemini(
                 content=content or "Câu hỏi trắc nghiệm",
                 options=options,
@@ -1723,7 +1742,8 @@ def lambda_handler(event, context):
                 chosen_answer=chosen_answer,
                 correct_answer=correct_answer,
                 subject=subject,
-                model=req_model
+                model=req_model,
+                api_key=req_key
             )
 
             return build_response(200, {

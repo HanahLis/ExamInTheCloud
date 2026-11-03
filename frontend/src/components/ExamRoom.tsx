@@ -330,7 +330,10 @@ export const ExamRoom = ({ sessionId, currentUserEmail = '', onExit }: Props) =>
       });
       setVerifyResult(result);
     } catch (err: any) {
-      const msg = err?.response?.data?.message || err?.response?.data?.error || err?.message || 'Lỗi xác thực khuôn mặt';
+      let msg = err?.response?.data?.message || err?.response?.data?.error || err?.message || 'Lỗi xác thực khuôn mặt';
+      if (msg === 'Forbidden' || err?.response?.status === 403) {
+        msg = 'Khuôn mặt không khớp với ảnh thẻ hồ sơ thí sinh (Độ tương đồng < 80%) hoặc phiên làm việc đã hết hạn. Hãy bấm nút [Dùng làm ảnh thẻ mẫu (Test khớp 100%)] bên trên để đồng bộ ảnh mẫu và thử lại.';
+      }
       setVerifyResult({
         status: 'FAIL',
         verified: false,
