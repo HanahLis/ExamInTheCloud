@@ -581,11 +581,24 @@ def update_frontend_env_file(frontend_dir: Path, outputs: dict, cognito_client=N
     env_file = frontend_dir / ".env"
     print(f"\n[+] 4. CẬP NHẬT TỆP CẤU HÌNH FRONTEND (.env)...")
     
-    api_url = outputs.get("api_gateway_base_url") or "https://rnscmnajqb.execute-api.ap-southeast-1.amazonaws.com/dev"
-    user_pool_id = outputs.get("cognito_user_pool_id") or user_pool_id or "ap-southeast-1_APCNvhyvS"
-    app_client_id = outputs.get("cognito_app_client_id")
+    # 1. Đọc các giá trị đang có trong file .env (được tạo bởi local_file.frontend_env của Terraform)
+    existing_env = {}
+    if env_file.exists():
+        try:
+            with open(env_file, "r", encoding="utf-8") as f:
+                for line in f:
+                    line = line.strip()
+                    if line and not line.startswith("#") and "=" in line:
+                        k, v = line.split("=", 1)
+                        existing_env[k.strip()] = v.strip()
+        except Exception:
+            pass
 
-    # Dò tìm App Client ID thực tế từ AWS nếu outputs chưa có
+    api_url = outputs.get("api_gateway_base_url") or existing_env.get("VITE_API_BASE_URL") or "https://de4nmzai6f.execute-api.ap-southeast-1.amazonaws.com/dev"
+    user_pool_id = outputs.get("cognito_user_pool_id") or user_pool_id or existing_env.get("VITE_COGNITO_USER_POOL_ID") or "ap-southeast-1_VpTwkt2il"
+    app_client_id = outputs.get("cognito_app_client_id") or existing_env.get("VITE_COGNITO_CLIENT_ID")
+
+    # Dò tìm App Client ID thực tế từ AWS nếu outputs và existing_env chưa có
     if not app_client_id and cognito_client and user_pool_id:
         try:
             clis = cognito_client.list_user_pool_clients(UserPoolId=user_pool_id, MaxResults=10).get("UserPoolClients", [])
@@ -598,24 +611,17 @@ def update_frontend_env_file(frontend_dir: Path, outputs: dict, cognito_client=N
         except Exception as e:
             print(f"[WARN] Không thể tìm App Client từ AWS SDK: {e}")
 
-    if not app_client_id:
-        app_client_id = "3jqaaldjlahan5fga8u73m28si"
-
-    identity_pool_id = outputs.get("cognito_identity_pool_id") or "ap-southeast-1:ff00c7a4-2e1c-40a8-a18c-2269b9d9071c"
-    s3_bucket = outputs.get("s3_bucket_name") or "cloudexam-storage-409289618109-dev"
-    cf_domain = outputs.get("cloudfront_distribution_domain_name") or "d1k3iyz5g06wtp.cloudfront.net"
+    identity_pool_id = outputs.get("cognito_identity_pool_id") or existing_env.get("VITE_IDENTITY_POOL_ID") or "ap-southeast-1:49174f21-1d09-48e5-9a9e-661fd2cf0baa"
+    s3_bucket = outputs.get("s3_bucket_name") or existing_env.get("VITE_S3_BUCKET_NAME") or "cloudexam-storage-409289618109-dev"
+    cf_domain = outputs.get("cloudfront_distribution_domain_name")
+    if not cf_domain and existing_env.get("VITE_CLOUDFRONT_URL"):
+        cf_domain = existing_env["VITE_CLOUDFRONT_URL"].replace("https://", "").replace("http://", "")
+    if not cf_domain:
+        cf_domain = "dw1cx1i04s8fe.cloudfront.net"
     cf_url = f"https://{cf_domain}"
 
     # Giữ lại Gemini API Key hiện tại nếu đã có trong .env
-    existing_key = "AQ.Ab8RN6IM7Z8gAyK5YaSv5ZntwjK2bUW4OMkZhSKLUbUd-N68hQ"
-    if env_file.exists():
-        try:
-            with open(env_file, "r", encoding="utf-8") as f:
-                for line in f:
-                    if line.startswith("VITE_GEMINI_API_KEY=") and len(line.split("=", 1)[1].strip()) > 5:
-                        existing_key = line.split("=", 1)[1].strip()
-        except Exception:
-            pass
+    existing_key = existing_env.get("VITE_GEMINI_API_KEY", "AQ.Ab8RN6IM7Z8gAyK5YaSv5ZntwjK2bUW4OMkZhSKLUbUd-N68hQ")
 
     content = f"""# ==============================================================================
 # CLOUDEXAM FRONTEND ENVIRONMENT CONFIGURATION (.env)
@@ -658,6 +664,22 @@ VITE_CLOUDFRONT_URL={cf_url}
 VITE_GEMINI_API_KEY={existing_key}
 VITE_GEMINI_MODEL=gemini-2.5-flash
 """
+
+# Cognito Identity Pool ID
+VITE_IDENTITY_POOL_ID={identity_pool_id}
+
+# Tên S3 Bucket lưu trữ ảnh thẻ và sơ đồ
+VITE_S3_BUCKET_NAME={s3_bucket}
+
+# CloudFront Website URL
+VITE_CLOUDFRONT_URL={cf_url}
+
+# ==============================================================================
+# CẤU HÌNH GOOGLE GEMINI AI (Trích xuất đề thi & Gia sư ảo AI)
+# ==============================================================================
+VITE_GEMINI_API_KEY={existing_key}
+VITE_GEMINI_MODEL=gemini-2.5-flash
+"""
     try:
         with open(env_file, "w", encoding="utf-8") as f:
             f.write(content)
@@ -673,8 +695,22 @@ def main():
     repo_root, data_dir, sample_faces_dir, tf_dir, frontend_dir = get_repo_paths()
     outputs = load_terraform_outputs(tf_dir)
     
-    s3_bucket = outputs.get("s3_bucket_name", f"cloudexam-storage-409289618109-{ENV}")
-    user_pool_id = outputs.get("cognito_user_pool_id", "")
+    # Đọc từ existing_env nếu có (do Terraform local_file.frontend_env vừa tạo)
+    env_file = frontend_dir / ".env"
+    existing_env = {}
+    if env_file.exists():
+        try:
+            with open(env_file, "r", encoding="utf-8") as f:
+                for line in f:
+                    line = line.strip()
+                    if line and not line.startswith("#") and "=" in line:
+                        k, v = line.split("=", 1)
+                        existing_env[k.strip()] = v.strip()
+        except Exception:
+            pass
+
+    s3_bucket = outputs.get("s3_bucket_name") or existing_env.get("VITE_S3_BUCKET_NAME") or f"cloudexam-storage-409289618109-{ENV}"
+    user_pool_id = outputs.get("cognito_user_pool_id") or existing_env.get("VITE_COGNITO_USER_POOL_ID") or ""
     
     # Khởi tạo boto3 clients
     cognito_client = boto3.client("cognito-idp", region_name=REGION)

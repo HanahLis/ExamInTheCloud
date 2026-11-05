@@ -110,13 +110,19 @@ resource "aws_cognito_user_pool_client" "web_client" {
   callback_urls = distinct(concat(
     var.frontend_callback_urls,
     [
-      "https://${aws_cloudfront_distribution.spa_distribution.domain_name}/callback",
-      "https://${aws_cloudfront_distribution.spa_distribution.domain_name}"
+      "http://localhost:5173",
+      "http://localhost:5173/callback",
+      "http://localhost:3000",
+      "http://localhost:3000/callback",
+      "https://${aws_cloudfront_distribution.spa_distribution.domain_name}",
+      "https://${aws_cloudfront_distribution.spa_distribution.domain_name}/callback"
     ]
   ))
   logout_urls = distinct(concat(
     var.frontend_logout_urls,
     [
+      "http://localhost:5173",
+      "http://localhost:3000",
       "https://${aws_cloudfront_distribution.spa_distribution.domain_name}"
     ]
   ))

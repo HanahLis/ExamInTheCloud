@@ -46,54 +46,28 @@ def get_content_type_and_cache(filename: str):
     else:
         return ct, "public, max-age=3600"
 
-def sync_frontend_env(repo_root):
-    """Tu dong dong bo file frontend/.env tu Terraform state truoc khi build"""
-    tf_state_path = os.path.join(repo_root, "backend", "terraform", "terraform.tfstate")
-    if not os.path.exists(tf_state_path):
-        return
-
-    try:
-        import json
-        with open(tf_state_path, "r", encoding="utf-8") as f:
-            state = json.load(f)
-        outputs = state.get("outputs", {})
-        if not outputs:
-            return
-
-        api_url = outputs.get("api_gateway_base_url", {}).get("value")
-        pool_id = outputs.get("cognito_user_pool_id", {}).get("value")
-        client_id = outputs.get("cognito_app_client_id", {}).get("value")
-        domain = outputs.get("cognito_domain", {}).get("value")
-        id_pool = outputs.get("cognito_identity_pool_id", {}).get("value")
-        s3_bucket = outputs.get("s3_bucket_name", {}).get("value")
-
-        if pool_id and client_id:
-            env_path = os.path.join(repo_root, "frontend", ".env")
-            env_content = f"""VITE_USE_MOCK=false
-VITE_AWS_REGION=ap-southeast-1
-VITE_API_BASE_URL={api_url or ''}
-VITE_COGNITO_DOMAIN={domain or ''}
-VITE_COGNITO_USER_POOL_ID={pool_id}
-VITE_COGNITO_CLIENT_ID={client_id}
-VITE_COGNITO_REDIRECT_URI=http://localhost:5173/callback
-VITE_IDENTITY_POOL_ID={id_pool or ''}
-VITE_S3_BUCKET_NAME={s3_bucket or ''}
-VITE_GEMINI_MODEL=gemini-3.8-flash
-"""
-            with open(env_path, "w", encoding="utf-8") as f:
-                f.write(env_content)
-            print(f"[OK] Da tu dong dong bo frontend/.env tu Terraform state (Client ID: {client_id})")
-    except Exception as e:
-        print(f"[WARN] Khong the tu dong dong bo .env tu terraform state: {e}")
-
 def get_aws_resources(region="ap-southeast-1"):
     """Lấy tên S3 Bucket và CloudFront Distribution ID"""
     s3_bucket = "cloudexam-frontend-dev"
-    dist_id = "E1VTC1GCP4PRKM"
-    dist_domain = "d1k3iyz5g06wtp.cloudfront.net"
+    dist_id = ""
+    dist_domain = ""
+
+    repo_root = os.path.abspath(os.path.join(os.path.dirname(__file__), ".."))
+    env_file = os.path.join(repo_root, "frontend", ".env")
+    if os.path.exists(env_file):
+        try:
+            with open(env_file, "r", encoding="utf-8") as f:
+                for line in f:
+                    line = line.strip()
+                    if line.startswith("VITE_CLOUDFRONT_URL="):
+                        val = line.split("=", 1)[1].strip()
+                        dist_domain = val.replace("https://", "").replace("http://", "")
+                    elif line.startswith("VITE_S3_BUCKET_NAME="):
+                        pass
+        except Exception:
+            pass
 
     # Thử lấy từ Terraform state nếu có
-    repo_root = os.path.abspath(os.path.join(os.path.dirname(__file__), ".."))
     tf_dir = os.path.join(repo_root, "backend", "terraform")
     tf_state_path = os.path.join(tf_dir, "terraform.tfstate")
 
@@ -110,18 +84,24 @@ def get_aws_resources(region="ap-southeast-1"):
                 if "frontend_hosting_bucket_name" in outputs:
                     s3_bucket = outputs["frontend_hosting_bucket_name"]["value"]
         except Exception as e:
-            print(f"[INFO] Dùng cấu hình CloudFront mặc định: {e}")
+            print(f"[INFO] Đọc state CloudFront: {e}")
 
-    # Fallback tự động dò tìm Distribution ID từ AWS nếu state chưa đồng bộ
+    # Fallback tự động dò tìm Distribution ID từ AWS nếu state chưa có
     try:
         cf_client = boto3.client("cloudfront")
         dists = cf_client.list_distributions().get("DistributionList", {}).get("Items", [])
-        for d in dists:
-            comment = d.get("Comment", "")
-            if "cloudexam" in comment.lower() or "spa" in comment.lower():
-                dist_id = d["Id"]
-                dist_domain = d["DomainName"]
-                break
+        if dist_domain:
+            for d in dists:
+                if d.get("DomainName") == dist_domain:
+                    dist_id = d["Id"]
+                    break
+        if not dist_id:
+            for d in dists:
+                comment = d.get("Comment", "")
+                if ("cloudexam" in comment.lower() or "spa" in comment.lower()) and d.get("Enabled") is not False:
+                    dist_id = d["Id"]
+                    dist_domain = d["DomainName"]
+                    break
     except Exception:
         pass
 
