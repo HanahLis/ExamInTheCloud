@@ -257,7 +257,7 @@
   "confirm_delete_question": "Bạn có chắc chắn muốn xóa câu hỏi này không?",
   "alert_delete_question_error": "Lỗi xóa câu hỏi:",
   "confirm_delete_bank_full": "Bạn có chắc chắn muốn xóa vĩnh viễn ngân hàng câu hỏi này?",
-  "qb_import_prompt_placeholder": "Dán nội dung đề thi có sẵn (Câu 1: ... A. ... B. ...) HOẶC nhập prompt yêu cầu Gemini soạn câu hỏi mới...",
+  "qb_import_prompt_placeholder": "Dán nội dung đề thi (trắc nghiệm hoặc tự luận) HOẶC nhập prompt yêu cầu Gemini soạn câu hỏi mới...",
   "alert_camera_error": "Không thể mở camera. Bạn có thể chọn cách tải ảnh từ thiết bị.",
   "alert_capture_face_required": "Vui lòng chụp ảnh khuôn mặt trước khi xác thực.",
   "alert_select_candidate_required": "Vui lòng chọn thí sinh.",

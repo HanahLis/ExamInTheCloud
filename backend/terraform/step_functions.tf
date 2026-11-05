@@ -93,8 +93,13 @@ resource "aws_cloudwatch_log_group" "sfn_lifecycle_logs" {
 
 # 3. AWS Step Functions State Machine
 resource "aws_sfn_state_machine" "exam_lifecycle" {
-  name     = "${var.project_name}-exam-lifecycle-${var.environment}"
+  name     = "${var.project_name}-exam-lifecycle-v2-${var.environment}"
   role_arn = aws_iam_role.step_functions_exam_lifecycle.arn
+
+  timeouts {
+    create = "15m"
+    delete = "15m"
+  }
 
   logging_configuration {
     log_destination        = "${aws_cloudwatch_log_group.sfn_lifecycle_logs.arn}:*"

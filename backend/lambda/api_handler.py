@@ -54,7 +54,17 @@ def get_gemini_api_key():
         return ""
 
 dynamodb = boto3.resource("dynamodb", region_name=REGION)
-s3_client = boto3.client("s3", region_name=REGION)
+s3_config = Config(
+    region_name=REGION,
+    signature_version="s3v4",
+    s3={"addressing_style": "virtual"}
+)
+s3_client = boto3.client(
+    "s3",
+    region_name=REGION,
+    endpoint_url=f"https://s3.{REGION}.amazonaws.com",
+    config=s3_config
+)
 sqs_config = Config(connect_timeout=2, read_timeout=2, retries={'max_attempts': 1})
 sqs_client = boto3.client("sqs", region_name=REGION, config=sqs_config)
 sfn_client = boto3.client("stepfunctions", region_name=REGION)
@@ -480,27 +490,36 @@ def parse_questions_with_gemini(raw_text: str, subject: str = "Điện toán đ�
 
     prompt = f"""Bạn là chuyên gia số hóa và biên soạn đề thi cho hệ thống Khảo thí CloudExam.
 Hãy xử lý nội dung văn bản dưới đây:
-- Nếu văn bản là đề thi có sẵn, hãy trích xuất toàn bộ câu hỏi và đáp án thành danh sách câu hỏi trắc nghiệm chuẩn.
-- Nếu văn bản là yêu cầu tạo/soạn câu hỏi (ví dụ: 'Tạo 20 câu hỏi trắc nghiệm...', 'Soạn câu hỏi về...'), hãy sử dụng tri thức chuyên môn để tự động sinh ra ĐÚNG 100% số lượng câu hỏi trắc nghiệm chất lượng cao tương ứng (nếu yêu cầu 20 câu thì PHẢI TẠO ĐỦ 20 CÂU, tuyệt đối không được tự ý giảm số lượng).
+- Nếu văn bản là đề thi có sẵn, hãy trích xuất toàn bộ câu hỏi và đáp án thành danh sách câu hỏi chuẩn (hỗ trợ cả Trắc nghiệm và Tự luận).
+- Nếu văn bản là yêu cầu tạo/soạn câu hỏi (ví dụ: 'Tạo 5 câu hỏi tự luận...', 'Soạn câu hỏi về...', 'Tạo đề thi gồm trắc nghiệm và tự luận...'), hãy sử dụng tri thức chuyên môn để tự động sinh ra ĐÚNG 100% số lượng và loại câu hỏi chất lượng cao tương ứng.
 Hệ thống hỗ trợ cả đề thi Tiếng Việt và Tiếng Anh (Bilingual English / Vietnamese).
 
-YÊU CẦU QUAN TRỌNG:
-1. Tạo ĐỦ 100% SỐ LƯỢNG câu hỏi mà người dùng yêu cầu (ví dụ yêu cầu 20 câu thì phải trả về đủ 20 câu).
-2. Trích xuất TOÀN BỘ tất cả các câu hỏi có trong văn bản (tiếng Việt hoặc tiếng Anh), không được bỏ sót bất kỳ câu nào.
-3. Giữ nguyên ngôn ngữ gốc của văn bản (đề bài tiếng Anh thì giữ nguyên tiếng Anh, tiếng Việt thì giữ nguyên tiếng Việt).
-4. Trả về DUY NHẤT một mảng JSON các object câu hỏi (hoặc object JSON có thuộc tính "questions"). Mỗi câu hỏi gồm:
-- "content": Nội dung câu hỏi (loại bỏ tiền tố "Câu 1:", "Question 1:", "Q1:", "1." nếu có).
-- "options": Mảng các phần tử chuỗi các phương án lựa chọn A, B, C, D (loại bỏ tiền tố A., B., C., D.; TUYỆT ĐỐI KHÔNG chứa đáp án hoặc giải thích bên trong lựa chọn).
-- "correctIndex": Số nguyên 0..n (0 cho A, 1 cho B, 2 cho C, 3 cho D). Nếu tài liệu không ghi rõ đáp án, hãy dùng tri thức chuyên môn để xác định đáp án đúng nhất.
+QUY TẮC PHÂN LOẠI CÂU HỎI (QUAN TRỌNG):
+1. CÂU HỎI TRẮC NGHIỆM (SINGLE_CHOICE):
+- Áp dụng khi câu hỏi có các lựa chọn A, B, C, D hoặc người dùng yêu cầu trắc nghiệm.
+- "type": "SINGLE_CHOICE"
+- "content": Nội dung câu hỏi (loại bỏ tiền tố "Câu 1:", "Question 1:", "1." nếu có).
+- "options": Mảng 4 phần tử chuỗi các phương án lựa chọn A, B, C, D (loại bỏ tiền tố A., B., C., D.; TUYỆT ĐỐI KHÔNG chứa đáp án hoặc giải thích bên trong lựa chọn).
+- "correctIndex": Số nguyên 0..n (0 cho A, 1 cho B, 2 cho C, 3 cho D).
 - "correctAnswer": Nội dung chuỗi của đáp án đúng (khớp với options[correctIndex]).
 - "score": 1
-- "subject": "{subject}"
-- "topic": "{topic}"
-- "difficulty": "MEDIUM"
 
-LƯU Ý: Tuyệt đối KHÔNG đưa giải thích (explanation) vào ngân hàng câu hỏi.
+2. CÂU HỎI TỰ LUẬN (ESSAY):
+- Áp dụng khi người dùng yêu cầu câu hỏi tự luận, câu hỏi mở, giải thích, viết code HOẶC câu hỏi trong đề gốc không có các phương án lựa chọn A, B, C, D.
+- "type": "ESSAY"
+- "content": Nội dung câu hỏi tự luận.
+- "options": [] (MẢNG RỖNG, TUYỆT ĐỐI KHÔNG TỰ BỊA RA PHƯƠNG ÁN A, B, C, D).
+- "correctIndex": -1
+- "correctAnswer": "Hướng dẫn chấm điểm / Barem điểm chi tiết / Các ý chính thí sinh cần trả lời".
+- "score": 2
 
-Nội dung đề thi:
+YÊU CẦU CHUNG:
+1. Tạo ĐỦ 100% SỐ LƯỢNG câu hỏi mà người dùng yêu cầu.
+2. Trích xuất TOÀN BỘ tất cả các câu hỏi có trong văn bản, không được bỏ sót bất kỳ câu nào.
+3. Trả về DUY NHẤT một mảng JSON các object câu hỏi (hoặc object JSON có thuộc tính "questions"). Mỗi câu hỏi gồm: content, type, options, correctIndex, correctAnswer, score, subject ("{subject}"), topic ("{topic}"), difficulty ("MEDIUM").
+4. LƯU Ý: Tuyệt đối KHÔNG đưa giải thích vào options hay content của câu trắc nghiệm.
+
+Nội dung đề thi / Yêu cầu:
 {raw_text[:12000]}
 """
 
@@ -941,17 +960,26 @@ def lambda_handler(event, context):
 
             for q in extracted_questions:
                 q_id = q.get("id") or f"q-doc-{uuid.uuid4().hex[:8]}"
-                opts = q.get("options", [])
-                c_idx = q.get("correctIndex", 0)
-                c_ans = q.get("correctAnswer") or (opts[c_idx] if len(opts) > c_idx else "")
-                q_score = Decimal(str(q.get("score", 1)))
+                is_essay = q.get("type") == "ESSAY" or (not isinstance(q.get("options"), list) or len(q.get("options", [])) < 2)
+                q_type = "ESSAY" if is_essay else "SINGLE_CHOICE"
+                if is_essay:
+                    opts = []
+                    c_idx = -1
+                    c_ans = q.get("correctAnswer") or q.get("rubric") or ""
+                    default_score = 2
+                else:
+                    opts = q.get("options", [])
+                    c_idx = q.get("correctIndex", 0)
+                    c_ans = q.get("correctAnswer") or (opts[c_idx] if len(opts) > c_idx else "")
+                    default_score = 1
+                q_score = Decimal(str(q.get("score", default_score)))
 
                 item = {
                     "id": q_id,
                     "questionId": q_id,
                     "bankId": bank_id,
                     "content": q.get("content", ""),
-                    "type": q.get("type", "SINGLE_CHOICE"),
+                    "type": q_type,
                     "options": opts,
                     "correctIndex": c_idx,
                     "correctAnswer": c_ans,

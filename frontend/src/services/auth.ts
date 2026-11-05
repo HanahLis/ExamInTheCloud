@@ -374,6 +374,13 @@ export const isLoggedIn = (): boolean => {
       localStorage.clear();
       return false;
     }
+    // Tự động phát hiện nếu User Pool trên AWS đã được tạo mới qua Terraform
+    const currentPoolId = import.meta.env.VITE_COGNITO_USER_POOL_ID;
+    if (currentPoolId && claims.iss && !claims.iss.includes(currentPoolId)) {
+      console.warn('[CloudExam Auth] User Pool ID đã thay đổi sau khi Terraform Apply. Tự động làm sạch phiên cũ.');
+      localStorage.clear();
+      return false;
+    }
     if (claims.exp && claims.exp * 1000 < Date.now()) {
       localStorage.clear();
       return false;

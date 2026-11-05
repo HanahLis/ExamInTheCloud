@@ -22,6 +22,20 @@ api.interceptors.request.use((config) => {
   return config;
 });
 
+// Tự động xử lý khi Token bị lỗi 401: Xóa phiên rác và làm mới trang để không crash giao diện
+api.interceptors.response.use(
+  (response) => response,
+  (error) => {
+    if (error.response && error.response.status === 401) {
+      console.warn('[CloudExam API] Bị chặn 401 Unauthorized do token cũ/hết hạn. Tự động dọn dẹp phiên.');
+      localStorage.removeItem('id_token');
+      localStorage.removeItem('access_token');
+      localStorage.removeItem('auth_mode');
+    }
+    return Promise.reject(error);
+  }
+);
+
 // ============================================================================
 // TYPES & INTERFACES (Đồng bộ với DynamoDB & Lambda Handlers)
 // ============================================================================
@@ -1792,23 +1806,33 @@ export const generateQuestionsWithGeminiDirect = async (
 
   const prompt = `Bạn là chuyên gia số hóa và biên soạn đề thi cho hệ thống Khảo thí CloudExam.
 Hãy xử lý nội dung văn bản dưới đây:
-- Nếu văn bản là đề thi có sẵn, hãy trích xuất toàn bộ câu hỏi và đáp án thành danh sách câu hỏi trắc nghiệm chuẩn.
-- Nếu văn bản là yêu cầu tạo/soạn câu hỏi (ví dụ: 'Tạo 20 câu hỏi...', 'Soạn câu hỏi về...'), hãy tự động tạo ra ĐÚNG số lượng câu hỏi trắc nghiệm chất lượng cao theo yêu cầu (nếu yêu cầu 20 câu, PHẢI TẠO ĐỦ 20 CÂU, không được dừng lại ở 5 câu).
-Hệ thống hỗ trợ cả đề thi Tiếng Việt và Tiếng Anh.
+- Nếu văn bản là đề thi có sẵn, hãy trích xuất toàn bộ câu hỏi và đáp án thành danh sách câu hỏi chuẩn (hỗ trợ cả Trắc nghiệm và Tự luận).
+- Nếu văn bản là yêu cầu tạo/soạn câu hỏi (ví dụ: 'Tạo 5 câu hỏi tự luận...', 'Soạn câu hỏi về...', 'Tạo đề thi gồm trắc nghiệm và tự luận...'), hãy tự động tạo ra ĐÚNG số lượng và loại câu hỏi chất lượng cao theo yêu cầu.
+Hệ thống hỗ trợ cả đề thi Tiếng Việt và Tiếng Anh (English / Vietnamese).
 
-YÊU CẦU QUAN TRỌNG:
-1. Tạo ĐỦ 100% SỐ LƯỢNG câu hỏi mà người dùng yêu cầu (ví dụ: yêu cầu 20 câu thì phải tạo đủ 20 câu, tuyệt đối không được cắt ngắn).
-2. Trả về DUY NHẤT một mảng JSON các object câu hỏi (hoặc object JSON có thuộc tính "questions"). Mỗi câu hỏi gồm:
+QUY TẮC PHÂN LOẠI CÂU HỎI (QUAN TRỌNG):
+1. CÂU HỎI TRẮC NGHIỆM (SINGLE_CHOICE):
+- Áp dụng khi câu hỏi có các lựa chọn A, B, C, D hoặc người dùng yêu cầu trắc nghiệm.
+- "type": "SINGLE_CHOICE"
 - "content": Nội dung câu hỏi (loại bỏ tiền tố "Câu 1:", "Question 1:", "1." nếu có).
 - "options": Mảng 4 phần tử chuỗi các phương án lựa chọn A, B, C, D (loại bỏ tiền tố A., B., C., D.; TUYỆT ĐỐI KHÔNG chứa giải thích bên trong lựa chọn).
 - "correctIndex": Số nguyên 0..3 (0 cho A, 1 cho B, 2 cho C, 3 cho D).
 - "correctAnswer": Nội dung chuỗi của đáp án đúng (khớp với options[correctIndex]).
 - "score": 1
-- "subject": "${subject}"
-- "topic": "${topic}"
-- "difficulty": "MEDIUM"
 
-LƯU Ý: Tuyệt đối KHÔNG đưa giải thích vào options hay content.
+2. CÂU HỎI TỰ LUẬN (ESSAY):
+- Áp dụng khi người dùng yêu cầu câu hỏi tự luận, câu hỏi mở, giải thích chuyên sâu, viết luận, viết code HOẶC câu hỏi trong đề gốc không có các phương án lựa chọn A, B, C, D.
+- "type": "ESSAY"
+- "content": Nội dung câu hỏi tự luận (loại bỏ tiền tố nếu có).
+- "options": [] (MẢNG RỖNG, TUYỆT ĐỐI KHÔNG TỰ BỊA RA PHƯƠNG ÁN A, B, C, D).
+- "correctIndex": -1
+- "correctAnswer": "Barem chấm điểm chi tiết / Gợi ý đáp án / Các tiêu chí và ý chính thí sinh cần trả lời (BẮT BUỘC PHẢI CÓ nội dung chi tiết, không được để trống)".
+- "score": 2
+
+YÊU CẦU CHUNG:
+1. Tạo ĐỦ 100% SỐ LƯỢNG câu hỏi mà người dùng yêu cầu (ví dụ: yêu cầu 5 câu tự luận thì phải tạo đủ 5 câu).
+2. Trả về DUY NHẤT một mảng JSON các object câu hỏi (hoặc object JSON có thuộc tính "questions"). Mỗi câu hỏi gồm: content, type, options, correctIndex, correctAnswer, score, subject ("${subject}"), topic ("${topic}"), difficulty ("MEDIUM").
+3. LƯU Ý: Tuyệt đối KHÔNG đưa giải thích vào options hay content của câu trắc nghiệm.
 
 Nội dung đề bài / Yêu cầu:
 ${rawText.slice(0, 12000)}
@@ -1858,6 +1882,24 @@ ${rawText.slice(0, 12000)}
 
       if (Array.isArray(rawList) && rawList.length > 0) {
         const questions: Question[] = rawList.map((q: any, idx: number) => {
+          const isEssay = q.type === 'ESSAY' || (!Array.isArray(q.options) || q.options.length < 2);
+          if (isEssay) {
+            return {
+              id: q.id || `q-gemini-${Date.now()}-${idx + 1}`,
+              questionId: q.questionId || `q-gemini-${Date.now()}-${idx + 1}`,
+              bankId,
+              content: q.content || `Câu hỏi tự luận ${idx + 1}`,
+              type: 'ESSAY' as const,
+              options: [],
+              correctIndex: -1,
+              correctAnswer: q.correctAnswer || q.rubric || q.answer || '',
+              score: Number(q.score) || 2,
+              subject: q.subject || subject,
+              topic: q.topic || topic,
+              difficulty: q.difficulty || 'MEDIUM',
+              imageUrl: q.imageUrl || '',
+            };
+          }
           const opts = Array.isArray(q.options) && q.options.length >= 2 ? q.options : ['A', 'B', 'C', 'D'];
           const cIdx = typeof q.correctIndex === 'number' && q.correctIndex >= 0 && q.correctIndex < opts.length ? q.correctIndex : 0;
           const cAns = q.correctAnswer || opts[cIdx] || '';
