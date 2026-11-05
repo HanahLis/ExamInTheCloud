@@ -1103,7 +1103,7 @@ export const verifyFace = async (req: FaceVerifyRequest): Promise<FaceVerifyResp
         similarity: 0,
         candidateName: candidateName || targetEmail,
         message:
-          'Amazon Rekognition: Không nhận diện được khuôn mặt người trong ảnh thẻ hồ sơ thí sinh hoặc ảnh chụp camera. Vui lòng kiểm tra lại ảnh thẻ (phải có khuôn mặt người rõ ràng, không dùng sơ đồ/vật thể) và hướng thẳng vào camera.',
+          'Không nhận diện được khuôn mặt người trong ảnh thẻ hồ sơ thí sinh hoặc ảnh chụp camera. Vui lòng kiểm tra lại ảnh thẻ (phải có khuôn mặt người rõ ràng, không dùng sơ đồ/vật thể) và hướng thẳng vào camera.',
       };
     }
 
@@ -2258,7 +2258,7 @@ export const syncCloudDatabaseToProduction = async (): Promise<{
     deletedCandidates,
     addedCandidates,
     sessionsUpdated,
-    message: 'Đã hoàn tất đồng bộ dữ liệu chuẩn trên các bảng AWS DynamoDB.',
+    message: 'Đã hoàn tất đồng bộ dữ liệu chuẩn trên hệ thống.',
   };
 };
 

@@ -520,7 +520,7 @@ export const ExamRoom = ({ sessionId, currentUserEmail = '', isOrganizer = false
               <div className="flex flex-wrap items-center justify-between gap-2 text-[11px] text-slate-500">
                 <span className="flex items-center gap-1.5">
                   <span className="w-1.5 h-1.5 rounded-full bg-emerald-500"></span>
-                  {t('exam_service_label')} <span className="font-mono font-medium text-slate-700">Amazon Rekognition (CompareFaces)</span>
+                  {t('exam_service_label')} <span className="font-mono font-medium text-slate-700">AI Biometrics</span>
                 </span>
                 <span>
                   {t('exam_threshold_label')} <span className="font-mono font-semibold text-slate-700">&ge; 80%</span>

@@ -584,7 +584,7 @@ export const QuestionBankTab = ({ questions, onRefresh }: Props) => {
                   </button>
                   <button
                     type="button"
-                    title={`Xóa vĩnh viễn ngân hàng "${b.name}" trên AWS DynamoDB`}
+                    title={`Xóa vĩnh viễn ngân hàng "${b.name}"`}
                     disabled={isDeleting}
                     onClick={(e) => {
                       e.stopPropagation();

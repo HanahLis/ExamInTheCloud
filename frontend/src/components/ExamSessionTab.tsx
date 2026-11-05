@@ -117,7 +117,7 @@ export const ExamSessionTab = ({
     setSendingReportId(sessionId);
     try {
       const res = await sendSessionReport(sessionId);
-      alert(res.message || 'Đã gửi báo cáo bảng điểm qua Amazon SNS thành công.');
+      alert(res.message || 'Đã gửi báo cáo bảng điểm qua email thành công.');
     } catch (err: any) {
       alert('Lỗi gửi báo cáo SNS: ' + (err?.response?.data?.error || err?.message || err));
     } finally {
@@ -398,7 +398,7 @@ export const ExamSessionTab = ({
                       onClick={() => handleSendReportSNS(s.id)}
                       disabled={sendingReportId === s.id}
                       className="px-2.5 py-1 bg-slate-100 text-slate-700 text-xs rounded hover:bg-slate-200 transition cursor-pointer disabled:text-slate-400"
-                      title="Gửi báo cáo bảng điểm qua Amazon SNS Topic"
+                      title={t('sess_send_sns') || "Gửi báo cáo bảng điểm qua email"}
                     >
                       {sendingReportId === s.id ? t('sess_sending_sns') : t('sess_send_sns')}
                     </button>

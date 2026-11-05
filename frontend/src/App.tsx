@@ -361,7 +361,7 @@ export default function App() {
       setSyncNotice(res.message);
       await refreshAll();
     } catch (err: any) {
-      setSyncNotice('Lỗi đồng bộ CSDL AWS: ' + (err?.response?.data?.error || err?.message || err));
+      setSyncNotice('Lỗi đồng bộ dữ liệu: ' + (err?.response?.data?.error || err?.message || err));
     } finally {
       setSyncing(false);
     }
@@ -467,13 +467,13 @@ export default function App() {
   const handleAddCandidate = async (candidate: Candidate) => {
     const saved = await createCandidate(candidate);
     setCandidates((prev) => [...prev.filter((c) => c.email !== saved.email), saved]);
-    setSyncNotice(`Đã lưu thí sinh "${candidate.name}" (${candidate.email}) trực tiếp lên AWS DynamoDB.`);
+    setSyncNotice(`Đã lưu thí sinh "${candidate.name}" (${candidate.email}) vào hệ thống.`);
   };
 
   const handleRemoveCandidate = async (email: string) => {
     await deleteCandidate(email);
     setCandidates((prev) => prev.filter((c) => c.email !== email));
-    setSyncNotice(`Đã xóa thí sinh "${email}" khỏi CSDL AWS DynamoDB.`);
+    setSyncNotice(`Đã xóa thí sinh "${email}" khỏi hệ thống.`);
   };
 
   const handleCreateSession = async (
@@ -585,7 +585,7 @@ export default function App() {
             onClick={handleSyncToCloud}
             disabled={syncing}
             className="px-2.5 py-1 text-slate-700 hover:text-slate-900 border border-slate-200 rounded text-xs transition cursor-pointer disabled:opacity-50"
-            title="Đồng bộ CSDL lên AWS Cloud"
+            title="Đồng bộ dữ liệu"
           >
             {syncing ? t('syncing_cloud') : t('sync_cloud')}
           </button>

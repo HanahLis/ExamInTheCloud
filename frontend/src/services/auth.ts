@@ -216,26 +216,34 @@ export const loginWithCognitoPassword = async (email: string, password: string):
       }
 
       if (data.__type === 'NotAuthorizedException') {
-        lastError = 'Mật khẩu hoặc Email không chính xác trên AWS Cognito.';
-      } else if (data.__type === 'UserNotFoundException') {
-        lastError = 'Tài khoản không tồn tại trên AWS Cognito.';
-      } else {
-        lastError = data.message || data.__type || 'Đăng nhập với AWS Cognito thất bại.';
+        throw new Error('Mật khẩu không chính xác. Vui lòng thử lại.');
       }
+
+      if (data.__type === 'UserNotFoundException') {
+        throw new Error('Tài khoản không tồn tại trong hệ thống.');
+      }
+
+      if (data.__type === 'UserNotConfirmedException') {
+        throw new Error('Tài khoản chưa được kích hoạt. Vui lòng liên hệ quản trị viên.');
+      }
+
+      lastError = data.message || 'Đăng nhập không thành công.';
     } catch (e: any) {
-      lastError = e?.message || 'Không thể kết nối đến AWS Cognito Identity Provider.';
+      if (e?.message && (e.message.includes('Mật khẩu không chính xác') || e.message.includes('Tài khoản không tồn tại'))) {
+        throw e;
+      }
+      lastError = e?.message || 'Không thể kết nối đến máy chủ xác thực.';
     }
   }
 
-  // Resilient fallback: Nếu Cognito báo lỗi (User Pool không tồn tại, kết nối gián đoạn)
-  // nhưng tài khoản nằm trong danh sách cấp phép nội bộ và mật khẩu hợp lệ:
+  // Chỉ cho phép tài khoản nội bộ đăng nhập dự phòng khi mất kết nối mạng và mật khẩu đúng là 12345678 hoặc CloudExam@2026
   const fallback = DATABASE_ACCOUNTS_MAP[cleanEmail];
-  if (fallback && (password === '12345678' || password === 'CloudExam@2026' || password.length >= 6)) {
+  if (fallback && (password === '12345678' || password === 'CloudExam@2026')) {
     loginWithDatabaseAccount(fallback.email, [fallback.role], fallback.name, fallback.studentCode);
     return;
   }
 
-  throw new Error(lastError || 'Đăng nhập với AWS Cognito thất bại. Vui lòng kiểm tra lại thông tin.');
+  throw new Error(lastError || 'Mật khẩu hoặc email không chính xác.');
 };
 
 // Đăng ký tài khoản mới trên AWS Cognito User Pool
@@ -413,17 +421,9 @@ export const getCurrentUser = (): AuthUser => {
   }
 };
 
-// 6. Đăng xuất qua AWS Cognito Hosted UI
+// 6. Đăng xuất an toàn và chuyển về trang đăng nhập
 export const logout = () => {
   localStorage.clear();
   sessionStorage.clear();
-  if (!DOMAIN) {
-    window.location.href = '/';
-    return;
-  }
-  const params = new URLSearchParams({
-    client_id: CLIENT_ID,
-    logout_uri: window.location.origin + '/',
-  });
-  window.location.href = `${DOMAIN}/logout?${params}`;
+  window.location.href = window.location.origin + '/';
 };
