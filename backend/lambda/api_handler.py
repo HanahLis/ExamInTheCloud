@@ -116,13 +116,17 @@ def check_permission(claims, allowed_groups):
     return False
 
 def parse_iso_datetime(dt_str: str) -> datetime:
-    """Parse chuỗi datetime ISO 8601 sang UTC datetime object"""
+    """Parse chuỗi datetime ISO 8601 sang UTC datetime object (hỗ trợ cả naive và aware ISO format)"""
     if not dt_str:
         return datetime.now(timezone.utc)
     try:
-        if dt_str.endswith("Z"):
-            dt_str = dt_str[:-1] + "+00:00"
-        return datetime.fromisoformat(dt_str)
+        clean_str = str(dt_str).strip()
+        if clean_str.endswith("Z"):
+            clean_str = clean_str[:-1] + "+00:00"
+        dt = datetime.fromisoformat(clean_str)
+        if dt.tzinfo is None:
+            dt = dt.replace(tzinfo=timezone.utc)
+        return dt.astimezone(timezone.utc)
     except Exception:
         return datetime.now(timezone.utc)
 
