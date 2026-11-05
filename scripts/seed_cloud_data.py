@@ -576,17 +576,34 @@ def seed_dynamodb_data(dynamodb_resource, bucket_name: str):
 
     print("[OK] Nạp dữ liệu DynamoDB hoàn tất!")
 
-def update_frontend_env_file(frontend_dir: Path, outputs: dict):
+def update_frontend_env_file(frontend_dir: Path, outputs: dict, cognito_client=None, user_pool_id: str = ""):
     """Cập nhật tự động tệp frontend/.env với các output mới nhất từ AWS"""
     env_file = frontend_dir / ".env"
     print(f"\n[+] 4. CẬP NHẬT TỆP CẤU HÌNH FRONTEND (.env)...")
     
-    api_url = outputs.get("api_gateway_base_url", "https://fwal2cdsk6.execute-api.ap-southeast-1.amazonaws.com/dev")
-    user_pool_id = outputs.get("cognito_user_pool_id", "ap-southeast-1_CwhBKY2qd")
-    app_client_id = outputs.get("cognito_app_client_id", "l55eljk9ss1rp833i250abpbg")
-    identity_pool_id = outputs.get("cognito_identity_pool_id", "ap-southeast-1:57a28be3-0dcd-43f1-acc9-b8ac52f2aba0")
-    s3_bucket = outputs.get("s3_bucket_name", "cloudexam-storage-409289618109-dev")
-    cf_domain = outputs.get("cloudfront_distribution_domain_name", "d1k0y12z0om7mp.cloudfront.net")
+    api_url = outputs.get("api_gateway_base_url") or "https://rnscmnajqb.execute-api.ap-southeast-1.amazonaws.com/dev"
+    user_pool_id = outputs.get("cognito_user_pool_id") or user_pool_id or "ap-southeast-1_APCNvhyvS"
+    app_client_id = outputs.get("cognito_app_client_id")
+
+    # Dò tìm App Client ID thực tế từ AWS nếu outputs chưa có
+    if not app_client_id and cognito_client and user_pool_id:
+        try:
+            clis = cognito_client.list_user_pool_clients(UserPoolId=user_pool_id, MaxResults=10).get("UserPoolClients", [])
+            for c in clis:
+                if "web-client" in c.get("ClientName", "").lower():
+                    app_client_id = c["ClientId"]
+                    break
+            if not app_client_id and clis:
+                app_client_id = clis[0]["ClientId"]
+        except Exception as e:
+            print(f"[WARN] Không thể tìm App Client từ AWS SDK: {e}")
+
+    if not app_client_id:
+        app_client_id = "3jqaaldjlahan5fga8u73m28si"
+
+    identity_pool_id = outputs.get("cognito_identity_pool_id") or "ap-southeast-1:ff00c7a4-2e1c-40a8-a18c-2269b9d9071c"
+    s3_bucket = outputs.get("s3_bucket_name") or "cloudexam-storage-409289618109-dev"
+    cf_domain = outputs.get("cloudfront_distribution_domain_name") or "d1k3iyz5g06wtp.cloudfront.net"
     cf_url = f"https://{cf_domain}"
 
     # Giữ lại Gemini API Key hiện tại nếu đã có trong .env
@@ -689,7 +706,7 @@ def main():
     seed_dynamodb_data(dynamodb, s3_bucket)
 
     # 4. Cập nhật frontend/.env
-    update_frontend_env_file(frontend_dir, outputs)
+    update_frontend_env_file(frontend_dir, outputs, cognito_client=cognito_client, user_pool_id=user_pool_id)
 
     print("\n=================================================================")
     print("[SUCCESS] ĐÃ NẠP TOÀN BỘ DỮ LIỆU KIỂM THỬ THÀNH CÔNG LÊN AWS CLOUD!")
