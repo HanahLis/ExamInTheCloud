@@ -876,7 +876,7 @@ export const QuestionBankTab = ({ questions, onRefresh }: Props) => {
                     <textarea
                       value={importText}
                       onChange={(e) => setImportText(e.target.value)}
-                      placeholder="Dán nội dung đề thi có sẵn (Câu 1: ... A. ... B. ...) HOẶC nhập prompt yêu cầu Gemini soạn câu hỏi mới..."
+                      placeholder="Dán nội dung đề thi (trắc nghiệm hoặc tự luận) HOẶC nhập prompt prompt yêu cầu Gemini soạn câu hỏi mới..."
                       rows={6}
                       className="w-full p-2.5 border border-slate-200 rounded-md text-xs outline-none focus:border-slate-400 font-mono"
                     />
