@@ -428,6 +428,13 @@ export const DEFAULT_QUESTIONS: Question[] = [
 
 export const DEFAULT_CANDIDATES: Candidate[] = [
   {
+    studentCode: '24021598',
+    name: 'Phạm Tuấn Phong',
+    email: 'phongpt@vnu.edu.vn',
+    className: 'K66 - Khoa CNTT - UET',
+    faceImageUrl: `${S3_BASE}/faces/24021598.jpg`,
+  },
+  {
     studentCode: 'GV001',
     name: 'PGS. TS. Nguyễn Văn An',
     email: 'annv@uet.vnu.edu.vn',
@@ -544,6 +551,7 @@ export const DEFAULT_SESSIONS: ExamSession[] = [
       'q-se-010',
     ],
     candidateEmails: [
+      'phongpt@vnu.edu.vn',
       'annv@uet.vnu.edu.vn',
       'duc.tm24@vnu.edu.vn',
       'mai.lt24@vnu.edu.vn',
