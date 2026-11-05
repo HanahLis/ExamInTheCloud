@@ -54,7 +54,17 @@ def get_gemini_api_key():
         return ""
 
 dynamodb = boto3.resource("dynamodb", region_name=REGION)
-s3_client = boto3.client("s3", region_name=REGION)
+s3_config = Config(
+    region_name=REGION,
+    signature_version="s3v4",
+    s3={"addressing_style": "virtual"}
+)
+s3_client = boto3.client(
+    "s3",
+    region_name=REGION,
+    endpoint_url=f"https://s3.{REGION}.amazonaws.com",
+    config=s3_config
+)
 sqs_config = Config(connect_timeout=2, read_timeout=2, retries={'max_attempts': 1})
 sqs_client = boto3.client("sqs", region_name=REGION, config=sqs_config)
 sfn_client = boto3.client("stepfunctions", region_name=REGION)
