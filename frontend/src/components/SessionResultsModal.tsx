@@ -198,7 +198,7 @@ export default function SessionResultsModal({ isOpen, onClose, sessionId }: Resu
               className="px-3 py-1.5 bg-blue-600 text-white text-xs font-medium rounded hover:bg-blue-700 disabled:bg-slate-300 disabled:cursor-not-allowed transition flex items-center gap-1.5 cursor-pointer shadow-sm"
               title="Gửi email bảng điểm chi tiết tới Giảng viên qua Amazon SNS"
             >
-              {sendingReport ? '⏳ Đang gửi qua SNS...' : '📧 Gửi báo cáo Email (Amazon SNS)'}
+              {sendingReport ? 'Đang gửi qua SNS...' : 'Gửi báo cáo Email (Amazon SNS)'}
             </button>
           </div>
           <div className="flex gap-2">

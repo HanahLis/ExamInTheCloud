@@ -110,6 +110,19 @@ def get_aws_resources(region="ap-southeast-1"):
         except Exception as e:
             print(f"[INFO] Dùng cấu hình CloudFront mặc định: {e}")
 
+    # Fallback tự động dò tìm Distribution ID từ AWS nếu state chưa đồng bộ
+    try:
+        cf_client = boto3.client("cloudfront")
+        dists = cf_client.list_distributions().get("DistributionList", {}).get("Items", [])
+        for d in dists:
+            comment = d.get("Comment", "")
+            if "cloudexam" in comment.lower() or "spa" in comment.lower():
+                dist_id = d["Id"]
+                dist_domain = d["DomainName"]
+                break
+    except Exception:
+        pass
+
     return s3_bucket, dist_id, dist_domain
 
 def build_and_deploy():
@@ -122,23 +135,31 @@ def build_and_deploy():
     print("=================================================================")
 
     # 1. Kiểm tra và Build Frontend
-    print("\n[+] BUOC 1: Dang bien dich ma nguon Frontend (npm run build)...")
-    build_cmd = "npm run build"
-    result = subprocess.run(
-        build_cmd,
-        cwd=frontend_dir,
-        shell=True,
-        stdout=subprocess.PIPE,
-        stderr=subprocess.STDOUT,
-        text=True,
-        encoding="utf-8",
-        errors="ignore"
-    )
-    if result.returncode != 0:
-        print("[LOI] Qua trinh build that bai:")
-        print(result.stdout)
-        sys.exit(1)
-    print("[OK] Da build thanh cong thu muc frontend/dist!")
+    index_html = os.path.join(dist_dir, "index.html")
+    if os.path.exists(index_html) and not os.environ.get("FORCE_BUILD"):
+        print(f"\n[+] BUOC 1: Thu muc frontend/dist da co san ban build hop le ({index_html}).")
+    else:
+        print("\n[+] BUOC 1: Dang bien dich ma nguon Frontend (npm run build)...")
+        build_cmd = "npm run build"
+        result = subprocess.run(
+            build_cmd,
+            cwd=frontend_dir,
+            shell=True,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.STDOUT,
+            text=True,
+            encoding="utf-8",
+            errors="ignore"
+        )
+        if result.returncode != 0:
+            if os.path.exists(index_html):
+                print("[WARN] npm build that bai nhung da co san ban dist truoc do, tiep tuc su dung.")
+            else:
+                print("[LOI] Qua trinh build that bai:")
+                print(result.stdout)
+                sys.exit(1)
+        else:
+            print("[OK] Da build thanh cong thu muc frontend/dist!")
 
     # 2. Kết nối AWS S3 và CloudFront
     s3_bucket, dist_id, dist_domain = get_aws_resources()

@@ -163,23 +163,36 @@ output "cloudfront_distribution_id" {
   value       = aws_cloudfront_distribution.spa_distribution.id
 }
 
-# 7. Tu dong build va upload Frontend len S3 & CloudFront khi terraform apply
+# 7. Tu dong nap du lieu mau Cloud (Cognito, DynamoDB, S3) & Deploy Frontend khi terraform apply
 # Dam bao file .env luon duoc cap nhat truoc khi deploy_frontend.py build Vite
 resource "terraform_data" "frontend_build_deploy" {
   triggers_replace = [
     aws_cloudfront_distribution.spa_distribution.id,
     aws_s3_bucket.frontend_hosting.id,
-    local_file.frontend_env.content_sha256
+    local_file.frontend_env.content_sha256,
+    aws_dynamodb_table.questions.id,
+    aws_dynamodb_table.exam_sessions.id,
+    aws_s3_bucket.image_storage.id,
+    aws_cognito_user_pool.main.id
   ]
 
   provisioner "local-exec" {
-    command = "python ${path.module}/../../scripts/deploy_frontend.py"
+    command = "python ${path.module}/../../scripts/seed_cloud_data.py && python ${path.module}/../../scripts/deploy_frontend.py"
   }
 
   depends_on = [
     local_file.frontend_env,
     aws_s3_bucket.frontend_hosting,
+    aws_s3_bucket.image_storage,
     aws_s3_bucket_policy.frontend_hosting_oac_policy,
-    aws_cloudfront_distribution.spa_distribution
+    aws_cloudfront_distribution.spa_distribution,
+    aws_dynamodb_table.question_banks,
+    aws_dynamodb_table.questions,
+    aws_dynamodb_table.candidates,
+    aws_dynamodb_table.exam_sessions,
+    aws_cognito_user_pool.main,
+    aws_cognito_user_pool_client.web_client,
+    aws_cognito_user.lecturer_an,
+    aws_cognito_user.candidate_duc
   ]
 }

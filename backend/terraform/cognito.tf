@@ -10,13 +10,13 @@ resource "aws_cognito_user_pool" "main" {
   username_attributes      = ["email"]
   auto_verified_attributes = ["email"]
 
-  # Chính sách mật khẩu an toàn
+  # Chính sách mật khẩu linh hoạt cho demo và thực tế (Hỗ trợ mật khẩu demo 12345678)
   password_policy {
     minimum_length                   = 8
-    require_lowercase                = true
+    require_lowercase                = false
     require_numbers                  = true
-    require_symbols                  = true
-    require_uppercase                = true
+    require_symbols                  = false
+    require_uppercase                = false
     temporary_password_validity_days = 7
   }
 
@@ -166,6 +166,73 @@ resource "aws_cognito_user_group" "candidate" {
   user_pool_id = aws_cognito_user_pool.main.id
   description  = "Thí sinh tham gia thi trực tuyến"
   precedence   = 3
+}
+
+# 4.1. Tài khoản Demo mặc định được tạo sẵn trên Cloud khi terraform apply
+# Tài khoản Giảng viên / Ban tổ chức: annv@uet.vnu.edu.vn (MK: 12345678)
+resource "aws_cognito_user" "lecturer_an" {
+  user_pool_id   = aws_cognito_user_pool.main.id
+  username       = "annv@uet.vnu.edu.vn"
+  password       = "12345678"
+  message_action = "SUPPRESS"
+
+  attributes = {
+    email            = "annv@uet.vnu.edu.vn"
+    email_verified   = "true"
+    name             = "PGS. TS. Nguyễn Văn An"
+    student_code     = "GV001"
+    "custom:tenant_id" = "vn"
+  }
+}
+
+resource "aws_cognito_user_in_group" "lecturer_an_group" {
+  user_pool_id = aws_cognito_user_pool.main.id
+  group_name   = aws_cognito_user_group.organizer.name
+  username     = aws_cognito_user.lecturer_an.username
+}
+
+# Tài khoản Thí sinh mẫu: duc.tm24@vnu.edu.vn (MK: 12345678)
+resource "aws_cognito_user" "candidate_duc" {
+  user_pool_id   = aws_cognito_user_pool.main.id
+  username       = "duc.tm24@vnu.edu.vn"
+  password       = "12345678"
+  message_action = "SUPPRESS"
+
+  attributes = {
+    email            = "duc.tm24@vnu.edu.vn"
+    email_verified   = "true"
+    name             = "Trần Minh Đức"
+    student_code     = "24020001"
+    "custom:tenant_id" = "vn"
+  }
+}
+
+resource "aws_cognito_user_in_group" "candidate_duc_group" {
+  user_pool_id = aws_cognito_user_pool.main.id
+  group_name   = aws_cognito_user_group.candidate.name
+  username     = aws_cognito_user.candidate_duc.username
+}
+
+# Tài khoản Quản trị viên: tranducmanh2006@gmail.com (MK: 12345678)
+resource "aws_cognito_user" "organizer_manh" {
+  user_pool_id   = aws_cognito_user_pool.main.id
+  username       = "tranducmanh2006@gmail.com"
+  password       = "12345678"
+  message_action = "SUPPRESS"
+
+  attributes = {
+    email            = "tranducmanh2006@gmail.com"
+    email_verified   = "true"
+    name             = "Trần Đức Mạnh"
+    student_code     = "24021561"
+    "custom:tenant_id" = "vn"
+  }
+}
+
+resource "aws_cognito_user_in_group" "organizer_manh_group" {
+  user_pool_id = aws_cognito_user_pool.main.id
+  group_name   = aws_cognito_user_group.admin.name
+  username     = aws_cognito_user.organizer_manh.username
 }
 
 # 5. Cognito Identity Pool (Federated Identities)

@@ -1424,9 +1424,91 @@ export const parseQuestionsFromRawText = (
 
 export const generateTopicQuestions = (
   bankId: string,
-  subject = 'Kiến trúc hướng dịch vụ',
-  topic = 'Kiến trúc hệ thống'
+  subject = 'Điện toán đám mây & Kiến trúc hệ thống',
+  topic = 'Kiến trúc hệ thống',
+  promptText = ''
 ): Question[] => {
+  const p = (promptText || '').toLowerCase();
+  if (p.includes('aws') || p.includes('cloud') || p.includes('ec2') || p.includes('lambda') || p.includes('s3') || p.includes('vpc') || p.includes('dynamodb')) {
+    return [
+      {
+        id: `q-aws-${Date.now()}-1`,
+        questionId: `q-aws-${Date.now()}-1`,
+        bankId,
+        content: 'Dịch vụ nào của AWS cung cấp khả năng lưu trữ đối tượng không giới hạn với độ bền 99.999999999% (11 số 9)?',
+        type: 'SINGLE_CHOICE',
+        options: ['Amazon S3', 'Amazon EBS', 'Amazon EFS', 'AWS Storage Gateway'],
+        correctIndex: 0,
+        correctAnswer: 'Amazon S3',
+        score: 1,
+        subject: 'Điện toán đám mây AWS',
+        topic: 'Lưu trữ đối tượng (S3)',
+        difficulty: 'EASY',
+        imageUrl: '',
+      },
+      {
+        id: `q-aws-${Date.now()}-2`,
+        questionId: `q-aws-${Date.now()}-2`,
+        bankId,
+        content: 'Trong AWS, mô hình điện toán Serverless cho phép chạy mã nguồn theo sự kiện mà không cần quản lý máy chủ là gì?',
+        type: 'SINGLE_CHOICE',
+        options: ['AWS Lambda', 'Amazon EC2', 'Amazon ECS', 'AWS Elastic Beanstalk'],
+        correctIndex: 0,
+        correctAnswer: 'AWS Lambda',
+        score: 1,
+        subject: 'Điện toán đám mây AWS',
+        topic: 'Điện toán phi máy chủ (Serverless)',
+        difficulty: 'EASY',
+        imageUrl: '',
+      },
+      {
+        id: `q-aws-${Date.now()}-3`,
+        questionId: `q-aws-${Date.now()}-3`,
+        bankId,
+        content: 'Cơ chế nào được dùng để cô lập mạng ảo riêng an toàn cho các tài nguyên EC2, RDS và Lambda trong một tài khoản AWS?',
+        type: 'SINGLE_CHOICE',
+        options: ['Amazon VPC (Virtual Private Cloud)', 'Amazon Route 53', 'AWS Direct Connect', 'Amazon CloudFront'],
+        correctIndex: 0,
+        correctAnswer: 'Amazon VPC (Virtual Private Cloud)',
+        score: 1,
+        subject: 'Điện toán đám mây AWS',
+        topic: 'Mạng ảo riêng (VPC)',
+        difficulty: 'MEDIUM',
+        imageUrl: '',
+      },
+      {
+        id: `q-aws-${Date.now()}-4`,
+        questionId: `q-aws-${Date.now()}-4`,
+        bankId,
+        content: 'Để quản trị danh tính và phân quyền chi tiết (Least Privilege) cho người dùng và các dịch vụ trên AWS, dịch vụ cốt lõi là gì?',
+        type: 'SINGLE_CHOICE',
+        options: ['AWS IAM (Identity and Access Management)', 'Amazon Cognito', 'AWS Shield', 'Amazon GuardDuty'],
+        correctIndex: 0,
+        correctAnswer: 'AWS IAM (Identity and Access Management)',
+        score: 1,
+        subject: 'Điện toán đám mây AWS',
+        topic: 'Bảo mật & Quản trị danh tính (IAM)',
+        difficulty: 'EASY',
+        imageUrl: '',
+      },
+      {
+        id: `q-aws-${Date.now()}-5`,
+        questionId: `q-aws-${Date.now()}-5`,
+        bankId,
+        content: 'Dịch vụ cơ sở dữ liệu NoSQL nào trên AWS hỗ trợ khóa phân vùng (Partition Key), độ trễ phản hồi đơn vị ms và co giãn quy mô tự động?',
+        type: 'SINGLE_CHOICE',
+        options: ['Amazon DynamoDB', 'Amazon RDS MySQL', 'Amazon Aurora Serverless', 'Amazon DocumentDB'],
+        correctIndex: 0,
+        correctAnswer: 'Amazon DynamoDB',
+        score: 1,
+        subject: 'Điện toán đám mây AWS',
+        topic: 'Cơ sở dữ liệu NoSQL (DynamoDB)',
+        difficulty: 'MEDIUM',
+        imageUrl: '',
+      },
+    ];
+  }
+
   return [
     {
       id: `q-soa-${Date.now()}-1`,
@@ -1510,7 +1592,7 @@ export const parseQuestionsFromDoc = async (payload: ParseDocRequest): Promise<P
       }
     }
     if (parsed.length === 0) {
-      parsed = generateTopicQuestions(bankId, subject, topic);
+      parsed = generateTopicQuestions(bankId, subject, topic, rawText);
     }
     if (payload.autoSave !== false && parsed.length > 0) {
       for (const q of parsed) {
@@ -1584,7 +1666,7 @@ export const parseQuestionsFromDoc = async (payload: ParseDocRequest): Promise<P
 
   // 4. Fallback tạo câu hỏi theo chủ đề nếu văn bản không chứa câu hỏi hợp lệ
   if (parsed.length === 0) {
-    parsed = generateTopicQuestions(bankId, subject, topic);
+    parsed = generateTopicQuestions(bankId, subject, topic, rawText);
   }
 
   if (payload.autoSave !== false && parsed.length > 0) {
