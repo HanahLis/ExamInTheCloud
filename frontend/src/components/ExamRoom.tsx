@@ -234,7 +234,7 @@ export const ExamRoom = ({ sessionId, currentUserEmail = '', isOrganizer = false
         setCameraActive(true);
       }
     } catch (e) {
-      alert('Không thể mở camera: ' + e + '. Bạn có thể chọn cách tải ảnh từ thiết bị.');
+      alert(`${t('alert_camera_error')} (${e})`);
     }
   };
 
@@ -280,8 +280,8 @@ export const ExamRoom = ({ sessionId, currentUserEmail = '', isOrganizer = false
   };
 
   const handleVerifyFace = async () => {
-    if (!capturedImage) return alert('Vui lòng chụp ảnh khuôn mặt trước khi xác thực.');
-    if (!candidateEmail) return alert('Vui lòng chọn thí sinh.');
+    if (!capturedImage) return alert(t('alert_capture_face_required'));
+    if (!candidateEmail) return alert(t('alert_select_candidate_required'));
 
     setIsVerifying(true);
     setVerifyResult(null);
@@ -343,7 +343,7 @@ export const ExamRoom = ({ sessionId, currentUserEmail = '', isOrganizer = false
   };
 
   const handleSubmitExam = async (isAutoSubmit = false) => {
-    if (!isAutoSubmit && !confirm('Bạn có chắc chắn muốn nộp bài thi?')) return;
+    if (!isAutoSubmit && !confirm(t('exam_submit_confirm'))) return;
     setIsSubmitting(true);
     try {
       // Đồng bộ bài nháp lần cuối trước khi nộp
@@ -359,10 +359,10 @@ export const ExamRoom = ({ sessionId, currentUserEmail = '', isOrganizer = false
       setSubmitResult(res.result);
       setStep('COMPLETED');
       if (isAutoSubmit) {
-        alert('Hết giờ làm bài. Bài thi đã được tự động nộp.');
+        alert(t('alert_time_up_auto_submit'));
       }
     } catch (err: any) {
-      alert('Lỗi nộp bài: ' + (err?.response?.data?.error || err?.message || err));
+      alert(`${t('alert_submit_exam_error')} ${err?.response?.data?.error || err?.message || err}`);
     } finally {
       setIsSubmitting(false);
     }

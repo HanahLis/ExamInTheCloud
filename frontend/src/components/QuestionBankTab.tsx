@@ -183,7 +183,7 @@ export const QuestionBankTab = ({ questions, onRefresh }: Props) => {
   // Tạo ngân hàng câu hỏi mới
   const handleCreateBank = async (e: FormEvent) => {
     e.preventDefault();
-    if (!newBankName.trim()) return alert('Vui lòng nhập tên ngân hàng câu hỏi.');
+    if (!newBankName.trim()) return alert(t('alert_enter_bank_name'));
     setCreatingBank(true);
     try {
       const created = await createQuestionBank({
@@ -201,7 +201,7 @@ export const QuestionBankTab = ({ questions, onRefresh }: Props) => {
       setNewBankDesc('');
       setShowCreateBankModal(false);
     } catch (err) {
-      alert('Lỗi tạo ngân hàng câu hỏi: ' + err);
+      alert(`${t('alert_create_bank_error')} ${err}`);
     } finally {
       setCreatingBank(false);
     }
@@ -215,7 +215,7 @@ export const QuestionBankTab = ({ questions, onRefresh }: Props) => {
 
   const handleRemoveOption = (indexToRemove: number) => {
     if (options.length <= 2) {
-      return alert('Mỗi câu hỏi phải có tối thiểu 2 phương án trả lời.');
+      return alert(t('alert_min_two_options'));
     }
     setOptions((prev) => prev.filter((_, i) => i !== indexToRemove));
     if (correctIndex === indexToRemove) {
@@ -277,15 +277,15 @@ export const QuestionBankTab = ({ questions, onRefresh }: Props) => {
   const handleSubmit = async (e: FormEvent) => {
     e.preventDefault();
     if (!content.trim()) {
-      return alert('Vui lòng nhập nội dung câu hỏi.');
+      return alert(t('alert_enter_question_content'));
     }
 
     if (questionType !== 'ESSAY') {
       if (options.length < 2) {
-        return alert('Câu hỏi trắc nghiệm phải có ít nhất 2 phương án trả lời.');
+        return alert(t('alert_choice_min_options'));
       }
       if (options.some((o) => !o.trim())) {
-        return alert('Vui lòng nhập đầy đủ nội dung cho tất cả các phương án trả lời.');
+        return alert(t('alert_fill_all_options'));
       }
     }
 
@@ -343,7 +343,7 @@ export const QuestionBankTab = ({ questions, onRefresh }: Props) => {
       resetForm();
       await onRefresh();
     } catch (err) {
-      alert('Lỗi lưu câu hỏi: ' + err);
+      alert(`${t('alert_save_question_error')} ${err}`);
     } finally {
       setLoading(false);
       setUploadStatus('');
@@ -352,20 +352,20 @@ export const QuestionBankTab = ({ questions, onRefresh }: Props) => {
 
   // Xóa câu hỏi
   const handleDelete = async (q: Question) => {
-    if (!confirm(`Bạn có chắc chắn muốn xóa câu hỏi "${q.content.substring(0, 50)}..."?`)) return;
+    if (!confirm(t('confirm_delete_question'))) return;
     try {
       await deleteQuestion(q.id);
       if (editingId === q.id) resetForm();
       await onRefresh();
     } catch (err) {
-      alert('Lỗi xóa câu hỏi: ' + err);
+      alert(`${t('alert_delete_question_error')} ${err}`);
     }
   };
 
   // Xóa vĩnh viễn ngân hàng câu hỏi trên AWS DynamoDB (CloudExam_QuestionBanks_dev & CloudExam_Questions_dev)
   const handleDeleteBank = async (bank: QuestionBank) => {
     const bankQs = lecturerQuestions.filter((q) => q.bankId === bank.id);
-    const confirmMsg = `Bạn có chắc chắn muốn xóa vĩnh viễn ngân hàng "${bank.name}" và toàn bộ ${bankQs.length} câu hỏi thuộc ngân hàng này trên hệ thống lưu trữ AWS?`;
+    const confirmMsg = `${t('confirm_delete_bank_full')} (${bank.name} - ${bankQs.length} ${t('sess_questions_unit')})`;
     if (!window.confirm(confirmMsg)) return;
 
     setDeletingBankId(bank.id);
@@ -876,7 +876,7 @@ export const QuestionBankTab = ({ questions, onRefresh }: Props) => {
                     <textarea
                       value={importText}
                       onChange={(e) => setImportText(e.target.value)}
-                      placeholder="Dán nội dung đề thi có sẵn (Câu 1: ... A. ... B. ...) HOẶC nhập prompt yêu cầu Gemini soạn câu hỏi mới..."
+                      placeholder={t('qb_import_prompt_placeholder')}
                       rows={6}
                       className="w-full p-2.5 border border-slate-200 rounded-md text-xs outline-none focus:border-slate-400 font-mono"
                     />

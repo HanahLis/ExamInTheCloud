@@ -31,6 +31,11 @@ import { ExamSessionTab } from './components/ExamSessionTab';
 import { ExamRoom } from './components/ExamRoom';
 import { useTheme } from './themes/themeContext';
 import { useTranslation, type Language } from './locales/i18nContext';
+import {
+  detectCountryFromLocation,
+  switchCountryDomain,
+  COUNTRY_DOMAINS,
+} from './services/domainService';
 
 type Tab = 'questions' | 'candidates' | 'session' | 'exam_test';
 
@@ -38,16 +43,37 @@ export const CountryLanguageBar = () => {
   const { themeName, setThemeName } = useTheme();
   const { lang, setLang, t } = useTranslation();
 
+  // Tự động phát hiện miền trên URL khi khởi chạy
+  useEffect(() => {
+    const detected = detectCountryFromLocation();
+    if (detected.isCustomDomain && detected.countryId !== themeName) {
+      setThemeName(detected.countryId);
+      setLang(detected.lang);
+    }
+  }, []);
+
   const handleCountryChange = (c: string) => {
     setThemeName(c);
-    if (c === 'vn') setLang('vi');
-    else if (c === 'la') setLang('la');
-    else if (c === 'de') setLang('de');
-    else setLang('en');
+    const domainCfg = COUNTRY_DOMAINS[c];
+    if (domainCfg) {
+      setLang(domainCfg.defaultLang);
+      switchCountryDomain(c);
+    }
   };
+
+  const currentDomain = COUNTRY_DOMAINS[themeName]?.domain || COUNTRY_DOMAINS.default.domain;
 
   return (
     <div className="flex items-center gap-2">
+      {/* Huy hiệu tên miền tương ứng với quốc gia */}
+      <span
+        className="hidden lg:inline-flex items-center gap-1 text-[11px] font-mono bg-slate-100 text-slate-700 px-2 py-0.5 rounded border border-slate-200"
+        title={`${t('domain_current_hint')} https://${currentDomain}`}
+      >
+        <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse"></span>
+        {currentDomain}
+      </span>
+
       <div className="flex items-center gap-1.5 bg-slate-50 px-2 py-1 rounded-md border border-slate-200">
         <span className="text-xs text-slate-500">{t('country_label')}:</span>
         <select
@@ -55,10 +81,10 @@ export const CountryLanguageBar = () => {
           onChange={(e) => handleCountryChange(e.target.value)}
           className="text-xs bg-white border border-slate-200 rounded px-2 py-0.5 font-medium text-slate-700 cursor-pointer outline-none focus:border-slate-400"
         >
-          <option value="vn">{t('country_vn')}</option>
-          <option value="la">{t('country_la')}</option>
-          <option value="de">{t('country_de')}</option>
-          <option value="default">{t('country_intl')}</option>
+          <option value="vn">🇻🇳 {t('country_vn')} (vietnam.cloudexam.com)</option>
+          <option value="la">🇱🇦 {t('country_la')} (lao.cloudexam.com)</option>
+          <option value="de">🇩🇪 {t('country_de')} (germany.cloudexam.com)</option>
+          <option value="default">🌐 {t('country_intl')} (cloudexam.com)</option>
         </select>
       </div>
 
@@ -357,11 +383,11 @@ export default function App() {
     setSyncing(true);
     setSyncNotice(null);
     try {
-      const res = await syncCloudDatabaseToProduction();
-      setSyncNotice(res.message);
+      await syncCloudDatabaseToProduction();
+      setSyncNotice(t('notice_sync_success'));
       await refreshAll();
     } catch (err: any) {
-      setSyncNotice('Lỗi đồng bộ dữ liệu: ' + (err?.response?.data?.error || err?.message || err));
+      setSyncNotice(`${t('notice_sync_error')} ${err?.response?.data?.error || err?.message || err}`);
     } finally {
       setSyncing(false);
     }
@@ -374,14 +400,14 @@ export default function App() {
     const handleLogin = async (e: React.FormEvent) => {
       e.preventDefault();
       if (!loginEmail.trim() || !loginPassword.trim()) {
-        return alert('Vui lòng nhập đầy đủ Email và Mật khẩu.');
+        return alert(t('alert_enter_email_password'));
       }
       setLoginLoading(true);
       try {
         await loginWithCognitoPassword(loginEmail.trim(), loginPassword);
         window.location.reload();
       } catch (err: any) {
-        alert(err?.message || 'Đăng nhập thất bại.');
+        alert(err?.message || t('alert_login_failed'));
       } finally {
         setLoginLoading(false);
       }
@@ -467,13 +493,13 @@ export default function App() {
   const handleAddCandidate = async (candidate: Candidate) => {
     const saved = await createCandidate(candidate);
     setCandidates((prev) => [...prev.filter((c) => c.email !== saved.email), saved]);
-    setSyncNotice(`Đã lưu thí sinh "${candidate.name}" (${candidate.email}) vào hệ thống.`);
+    setSyncNotice(`${t('notice_candidate_saved')} (${candidate.name} - ${candidate.email})`);
   };
 
   const handleRemoveCandidate = async (email: string) => {
     await deleteCandidate(email);
     setCandidates((prev) => prev.filter((c) => c.email !== email));
-    setSyncNotice(`Đã xóa thí sinh "${email}" khỏi hệ thống.`);
+    setSyncNotice(`${t('notice_candidate_deleted')} (${email})`);
   };
 
   const handleCreateSession = async (
@@ -585,7 +611,7 @@ export default function App() {
             onClick={handleSyncToCloud}
             disabled={syncing}
             className="px-2.5 py-1 text-slate-700 hover:text-slate-900 border border-slate-200 rounded text-xs transition cursor-pointer disabled:opacity-50"
-            title="Đồng bộ dữ liệu"
+            title={t('sync_cloud')}
           >
             {syncing ? t('syncing_cloud') : t('sync_cloud')}
           </button>
