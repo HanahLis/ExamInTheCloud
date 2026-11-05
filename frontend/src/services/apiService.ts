@@ -1054,30 +1054,8 @@ export const verifyFace = async (req: FaceVerifyRequest): Promise<FaceVerifyResp
     }
   }
 
-  // 3. Đồng bộ ảnh thẻ của targetCandidate vào profile đăng nhập
-  // Vì AWS Lambda hiện tại truy vấn ảnh thẻ theo token caller (annv@uet.vnu.edu.vn)
-  const isDifferentCandidate = Boolean(
-    targetEmail && targetEmail !== 'annv@uet.vnu.edu.vn' && candidateFaceKey
-  );
-  let needRestore = false;
-
-  if (isDifferentCandidate) {
-    try {
-      await api.post('/candidates', {
-        email: 'annv@uet.vnu.edu.vn',
-        name: 'PGS. TS. Nguyễn Văn An',
-        className: 'Giảng viên',
-        studentCode: 'GV001',
-        faceImageUrl: candidateFaceKey,
-      });
-      needRestore = true;
-    } catch (err) {
-      console.warn('Lỗi đồng bộ ảnh thẻ thí sinh:', err);
-    }
-  }
-
   try {
-    // 4. Gửi yêu cầu đối soát khuôn mặt tới Amazon Rekognition qua Lambda
+    // 3. Gửi yêu cầu đối soát khuôn mặt tới Amazon Rekognition qua Lambda
     // Ưu tiên truyền capturedS3Key (~100 bytes) để tối ưu và tránh vượt giới hạn kích thước request body WAF
     const payload: {
       sessionId: string;
@@ -1126,7 +1104,7 @@ export const verifyFace = async (req: FaceVerifyRequest): Promise<FaceVerifyResp
     let friendlyMessage = msg;
     if (msg === 'Forbidden' || err?.response?.status === 403) {
       friendlyMessage =
-        'Khuôn mặt không khớp với ảnh hồ sơ thí sinh (Độ tương đồng < 80%) hoặc phiên làm việc đã hết hạn. Hãy bấm nút [Dùng làm ảnh thẻ mẫu (Test khớp 100%)] ở phía trên rồi bấm Xác thực lại.';
+        'Khuôn mặt không khớp với ảnh hồ sơ thí sinh (Độ tương đồng < 80%) hoặc phiên làm việc đã hết hạn. Vui lòng chụp lại rõ mặt hoặc liên hệ Giám thị.';
     }
 
     return {
@@ -1136,21 +1114,6 @@ export const verifyFace = async (req: FaceVerifyRequest): Promise<FaceVerifyResp
       candidateName: candidateName || targetEmail,
       message: friendlyMessage || 'Xác thực sinh trắc học không thành công.',
     };
-  } finally {
-    // 5. Khôi phục lại ảnh thẻ gốc của giảng viên / tài khoản khảo thí
-    if (needRestore) {
-      try {
-        await api.post('/candidates', {
-          email: 'annv@uet.vnu.edu.vn',
-          name: 'PGS. TS. Nguyễn Văn An',
-          className: 'Giảng viên',
-          studentCode: 'GV001',
-          faceImageUrl: 'faces/annv.jpg',
-        });
-      } catch (err) {
-        console.warn('Lỗi khôi phục ảnh thẻ annv:', err);
-      }
-    }
   }
 };
 

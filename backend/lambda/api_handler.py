@@ -1305,6 +1305,10 @@ def lambda_handler(event, context):
                 return build_response(200, clean_items)
 
             elif http_method == "POST":
+                # Strict RBAC: Chỉ Giảng viên/Ban tổ chức (Organizer hoặc Admin) mới có quyền tạo ca thi
+                if claims.get("email") and not is_admin_or_organizer:
+                    return build_response(403, {"error": "Chỉ Giảng viên/Ban tổ chức (Organizer) mới có quyền tạo ca thi."})
+
                 session_id = body.get("id") or f"EX{datetime.now().strftime('%Y%m%d%H%M%S')}"
                 start_time_str = body.get("startTime", "")
                 end_time_str = body.get("endTime", "")
@@ -1373,6 +1377,10 @@ def lambda_handler(event, context):
                 return build_response(200, item)
 
             elif http_method == "PUT":
+                # Strict RBAC: Chỉ Giảng viên/Ban tổ chức (Organizer hoặc Admin) mới có quyền cập nhật ca thi
+                if claims.get("email") and not is_admin_or_organizer:
+                    return build_response(403, {"error": "Chỉ Giảng viên/Ban tổ chức (Organizer) mới có quyền cập nhật trạng thái ca thi."})
+
                 status = body.get("status")
                 candidate_emails = body.get("candidateEmails")
 

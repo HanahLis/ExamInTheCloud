@@ -487,6 +487,7 @@ export default function App() {
         <ExamRoom
           sessionId={activeExamSessionId}
           currentUserEmail={user.email}
+          isOrganizer={isAdminOrOrganizer}
           onExit={exitExamRoom}
         />
       </div>
