@@ -33,7 +33,7 @@ variable "s3_bucket_name" {
 variable "cognito_domain_prefix" {
   description = "Domain prefix cho Cognito Hosted UI (duy nhất trong AWS Region)"
   type        = string
-  default     = "cloudexam-auth-645123576198-dev"
+  default     = "cloudexam-auth-dev"
 }
 
 variable "frontend_callback_urls" {

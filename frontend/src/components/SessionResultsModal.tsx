@@ -75,11 +75,11 @@ export default function SessionResultsModal({ isOpen, onClose, sessionId }: Resu
       setSendingReport(true);
       setReportFeedback(null);
       const res = await sendSessionReport(sessionId);
-      setReportFeedback(res.message || 'Đã gửi email báo cáo tổng hợp ca thi qua Amazon SNS thành công!');
+      setReportFeedback(res.message || 'Đã gửi email báo cáo tổng hợp ca thi thành công!');
       setTimeout(() => setReportFeedback(null), 6000);
     } catch (err: any) {
-      console.error('Lỗi gửi báo cáo qua SNS:', err);
-      alert(err?.response?.data?.error || err?.message || 'Lỗi gửi email báo cáo qua SNS.');
+      console.error('Lỗi gửi email báo cáo:', err);
+      alert(err?.response?.data?.error || err?.message || 'Lỗi gửi email báo cáo.');
     } finally {
       setSendingReport(false);
     }
@@ -198,9 +198,9 @@ export default function SessionResultsModal({ isOpen, onClose, sessionId }: Resu
               onClick={handleSendSNSReport}
               disabled={loading || sendingReport || results.length === 0}
               className="px-3 py-1.5 bg-blue-600 text-white text-xs font-medium rounded hover:bg-blue-700 disabled:bg-slate-300 disabled:cursor-not-allowed transition flex items-center gap-1.5 cursor-pointer shadow-sm"
-              title="Amazon SNS Email"
+              title={t('sess_send_sns') || "Gửi email báo cáo"}
             >
-              {sendingReport ? t('loading') : 'Amazon SNS Email'}
+              {sendingReport ? t('loading') : (t('sess_send_sns') || 'Gửi email báo cáo')}
             </button>
           </div>
           <div className="flex gap-2">
