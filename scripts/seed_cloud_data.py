@@ -662,23 +662,7 @@ VITE_CLOUDFRONT_URL={cf_url}
 # CẤU HÌNH GOOGLE GEMINI AI (Trích xuất đề thi & Gia sư ảo AI)
 # ==============================================================================
 VITE_GEMINI_API_KEY={existing_key}
-VITE_GEMINI_MODEL=gemini-2.5-flash
-"""
-
-# Cognito Identity Pool ID
-VITE_IDENTITY_POOL_ID={identity_pool_id}
-
-# Tên S3 Bucket lưu trữ ảnh thẻ và sơ đồ
-VITE_S3_BUCKET_NAME={s3_bucket}
-
-# CloudFront Website URL
-VITE_CLOUDFRONT_URL={cf_url}
-
-# ==============================================================================
-# CẤU HÌNH GOOGLE GEMINI AI (Trích xuất đề thi & Gia sư ảo AI)
-# ==============================================================================
-VITE_GEMINI_API_KEY={existing_key}
-VITE_GEMINI_MODEL=gemini-2.5-flash
+VITE_GEMINI_MODEL=gemini-3.8-flash
 """
     try:
         with open(env_file, "w", encoding="utf-8") as f:

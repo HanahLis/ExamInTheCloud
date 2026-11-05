@@ -1,10 +1,10 @@
-const DOMAIN = import.meta.env.VITE_COGNITO_DOMAIN; // gồm cả https://
-const CLIENT_ID = import.meta.env.VITE_COGNITO_CLIENT_ID;
+const DOMAIN = (import.meta.env.VITE_COGNITO_DOMAIN || '').trim().replace(/\/+$/, '');
+const CLIENT_ID = (import.meta.env.VITE_COGNITO_CLIENT_ID || '').trim();
 export const getRedirectUri = (): string => {
   if (typeof window !== 'undefined' && window.location.origin) {
     return `${window.location.origin}/callback`;
   }
-  return import.meta.env.VITE_COGNITO_REDIRECT_URI || 'http://localhost:5173/callback';
+  return (import.meta.env.VITE_COGNITO_REDIRECT_URI || 'http://localhost:5173/callback').trim();
 };
 
 export interface AuthUser {
@@ -229,7 +229,8 @@ const sha256Challenge = async (verifier: string) =>
   base64Url(new Uint8Array(await crypto.subtle.digest('SHA-256', new TextEncoder().encode(verifier))));
 
 // 1. Chuyển hướng sang Cognito Hosted UI
-export const redirectToCognitoLogin = async (isSignUp = false) => {
+export const redirectToCognitoLogin = async (isSignUp?: boolean | unknown) => {
+  const isDirectSignUp = isSignUp === true;
   if (!DOMAIN || !CLIENT_ID) {
     alert('Hệ thống chưa tìm thấy cấu hình Cognito Domain hoặc Client ID. Vui lòng kiểm tra lại tệp cấu hình .env.');
     return;
@@ -249,7 +250,7 @@ export const redirectToCognitoLogin = async (isSignUp = false) => {
     code_challenge: await sha256Challenge(verifier),
     code_challenge_method: 'S256',
   });
-  const endpoint = isSignUp ? `${DOMAIN}/signup` : `${DOMAIN}/oauth2/authorize`;
+  const endpoint = isDirectSignUp ? `${DOMAIN}/signup` : `${DOMAIN}/oauth2/authorize`;
   window.location.href = `${endpoint}?${params}`;
 };
 

@@ -470,7 +470,7 @@ def parse_questions_with_gemini(raw_text: str, subject: str = "Điện toán đ�
     # Danh sách model kiểm chứng thực tế trên Google AI Studio
     # Ưu tiên model người dùng cấu hình, sau đó tuần tự dự phòng sang các model flash siêu tốc
     models_to_try = [primary_model]
-    for fb in ["gemini-2.5-flash", "gemini-2.0-flash", "gemini-1.5-flash", "gemini-1.5-pro", "gemini-3.8-flash", "gemini-3.6-flash"]:
+    for fb in ["gemini-3.8-flash", "gemini-3.1-flash-lite", "gemini-2.5-flash-lite", "gemini-3.5-flash", "gemini-3.6-flash", "gemini-1.5-flash"]:
         if fb not in models_to_try:
             models_to_try.append(fb)
 
@@ -569,7 +569,7 @@ YÊU CẦU:
 """
 
     models_to_try = [primary_model]
-    for fb in ["gemini-2.5-flash", "gemini-2.0-flash", "gemini-1.5-flash", "gemini-1.5-pro", "gemini-3.8-flash", "gemini-3.6-flash"]:
+    for fb in ["gemini-3.8-flash", "gemini-3.1-flash-lite", "gemini-2.5-flash-lite", "gemini-3.5-flash", "gemini-3.6-flash", "gemini-1.5-flash"]:
         if fb not in models_to_try:
             models_to_try.append(fb)
 

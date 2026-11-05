@@ -17,7 +17,7 @@ VITE_COGNITO_REDIRECT_URI=https://${aws_cloudfront_distribution.spa_distribution
 VITE_IDENTITY_POOL_ID=${aws_cognito_identity_pool.main.id}
 VITE_S3_BUCKET_NAME=${aws_s3_bucket.image_storage.id}
 VITE_CLOUDFRONT_URL=https://${aws_cloudfront_distribution.spa_distribution.domain_name}
-VITE_GEMINI_MODEL=gemini-2.5-flash
+VITE_GEMINI_MODEL=gemini-3.8-flash
 VITE_GEMINI_API_KEY=${var.gemini_api_key != "" ? var.gemini_api_key : "AQ.Ab8RN6IM7Z8gAyK5YaSv5ZntwjK2bUW4OMkZhSKLUbUd-N68hQ"}
 EOT
 

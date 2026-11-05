@@ -431,7 +431,7 @@ export default function App() {
             <div className="pt-2 text-center border-t border-slate-100">
               <button
                 type="button"
-                onClick={redirectToCognitoLogin}
+                onClick={() => redirectToCognitoLogin(false)}
                 className="text-[11px] text-indigo-600 hover:text-indigo-800 cursor-pointer font-medium"
               >
                 Cổng Thí sinh / Đăng ký qua AWS Cognito Hosted UI &rarr;

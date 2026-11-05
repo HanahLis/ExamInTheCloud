@@ -78,7 +78,7 @@ export const QuestionBankTab = ({ questions, onRefresh }: Props) => {
     (import.meta as any).env.VITE_GEMINI_API_KEY || ''
   );
   const [importModel, setImportModel] = useState(
-    (import.meta as any).env.VITE_GEMINI_MODEL || 'gemini-3.1-flash-lite'
+    (import.meta as any).env.VITE_GEMINI_MODEL || 'gemini-3.8-flash'
   );
   const [showApiKey, setShowApiKey] = useState(false);
   const docFileInputRef = useRef<HTMLInputElement>(null);
@@ -781,7 +781,7 @@ export const QuestionBankTab = ({ questions, onRefresh }: Props) => {
                       type="text"
                       value={importModel}
                       onChange={(e) => setImportModel(e.target.value)}
-                      placeholder="gemini-2.5-flash hoặc gemini-2.0-flash"
+                      placeholder="gemini-3.8-flash hoặc gemini-3.1-flash-lite"
                       className="w-full p-2 border border-slate-300 rounded-md text-xs bg-white text-slate-800 outline-none focus:border-indigo-500 font-mono"
                     />
                   </div>
@@ -809,7 +809,7 @@ export const QuestionBankTab = ({ questions, onRefresh }: Props) => {
                   </div>
                 </div>
                 <p className="text-[11px] text-slate-500 leading-relaxed">
-                  <span className="font-semibold text-slate-700">Lưu ý:</span> Bạn có thể cấu hình cố định trong tệp <code className="bg-white px-1 py-0.5 rounded border border-slate-200 font-mono text-slate-700">frontend/.env</code> với <code className="text-indigo-600 font-mono">VITE_GEMINI_API_KEY</code> và <code className="text-indigo-600 font-mono">VITE_GEMINI_MODEL=gemini-2.5-flash</code> để không cần nhập lại mỗi lần.
+                  <span className="font-semibold text-slate-700">Lưu ý:</span> Bạn có thể cấu hình cố định trong tệp <code className="bg-white px-1 py-0.5 rounded border border-slate-200 font-mono text-slate-700">frontend/.env</code> với <code className="text-indigo-600 font-mono">VITE_GEMINI_API_KEY</code> và <code className="text-indigo-600 font-mono">VITE_GEMINI_MODEL=gemini-3.8-flash</code> để không cần nhập lại mỗi lần.
                 </p>
               </div>
 
