@@ -488,7 +488,9 @@ resource "aws_iam_role_policy" "github_actions_deploy_policy" {
           "cloudfront:*",
           "logs:*",
           "cognito-idp:*",
-          "budgets:*"
+          "budgets:*",
+          "cloudwatch:*",
+          "ec2:*"
         ]
         Resource = "*"
       }
