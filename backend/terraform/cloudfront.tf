@@ -164,10 +164,12 @@ output "cloudfront_distribution_id" {
 }
 
 # 7. Tu dong build va upload Frontend len S3 & CloudFront khi terraform apply
+# Dam bao file .env luon duoc cap nhat truoc khi deploy_frontend.py build Vite
 resource "terraform_data" "frontend_build_deploy" {
   triggers_replace = [
     aws_cloudfront_distribution.spa_distribution.id,
-    aws_s3_bucket.frontend_hosting.id
+    aws_s3_bucket.frontend_hosting.id,
+    local_file.frontend_env.content_sha256
   ]
 
   provisioner "local-exec" {
@@ -175,6 +177,7 @@ resource "terraform_data" "frontend_build_deploy" {
   }
 
   depends_on = [
+    local_file.frontend_env,
     aws_s3_bucket.frontend_hosting,
     aws_s3_bucket_policy.frontend_hosting_oac_policy,
     aws_cloudfront_distribution.spa_distribution
