@@ -219,5 +219,7 @@
   "exam_select_session_desc": "Chọn một ca thi để mở giao diện phòng thi dành cho thí sinh.",
   "country_vn": "Việt Nam",
   "country_la": "Lào",
-  "country_intl": "Quốc tế"
+  "country_intl": "Quốc tế",
+  "country_de": "Đức",
+  "lang_de": "Tiếng Đức"
 }

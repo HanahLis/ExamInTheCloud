@@ -2,10 +2,12 @@ import React, { createContext, useContext, useState, useEffect } from 'react';
 import { defaultTheme, type AppTheme } from './default';
 import { vnTheme } from './vn';
 import { laTheme } from './la';
+import { deTheme } from './de';
 
 export const AVAILABLE_THEMES: Record<string, AppTheme> = {
   vn: vnTheme,
   la: laTheme,
+  de: deTheme,
   default: defaultTheme,
 };
 
