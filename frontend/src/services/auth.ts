@@ -1,10 +1,10 @@
-const DOMAIN = (import.meta.env.VITE_COGNITO_DOMAIN || '').trim().replace(/\/+$/, '');
-const CLIENT_ID = (import.meta.env.VITE_COGNITO_CLIENT_ID || '').trim();
+const DOMAIN = import.meta.env.VITE_COGNITO_DOMAIN; // gồm cả https://
+const CLIENT_ID = import.meta.env.VITE_COGNITO_CLIENT_ID;
 export const getRedirectUri = (): string => {
   if (typeof window !== 'undefined' && window.location.origin) {
     return `${window.location.origin}/callback`;
   }
-  return (import.meta.env.VITE_COGNITO_REDIRECT_URI || 'http://localhost:5173/callback').trim();
+  return import.meta.env.VITE_COGNITO_REDIRECT_URI || 'http://localhost:5173/callback';
 };
 
 export interface AuthUser {
