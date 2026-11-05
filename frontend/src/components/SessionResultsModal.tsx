@@ -34,18 +34,28 @@ export default function SessionResultsModal({ isOpen, onClose, sessionId }: Resu
       .catch((err) => {
         if (!isMounted) return;
         console.error('Lỗi tải bảng điểm ca thi:', err);
-        setError(err?.response?.data?.error || err?.message || 'Không thể tải bảng điểm.');
+        setError(err?.response?.data?.error || err?.message || t('error_load_scores'));
         setLoading(false);
       });
 
     return () => {
       isMounted = false;
     };
-  }, [isOpen, sessionId]);
+  }, [isOpen, sessionId, t]);
 
   const handleExportCSV = () => {
     if (results.length === 0) return;
-    const headers = ['Mã SV', 'Họ Tên', 'Email', 'Điểm Số', 'Điểm Tối Đa', 'Số Câu Đúng', 'Tổng Số Câu', 'Thời Gian Nộp', 'Trạng Thái'];
+    const headers = [
+      t('csv_header_student_id'),
+      t('csv_header_full_name'),
+      t('csv_header_email'),
+      t('csv_header_score'),
+      t('csv_header_max_score'),
+      t('csv_header_correct_count'),
+      t('csv_header_total_questions'),
+      t('csv_header_submitted_at'),
+      t('csv_header_status'),
+    ];
     const rows = results.map((r) => [
       `"${r.studentCode || ''}"`,
       `"${r.name || ''}"`,
@@ -54,7 +64,7 @@ export default function SessionResultsModal({ isOpen, onClose, sessionId }: Resu
       r.maxScore,
       r.correctCount,
       r.totalQuestions,
-      `"${r.submittedAt ? new Date(r.submittedAt).toLocaleString('vi-VN') : ''}"`,
+      `"${r.submittedAt ? new Date(r.submittedAt).toLocaleString() : ''}"`,
       `"${r.status || 'COMPLETED'}"`,
     ]);
 
@@ -74,12 +84,12 @@ export default function SessionResultsModal({ isOpen, onClose, sessionId }: Resu
     try {
       setSendingReport(true);
       setReportFeedback(null);
-      const res = await sendSessionReport(sessionId);
-      setReportFeedback(res.message || 'Đã gửi email báo cáo tổng hợp ca thi thành công!');
+      await sendSessionReport(sessionId);
+      setReportFeedback(t('report_sent_success'));
       setTimeout(() => setReportFeedback(null), 6000);
     } catch (err: any) {
       console.error('Lỗi gửi email báo cáo:', err);
-      alert(err?.response?.data?.error || err?.message || 'Lỗi gửi email báo cáo.');
+      alert(err?.response?.data?.error || err?.message || t('alert_send_report_error'));
     } finally {
       setSendingReport(false);
     }
@@ -198,9 +208,9 @@ export default function SessionResultsModal({ isOpen, onClose, sessionId }: Resu
               onClick={handleSendSNSReport}
               disabled={loading || sendingReport || results.length === 0}
               className="px-3 py-1.5 bg-blue-600 text-white text-xs font-medium rounded hover:bg-blue-700 disabled:bg-slate-300 disabled:cursor-not-allowed transition flex items-center gap-1.5 cursor-pointer shadow-sm"
-              title={t('sess_send_sns') || "Gửi email báo cáo"}
+              title={t('sess_send_sns')}
             >
-              {sendingReport ? t('loading') : (t('sess_send_sns') || 'Gửi email báo cáo')}
+              {sendingReport ? t('loading') : t('sess_send_sns')}
             </button>
           </div>
           <div className="flex gap-2">

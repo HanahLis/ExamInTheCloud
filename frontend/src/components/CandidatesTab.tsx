@@ -32,9 +32,9 @@ export const CandidatesTab = ({
 
   const handleAddCandidate = async (e: FormEvent) => {
     e.preventDefault();
-    if (!faceImage) return alert('Vui lòng chọn ảnh chân dung của thí sinh.');
+    if (!faceImage) return alert(t('alert_select_face_image'));
     if (candidates.some((c) => c.email.toLowerCase() === email.trim().toLowerCase())) {
-      return alert('Email này đã tồn tại trong danh sách thí sinh.');
+      return alert(t('alert_email_exists'));
     }
 
     setSubmitting(true);
@@ -56,19 +56,19 @@ export const CandidatesTab = ({
       setFaceImage(null);
       if (fileInput.current) fileInput.current.value = '';
     } catch (err: any) {
-      alert('Lỗi khi thêm thí sinh: ' + (err?.response?.data?.error || err?.message || err));
+      alert(`${t('alert_add_candidate_error')} ${err?.response?.data?.error || err?.message || err}`);
     } finally {
       setSubmitting(false);
     }
   };
 
   const handleRemove = async (cEmail: string, cName: string) => {
-    if (!confirm(`Bạn có chắc muốn xóa thí sinh "${cName}" khỏi danh sách?`)) return;
+    if (!confirm(`${t('confirm_delete_candidate')} (${cName})`)) return;
     setDeletingEmail(cEmail);
     try {
       await onRemoveCandidate(cEmail);
     } catch (err: any) {
-      alert('Lỗi xóa thí sinh: ' + (err?.response?.data?.error || err?.message || err));
+      alert(`${t('alert_delete_candidate_error')} ${err?.response?.data?.error || err?.message || err}`);
     } finally {
       setDeletingEmail(null);
     }

@@ -64,13 +64,13 @@ export const ExamSessionTab = ({
 
   const handleCreateSession = async () => {
     if (!name.trim() || !startTime || !endTime) {
-      return alert('Vui lòng nhập tên ca thi, thời gian bắt đầu và kết thúc.');
+      return alert(t('alert_fill_session_fields'));
     }
     if (new Date(endTime) <= new Date(startTime)) {
-      return alert('Thời gian kết thúc phải sau thời gian bắt đầu.');
+      return alert(t('alert_end_after_start'));
     }
-    if (selectedQuestions.length === 0) return alert('Vui lòng chọn ít nhất 1 câu hỏi.');
-    if (selectedCandidates.length === 0) return alert('Vui lòng chọn ít nhất 1 thí sinh.');
+    if (selectedQuestions.length === 0) return alert(t('alert_select_at_least_one_question'));
+    if (selectedCandidates.length === 0) return alert(t('alert_select_at_least_one_candidate'));
 
     setSubmitting(true);
     try {
@@ -95,7 +95,7 @@ export const ExamSessionTab = ({
       setSelectedQuestions([]);
       setSelectedCandidates([]);
     } catch (err: any) {
-      alert('Lỗi tạo ca thi: ' + (err?.response?.data?.error || err?.message || err));
+      alert(`${t('alert_create_session_error')} ${err?.response?.data?.error || err?.message || err}`);
     } finally {
       setSubmitting(false);
     }
@@ -107,7 +107,7 @@ export const ExamSessionTab = ({
     try {
       await onUpdateStatus(sessionId, newStatus);
     } catch (err: any) {
-      alert('Lỗi cập nhật trạng thái: ' + (err?.response?.data?.error || err?.message || err));
+      alert(`${t('alert_update_status_error')} ${err?.response?.data?.error || err?.message || err}`);
     } finally {
       setUpdatingId(null);
     }
@@ -116,10 +116,10 @@ export const ExamSessionTab = ({
   const handleSendReportSNS = async (sessionId: string) => {
     setSendingReportId(sessionId);
     try {
-      const res = await sendSessionReport(sessionId);
-      alert(res.message || 'Đã gửi báo cáo bảng điểm qua email thành công.');
+      await sendSessionReport(sessionId);
+      alert(t('alert_send_sns_success'));
     } catch (err: any) {
-      alert('Lỗi gửi báo cáo SNS: ' + (err?.response?.data?.error || err?.message || err));
+      alert(`${t('alert_send_sns_error')} ${err?.response?.data?.error || err?.message || err}`);
     } finally {
       setSendingReportId(null);
     }
