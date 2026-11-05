@@ -5,6 +5,11 @@ import path from 'path';
 import fs from 'fs';
 
 export default defineConfig({
+  server: {
+    host: true, // Lắng nghe tất cả các domain
+    port: 5173,
+    allowedHosts: true, // Cho phép tất cả tên miền phụ (*.cloudexam.com, vietnam.cloudexam.com, lao.cloudexam.com)
+  },
   plugins: [
     react(),
     tailwindcss(),

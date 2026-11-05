@@ -75,14 +75,10 @@ export const detectCountryFromLocation = (): {
   }
 
   const targetHost = paramDomain || hostname;
+  const firstSub = targetHost.split('.')[0]; // Ví dụ: "lao" từ "lao.cloudexam.com" hoặc "vietnam" từ "vietnam.cloudexam.com"
 
-  // 2. Phát hiện theo tên miền Lào (lao.cloudexam.com, edulao.la, la.cloudexam.com)
-  if (
-    targetHost.startsWith('lao.') ||
-    targetHost.startsWith('la.') ||
-    targetHost.startsWith('laos.') ||
-    targetHost.includes('edulao')
-  ) {
+  // 2. Phát hiện theo tên miền Lào: lao.cloudexam.com, laos.cloudexam.com, la.cloudexam.com, edulao.la
+  if (['lao', 'laos', 'la', 'edulao'].includes(firstSub) || targetHost.includes('edulao')) {
     return {
       countryId: 'la',
       lang: 'la',
@@ -91,12 +87,8 @@ export const detectCountryFromLocation = (): {
     };
   }
 
-  // 3. Phát hiện theo tên miền Đức (germany.cloudexam.com, de.cloudexam.com, deutschland.cloudexam.com)
-  if (
-    targetHost.startsWith('germany.') ||
-    targetHost.startsWith('de.') ||
-    targetHost.startsWith('deutschland.')
-  ) {
+  // 3. Phát hiện theo tên miền Đức: germany.cloudexam.com, deutschland.cloudexam.com, de.cloudexam.com
+  if (['germany', 'de', 'deutschland'].includes(firstSub)) {
     return {
       countryId: 'de',
       lang: 'de',
@@ -105,8 +97,8 @@ export const detectCountryFromLocation = (): {
     };
   }
 
-  // 4. Phát hiện theo tên miền Việt Nam (vietnam.cloudexam.com, vn.cloudexam.com)
-  if (targetHost.startsWith('vietnam.') || targetHost.startsWith('vn.')) {
+  // 4. Phát hiện theo tên miền Việt Nam: vietnam.cloudexam.com, vn.cloudexam.com
+  if (['vietnam', 'vn', 'viet'].includes(firstSub)) {
     return {
       countryId: 'vn',
       lang: 'vi',
@@ -115,11 +107,11 @@ export const detectCountryFromLocation = (): {
     };
   }
 
-  // 5. Tên miền quốc tế mặc định (cloudexam.com, global.cloudexam.com, intl.cloudexam.com)
+  // 5. Tên miền quốc tế mặc định: cloudexam.com, global.cloudexam.com, intl.cloudexam.com
   if (
-    targetHost.startsWith('global.') ||
-    targetHost.startsWith('intl.') ||
-    (targetHost.includes('cloudexam.com') && !targetHost.includes('.'))
+    ['global', 'intl', 'international', 'en'].includes(firstSub) ||
+    targetHost === 'cloudexam.com' ||
+    targetHost === 'www.cloudexam.com'
   ) {
     return {
       countryId: 'default',
@@ -148,19 +140,19 @@ export const switchCountryDomain = (targetCountryId: string) => {
   if (typeof window === 'undefined') return;
 
   const target = COUNTRY_DOMAINS[targetCountryId] || COUNTRY_DOMAINS.default;
-  const isLocalhost =
-    window.location.hostname === 'localhost' ||
-    window.location.hostname === '127.0.0.1' ||
-    window.location.hostname.includes('192.168.');
+  const hostname = window.location.hostname;
+  const port = window.location.port ? `:${window.location.port}` : '';
 
-  if (isLocalhost) {
-    // Trên máy dev: cập nhật URL search param ?domain=... để lập tức kiểm thử nhận diện miền
+  if (hostname.includes('cloudexam.com')) {
+    // Đang chạy trên domain thật hoặc qua /etc/hosts giả lập: chuyển hướng trực tiếp domain
+    if (hostname !== target.domain) {
+      window.location.href = `${window.location.protocol}//${target.domain}${port}${window.location.pathname}${window.location.search}`;
+    }
+  } else {
+    // Đang chạy trên localhost/IP: cập nhật tham số ?domain=... để kiểm thử tức thì
     const url = new URL(window.location.href);
     url.searchParams.set('domain', target.domain);
     window.history.replaceState({}, '', url.toString());
-  } else if (window.location.hostname.includes('cloudexam.com')) {
-    // Trên môi trường production có gắn domain thật: chuyển hướng sang subdomain tương ứng
-    window.location.href = `https://${target.domain}${window.location.pathname}${window.location.search}`;
   }
 };
 
