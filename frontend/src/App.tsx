@@ -54,9 +54,9 @@ export const CountryLanguageBar = () => {
           onChange={(e) => handleCountryChange(e.target.value)}
           className="text-xs bg-white border border-slate-200 rounded px-2 py-0.5 font-medium text-slate-700 cursor-pointer outline-none focus:border-slate-400"
         >
-          <option value="vn">Việt Nam</option>
-          <option value="la">Lào</option>
-          <option value="default">Quốc tế</option>
+          <option value="vn">{t('country_vn')}</option>
+          <option value="la">{t('country_la')}</option>
+          <option value="default">{t('country_intl')}</option>
         </select>
       </div>
 
@@ -388,14 +388,14 @@ export default function App() {
       <div className="flex flex-col items-center justify-center min-h-screen bg-slate-50 p-4">
         <div className="bg-white rounded-xl shadow-xs max-w-sm w-full border border-slate-200 p-6 space-y-5">
           <div className="text-center">
-            <h1 className="text-lg font-bold text-slate-900 tracking-tight">CloudExam</h1>
-            <p className="text-xs text-slate-500 mt-0.5">Đăng nhập tài khoản</p>
+            <h1 className="text-lg font-bold text-slate-900 tracking-tight">{t('app_title')}</h1>
+            <p className="text-xs text-slate-500 mt-0.5">{t('login_title')}</p>
           </div>
 
           <form onSubmit={handleLogin} className="space-y-3.5">
             <div>
               <label className="block text-xs font-medium text-slate-700 mb-1">
-                Email
+                {t('cand_table_email')}
               </label>
               <input
                 type="email"
@@ -410,7 +410,7 @@ export default function App() {
               <datalist id="vnu-accounts">
                 {DATABASE_ACCOUNTS.map((acc) => (
                   <option key={acc.email} value={acc.email}>
-                    {acc.name} ({acc.role === 'Organizer' ? 'Giảng viên' : acc.studentCode})
+                    {acc.name} ({acc.role === 'Organizer' ? (t('app_subtitle_organizer') || 'Giảng viên') : acc.studentCode})
                   </option>
                 ))}
               </datalist>
@@ -418,7 +418,7 @@ export default function App() {
 
             <div>
               <label className="block text-xs font-medium text-slate-700 mb-1">
-                Mật khẩu
+                {t('login_password')}
               </label>
               <input
                 type="password"
@@ -430,7 +430,7 @@ export default function App() {
                 autoComplete="current-password"
               />
               <p className="text-[11px] text-slate-500 mt-1">
-                Tài khoản Giảng viên: <span className="font-mono text-slate-700 font-medium">annv@uet.vnu.edu.vn</span> (MK: <span className="font-mono text-slate-700 font-medium">12345678</span>)
+                {t('login_lecturer_hint')} <span className="font-mono text-slate-700 font-medium">annv@uet.vnu.edu.vn</span> (MK: <span className="font-mono text-slate-700 font-medium">12345678</span>)
               </p>
             </div>
 
@@ -439,7 +439,7 @@ export default function App() {
               disabled={loginLoading}
               className="w-full py-2 bg-slate-900 text-white text-xs font-medium rounded-md hover:bg-slate-800 disabled:bg-slate-400 transition cursor-pointer"
             >
-              {loginLoading ? 'Đang xác thực với AWS...' : 'Đăng nhập với AWS Cognito'}
+              {loginLoading ? t('login_loading') : t('login_btn')}
             </button>
 
             <div className="pt-2 text-center border-t border-slate-100">
@@ -448,7 +448,7 @@ export default function App() {
                 onClick={() => redirectToCognitoLogin(false)}
                 className="text-[11px] text-indigo-600 hover:text-indigo-800 cursor-pointer font-medium"
               >
-                Cổng Thí sinh / Đăng ký qua AWS Cognito Hosted UI &rarr;
+                {t('login_candidate_portal')}
               </button>
             </div>
           </form>
@@ -521,9 +521,9 @@ export default function App() {
       <div className="min-h-screen bg-slate-50 text-slate-700">
         <header className="bg-white border-b border-slate-200 px-6 py-3 flex justify-between items-center">
           <div className="flex items-center gap-2">
-            <h1 className="text-sm font-bold text-slate-900">CloudExam</h1>
+            <h1 className="text-sm font-bold text-slate-900">{t('app_title')}</h1>
             <span className="text-xs text-slate-300">|</span>
-            <span className="text-xs text-slate-600">Thí sinh: {user.name} ({user.studentCode || user.email})</span>
+            <span className="text-xs text-slate-600">{t('tab_candidates')}: {user.name} ({user.studentCode || user.email})</span>
           </div>
 
           <div className="flex items-center gap-3 text-xs">
@@ -532,16 +532,16 @@ export default function App() {
               onClick={logout}
               className="px-2.5 py-1 bg-slate-100 text-slate-700 rounded text-xs hover:bg-slate-200 transition cursor-pointer"
             >
-              Đăng xuất
+              {t('logout')}
             </button>
           </div>
         </header>
 
         <main className="max-w-2xl mx-auto p-6 space-y-4">
           <div className="bg-white p-5 rounded-lg border border-slate-200 space-y-3">
-            <h2 className="text-xs font-semibold text-slate-800 uppercase tracking-wide">Ca thi được chỉ định</h2>
+            <h2 className="text-xs font-semibold text-slate-800 uppercase tracking-wide">{t('assigned_sessions')}</h2>
             {mySessions.length === 0 ? (
-              <p className="text-xs text-slate-400 py-4 text-center">Chưa có ca thi nào.</p>
+              <p className="text-xs text-slate-400 py-4 text-center">{t('sess_empty')}</p>
             ) : (
               mySessions.map((s) => (
                 <div key={s.id} className="p-3.5 border border-slate-200 rounded-lg flex items-center justify-between hover:bg-slate-50 transition">
@@ -555,7 +555,7 @@ export default function App() {
                     onClick={() => openExamRoom(s.id)}
                     className="px-3 py-1.5 bg-slate-900 text-white rounded text-xs font-medium hover:bg-slate-800 transition cursor-pointer"
                   >
-                    Vào phòng thi
+                    {t('enter_exam')}
                   </button>
                 </div>
               ))
@@ -571,9 +571,9 @@ export default function App() {
     <div className="min-h-screen bg-slate-50 text-slate-700">
       <header className="bg-white border-b border-slate-200 px-6 py-3 flex justify-between items-center">
         <div className="flex items-center gap-2">
-          <h1 className="text-sm font-bold text-slate-900">CloudExam</h1>
+          <h1 className="text-sm font-bold text-slate-900">{t('app_title')}</h1>
           <span className="text-xs text-slate-300">|</span>
-          <span className="text-xs text-slate-600">{user.name || user.email} ({user.groups.includes('Organizer') ? 'Giảng viên' : 'Admin'})</span>
+          <span className="text-xs text-slate-600">{user.name || user.email} ({user.groups.includes('Organizer') ? (t('app_subtitle_organizer') || 'Giảng viên') : 'Admin'})</span>
         </div>
 
         <div className="flex items-center gap-3 text-xs">
@@ -584,13 +584,13 @@ export default function App() {
             className="px-2.5 py-1 text-slate-700 hover:text-slate-900 border border-slate-200 rounded text-xs transition cursor-pointer disabled:opacity-50"
             title="Đồng bộ CSDL lên AWS Cloud"
           >
-            {syncing ? 'Đang đồng bộ...' : 'Đồng bộ Cloud'}
+            {syncing ? t('syncing_cloud') : t('sync_cloud')}
           </button>
           <button
             onClick={logout}
             className="px-2.5 py-1 bg-slate-100 text-slate-700 rounded text-xs hover:bg-slate-200 transition cursor-pointer"
           >
-            Đăng xuất
+            {t('logout')}
           </button>
         </div>
       </header>
@@ -667,16 +667,16 @@ export default function App() {
           <div className="bg-white p-5 rounded-lg border border-slate-200 space-y-4">
             <div>
               <h3 className="text-sm font-semibold text-slate-800">
-                Phòng thi trực tuyến
+                {t('exam_online_room')}
               </h3>
               <p className="text-xs text-slate-500 mt-0.5">
-                Chọn một ca thi để mở giao diện phòng thi dành cho thí sinh.
+                {t('exam_select_session_desc')}
               </p>
             </div>
 
             {sessions.length === 0 ? (
               <p className="text-xs text-slate-400 py-6 text-center">
-                Chưa có ca thi nào. Hãy tạo ca thi ở mục Ca thi trước.
+                {t('sess_empty')}
               </p>
             ) : (
               <div className="grid grid-cols-1 md:grid-cols-2 gap-3 pt-1">
@@ -702,14 +702,14 @@ export default function App() {
                     </div>
 
                     <p className="text-xs text-slate-500">
-                      {s.questionIds?.length || 0} câu hỏi • {s.candidateEmails?.length || 0} thí sinh
+                      {s.questionIds?.length || 0} {t('sess_questions_unit')} • {s.candidateEmails?.length || 0} {t('sess_candidates_unit')}
                     </p>
 
                     <button
                       onClick={() => openExamRoom(s.id)}
                       className="w-full py-2 bg-slate-900 text-white font-medium rounded-md text-xs hover:bg-slate-800 transition cursor-pointer"
                     >
-                      Vào phòng thi
+                      {t('enter_exam')}
                     </button>
                   </div>
                 ))}

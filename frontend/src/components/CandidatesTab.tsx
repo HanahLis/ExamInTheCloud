@@ -1,6 +1,7 @@
 import { useRef, useState, type FormEvent } from 'react';
 import { uploadFaceImage } from '../services/s3Service';
 import type { Candidate } from '../services/apiService';
+import { useTranslation } from '../locales/i18nContext';
 
 export type { Candidate };
 
@@ -19,6 +20,7 @@ export const CandidatesTab = ({
   onRemoveCandidate,
   onRefresh,
 }: Props) => {
+  const { t } = useTranslation();
   const [studentCode, setStudentCode] = useState('');
   const [name, setName] = useState('');
   const [email, setEmail] = useState('');
@@ -78,21 +80,21 @@ export const CandidatesTab = ({
       <div className="bg-white p-5 rounded-lg border border-slate-200">
         <div className="flex justify-between items-center mb-3">
           <h3 className="text-sm font-semibold text-slate-800">
-            Thêm thí sinh
+            {t('cand_add_btn')}
           </h3>
           {onRefresh && (
             <button
               onClick={() => onRefresh()}
               className="text-xs text-slate-600 hover:text-slate-900 font-medium cursor-pointer"
             >
-              Làm mới
+              {t('refresh')}
             </button>
           )}
         </div>
 
         <form onSubmit={handleAddCandidate} className="grid grid-cols-1 md:grid-cols-2 gap-3">
           <div>
-            <label className="block text-xs font-medium text-slate-700 mb-1">Mã sinh viên *</label>
+            <label className="block text-xs font-medium text-slate-700 mb-1">{t('cand_table_code')} *</label>
             <input
               type="text"
               placeholder="Ví dụ: 24020001"
@@ -104,7 +106,7 @@ export const CandidatesTab = ({
           </div>
 
           <div>
-            <label className="block text-xs font-medium text-slate-700 mb-1">Họ và tên *</label>
+            <label className="block text-xs font-medium text-slate-700 mb-1">{t('cand_table_name')} *</label>
             <input
               type="text"
               placeholder="Ví dụ: Nguyễn Văn A"
@@ -116,7 +118,7 @@ export const CandidatesTab = ({
           </div>
 
           <div>
-            <label className="block text-xs font-medium text-slate-700 mb-1">Email đăng nhập *</label>
+            <label className="block text-xs font-medium text-slate-700 mb-1">{t('cand_table_email')} *</label>
             <input
               type="email"
               placeholder="Ví dụ: sinhvien@example.edu.vn"
@@ -128,7 +130,7 @@ export const CandidatesTab = ({
           </div>
 
           <div>
-            <label className="block text-xs font-medium text-slate-700 mb-1">Lớp / Đơn vị</label>
+            <label className="block text-xs font-medium text-slate-700 mb-1">{t('cand_table_unit')}</label>
             <input
               type="text"
               placeholder="Ví dụ: D21CQCN01-B"
@@ -140,7 +142,7 @@ export const CandidatesTab = ({
 
           <div className="md:col-span-2">
             <label className="block text-xs font-medium text-slate-700 mb-1">
-              Ảnh chân dung mẫu (ảnh thẻ rõ mặt) *
+              {t('cand_table_avatar')} *
             </label>
             <input
               ref={fileInput}
@@ -158,7 +160,7 @@ export const CandidatesTab = ({
               disabled={submitting}
               className="px-4 py-2 bg-slate-900 text-white font-medium rounded-md text-xs hover:bg-slate-800 disabled:bg-slate-400 transition cursor-pointer"
             >
-              {submitting ? 'Đang lưu...' : 'Thêm thí sinh'}
+              {submitting ? t('loading') : t('cand_add_btn')}
             </button>
           </div>
         </form>
@@ -168,14 +170,14 @@ export const CandidatesTab = ({
       <div className="bg-white p-5 rounded-lg border border-slate-200">
         <div className="flex justify-between items-center mb-3">
           <h3 className="text-sm font-semibold text-slate-800">
-            Danh sách thí sinh ({candidates.length})
+            {t('cand_title')} ({candidates.length})
           </h3>
-          {loading && <span className="text-xs text-slate-400">Đang tải...</span>}
+          {loading && <span className="text-xs text-slate-400">{t('loading')}</span>}
         </div>
 
         {candidates.length === 0 && !loading && (
           <p className="text-xs text-slate-400 py-6 text-center">
-            Chưa có thí sinh nào trong danh sách.
+            {t('sess_empty')}
           </p>
         )}
 
@@ -216,14 +218,14 @@ export const CandidatesTab = ({
                   rel="noreferrer"
                   className="text-slate-600 hover:text-slate-900 underline"
                 >
-                  Xem ảnh
+                  {t('view_results')}
                 </a>
                 <button
                   onClick={() => handleRemove(c.email, c.name)}
                   disabled={deletingEmail === c.email}
                   className="text-rose-600 hover:text-rose-800 cursor-pointer disabled:text-slate-300"
                 >
-                  {deletingEmail === c.email ? 'Đang xóa...' : 'Xóa'}
+                  {deletingEmail === c.email ? t('loading') : t('delete')}
                 </button>
               </div>
             </div>
