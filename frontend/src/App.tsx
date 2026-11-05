@@ -124,6 +124,20 @@ export interface SystemAccount {
 const DATABASE_ACCOUNTS: SystemAccount[] = [
   {
     role: 'Organizer',
+    name: 'Phạm Tuấn Phong',
+    email: 'phongpt@vnu.edu.vn',
+    studentCode: '24021598',
+    unit: 'Trưởng nhóm - Khoa Công nghệ Thông tin - UET',
+  },
+  {
+    role: 'Candidate',
+    name: 'Phạm Tuấn Phong',
+    email: 'phongpt@vnu.edu.vn',
+    studentCode: '24021598',
+    unit: 'Sinh viên K66 - Khoa CNTT - UET',
+  },
+  {
+    role: 'Organizer',
     name: 'Trần Đức Mạnh',
     email: 'tranducmanh2006@gmail.com',
     studentCode: '24021561',

@@ -36,9 +36,12 @@ sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "../b
 # Thiết lập Mock boto3 nếu môi trường chưa cài đặt
 try:
     import boto3
+    import botocore
+    from botocore.config import Config
 except ImportError:
     mock_boto3 = MagicMock()
     mock_botocore = MagicMock()
+    mock_botocore.__path__ = []
     mock_exceptions = MagicMock()
 
     class ClientError(Exception):
@@ -54,6 +57,7 @@ except ImportError:
     sys.modules["boto3.dynamodb.conditions"] = MagicMock()
     sys.modules["botocore"] = mock_botocore
     sys.modules["botocore.exceptions"] = mock_exceptions
+    sys.modules["botocore.config"] = MagicMock()
 
 import api_handler
 import grading_worker
