@@ -1429,8 +1429,11 @@ export const generateTopicQuestions = (
   promptText = ''
 ): Question[] => {
   const p = (promptText || '').toLowerCase();
+  const countMatch = (promptText || '').match(/(\d+)\s*câu/i);
+  const targetCount = countMatch ? Math.min(50, Math.max(1, parseInt(countMatch[1], 10))) : 5;
+
   if (p.includes('aws') || p.includes('cloud') || p.includes('ec2') || p.includes('lambda') || p.includes('s3') || p.includes('vpc') || p.includes('dynamodb')) {
-    return [
+    const awsPool: Question[] = [
       {
         id: `q-aws-${Date.now()}-1`,
         questionId: `q-aws-${Date.now()}-1`,
@@ -1506,7 +1509,234 @@ export const generateTopicQuestions = (
         difficulty: 'MEDIUM',
         imageUrl: '',
       },
+      {
+        id: `q-aws-${Date.now()}-6`,
+        questionId: `q-aws-${Date.now()}-6`,
+        bankId,
+        content: 'Dịch vụ nào cung cấp máy chủ ảo có thể cấu hình linh hoạt về CPU, RAM, lưu trữ và băng thông mạng trên đám mây AWS?',
+        type: 'SINGLE_CHOICE',
+        options: ['Amazon EC2 (Elastic Compute Cloud)', 'AWS Batch', 'AWS Elastic Beanstalk', 'Amazon Lightsail'],
+        correctIndex: 0,
+        correctAnswer: 'Amazon EC2 (Elastic Compute Cloud)',
+        score: 1,
+        subject: 'Điện toán đám mây AWS',
+        topic: 'Máy chủ ảo (EC2)',
+        difficulty: 'EASY',
+        imageUrl: '',
+      },
+      {
+        id: `q-aws-${Date.now()}-7`,
+        questionId: `q-aws-${Date.now()}-7`,
+        bankId,
+        content: 'Mạng lưới phân phối nội dung (CDN) toàn cầu giúp tăng tốc truyền tải nội dung tĩnh và động với độ trễ thấp trên AWS là gì?',
+        type: 'SINGLE_CHOICE',
+        options: ['Amazon CloudFront', 'AWS Global Accelerator', 'Amazon Route 53', 'AWS Direct Connect'],
+        correctIndex: 0,
+        correctAnswer: 'Amazon CloudFront',
+        score: 1,
+        subject: 'Điện toán đám mây AWS',
+        topic: 'Mạng phân phối nội dung (CloudFront CDN)',
+        difficulty: 'EASY',
+        imageUrl: '',
+      },
+      {
+        id: `q-aws-${Date.now()}-8`,
+        questionId: `q-aws-${Date.now()}-8`,
+        bankId,
+        content: 'Dịch vụ DNS có tính sẵn sàng cao, hỗ trợ quản lý định tuyến tên miền và kiểm tra tình trạng dịch vụ (Health Check) trên AWS là gì?',
+        type: 'SINGLE_CHOICE',
+        options: ['Amazon Route 53', 'AWS Direct Connect', 'Amazon CloudFront', 'AWS Transit Gateway'],
+        correctIndex: 0,
+        correctAnswer: 'Amazon Route 53',
+        score: 1,
+        subject: 'Điện toán đám mây AWS',
+        topic: 'Hệ thống phân giải tên miền (Route 53)',
+        difficulty: 'MEDIUM',
+        imageUrl: '',
+      },
+      {
+        id: `q-aws-${Date.now()}-9`,
+        questionId: `q-aws-${Date.now()}-9`,
+        bankId,
+        content: 'Hàng đợi thông điệp phi máy chủ (Message Queue) giúp giải phóng phụ thuộc (Decoupling) giữa các microservices trên AWS là gì?',
+        type: 'SINGLE_CHOICE',
+        options: ['Amazon SQS (Simple Queue Service)', 'Amazon SNS', 'Amazon EventBridge', 'Amazon Kinesis'],
+        correctIndex: 0,
+        correctAnswer: 'Amazon SQS (Simple Queue Service)',
+        score: 1,
+        subject: 'Điện toán đám mây AWS',
+        topic: 'Hàng đợi thông điệp (SQS)',
+        difficulty: 'EASY',
+        imageUrl: '',
+      },
+      {
+        id: `q-aws-${Date.now()}-10`,
+        questionId: `q-aws-${Date.now()}-10`,
+        bankId,
+        content: 'Dịch vụ pub/sub thông báo đẩy hỗ trợ gửi thông điệp tới nhiều người nhận qua Email, SMS hoặc SQS đồng thời là gì?',
+        type: 'SINGLE_CHOICE',
+        options: ['Amazon SNS (Simple Notification Service)', 'Amazon SES', 'Amazon Pinpoint', 'Amazon MQ'],
+        correctIndex: 0,
+        correctAnswer: 'Amazon SNS (Simple Notification Service)',
+        score: 1,
+        subject: 'Điện toán đám mây AWS',
+        topic: 'Thông báo đẩy (SNS)',
+        difficulty: 'EASY',
+        imageUrl: '',
+      },
+      {
+        id: `q-aws-${Date.now()}-11`,
+        questionId: `q-aws-${Date.now()}-11`,
+        bankId,
+        content: 'Dịch vụ giám sát, thu thập số liệu (metrics), theo dõi nhật ký (logs) và cấu hình cảnh báo tài nguyên trên AWS là gì?',
+        type: 'SINGLE_CHOICE',
+        options: ['Amazon CloudWatch', 'AWS CloudTrail', 'AWS Config', 'AWS X-Ray'],
+        correctIndex: 0,
+        correctAnswer: 'Amazon CloudWatch',
+        score: 1,
+        subject: 'Điện toán đám mây AWS',
+        topic: 'Giám sát & Cảnh báo (CloudWatch)',
+        difficulty: 'EASY',
+        imageUrl: '',
+      },
+      {
+        id: `q-aws-${Date.now()}-12`,
+        questionId: `q-aws-${Date.now()}-12`,
+        bankId,
+        content: 'Dịch vụ ghi nhật ký kiểm toán (Audit Log) theo dõi toàn bộ các lệnh gọi API được thực hiện trong tài khoản AWS là gì?',
+        type: 'SINGLE_CHOICE',
+        options: ['AWS CloudTrail', 'Amazon CloudWatch', 'AWS Trusted Advisor', 'AWS Systems Manager'],
+        correctIndex: 0,
+        correctAnswer: 'AWS CloudTrail',
+        score: 1,
+        subject: 'Điện toán đám mây AWS',
+        topic: 'Kiểm toán hoạt động API (CloudTrail)',
+        difficulty: 'MEDIUM',
+        imageUrl: '',
+      },
+      {
+        id: `q-aws-${Date.now()}-13`,
+        questionId: `q-aws-${Date.now()}-13`,
+        bankId,
+        content: 'Dịch vụ quản lý và tạo khóa mã hóa dữ liệu tích hợp phần cứng FIPS 140-2 tiêu chuẩn trên AWS là gì?',
+        type: 'SINGLE_CHOICE',
+        options: ['AWS KMS (Key Management Service)', 'AWS Secrets Manager', 'AWS Certificate Manager', 'AWS CloudHSM'],
+        correctIndex: 0,
+        correctAnswer: 'AWS KMS (Key Management Service)',
+        score: 1,
+        subject: 'Điện toán đám mây AWS',
+        topic: 'Mã hóa khóa (KMS)',
+        difficulty: 'MEDIUM',
+        imageUrl: '',
+      },
+      {
+        id: `q-aws-${Date.now()}-14`,
+        questionId: `q-aws-${Date.now()}-14`,
+        bankId,
+        content: 'Dịch vụ lưu trữ an toàn, tự động xoay vòng (Rotate) mật khẩu cơ sở dữ liệu và khóa API trên AWS là gì?',
+        type: 'SINGLE_CHOICE',
+        options: ['AWS Secrets Manager', 'AWS Systems Manager Parameter Store', 'AWS KMS', 'AWS IAM'],
+        correctIndex: 0,
+        correctAnswer: 'AWS Secrets Manager',
+        score: 1,
+        subject: 'Điện toán đám mây AWS',
+        topic: 'Quản lý bí mật (Secrets Manager)',
+        difficulty: 'MEDIUM',
+        imageUrl: '',
+      },
+      {
+        id: `q-aws-${Date.now()}-15`,
+        questionId: `q-aws-${Date.now()}-15`,
+        bankId,
+        content: 'Bộ cân bằng tải hoạt động ở tầng ứng dụng Layer 7 hỗ trợ định tuyến theo đường dẫn URL (Path-based routing) là gì?',
+        type: 'SINGLE_CHOICE',
+        options: ['Application Load Balancer (ALB)', 'Network Load Balancer (NLB)', 'Gateway Load Balancer (GWLB)', 'Classic Load Balancer'],
+        correctIndex: 0,
+        correctAnswer: 'Application Load Balancer (ALB)',
+        score: 1,
+        subject: 'Điện toán đám mây AWS',
+        topic: 'Cân bằng tải ứng dụng (ALB)',
+        difficulty: 'MEDIUM',
+        imageUrl: '',
+      },
+      {
+        id: `q-aws-${Date.now()}-16`,
+        questionId: `q-aws-${Date.now()}-16`,
+        bankId,
+        content: 'Tính năng tự động tăng hoặc giảm số lượng máy chủ EC2 dựa trên lưu lượng người dùng và tải CPU là gì?',
+        type: 'SINGLE_CHOICE',
+        options: ['Amazon EC2 Auto Scaling', 'AWS Elastic Beanstalk', 'AWS Compute Optimizer', 'Amazon ECS Service Auto Scaling'],
+        correctIndex: 0,
+        correctAnswer: 'Amazon EC2 Auto Scaling',
+        score: 1,
+        subject: 'Điện toán đám mây AWS',
+        topic: 'Tự động co giãn (Auto Scaling)',
+        difficulty: 'EASY',
+        imageUrl: '',
+      },
+      {
+        id: `q-aws-${Date.now()}-17`,
+        questionId: `q-aws-${Date.now()}-17`,
+        bankId,
+        content: 'Tường lửa ứng dụng web giúp bảo vệ API Gateway và CloudFront trước các cuộc tấn công SQL Injection và Cross-Site Scripting (XSS) là gì?',
+        type: 'SINGLE_CHOICE',
+        options: ['AWS WAF (Web Application Firewall)', 'AWS Shield', 'Amazon GuardDuty', 'AWS Network Firewall'],
+        correctIndex: 0,
+        correctAnswer: 'AWS WAF (Web Application Firewall)',
+        score: 1,
+        subject: 'Điện toán đám mây AWS',
+        topic: 'Tường lửa ứng dụng (WAF)',
+        difficulty: 'MEDIUM',
+        imageUrl: '',
+      },
+      {
+        id: `q-aws-${Date.now()}-18`,
+        questionId: `q-aws-${Date.now()}-18`,
+        bankId,
+        content: 'Dịch vụ cơ sở dữ liệu quan hệ được quản lý (Managed Relational Database) hỗ trợ MySQL, PostgreSQL, Oracle và SQL Server là gì?',
+        type: 'SINGLE_CHOICE',
+        options: ['Amazon RDS (Relational Database Service)', 'Amazon Aurora', 'Amazon Redshift', 'Amazon Neptune'],
+        correctIndex: 0,
+        correctAnswer: 'Amazon RDS (Relational Database Service)',
+        score: 1,
+        subject: 'Điện toán đám mây AWS',
+        topic: 'Cơ sở dữ liệu quan hệ (RDS)',
+        difficulty: 'EASY',
+        imageUrl: '',
+      },
+      {
+        id: `q-aws-${Date.now()}-19`,
+        questionId: `q-aws-${Date.now()}-19`,
+        bankId,
+        content: 'Dịch vụ phân tích nhận diện khuôn mặt, so khớp sinh trắc học và phát hiện vật thể bằng AI trên AWS là gì?',
+        type: 'SINGLE_CHOICE',
+        options: ['Amazon Rekognition', 'Amazon Textract', 'Amazon Comprehend', 'Amazon Transcribe'],
+        correctIndex: 0,
+        correctAnswer: 'Amazon Rekognition',
+        score: 1,
+        subject: 'Điện toán đám mây AWS',
+        topic: 'Thị giác máy tính AI (Rekognition)',
+        difficulty: 'EASY',
+        imageUrl: '',
+      },
+      {
+        id: `q-aws-${Date.now()}-20`,
+        questionId: `q-aws-${Date.now()}-20`,
+        bankId,
+        content: 'Dịch vụ điều phối luồng quy trình công việc phân tán (Workflow Orchestration) dạng State Machine không máy chủ trên AWS là gì?',
+        type: 'SINGLE_CHOICE',
+        options: ['AWS Step Functions', 'AWS Glue Workflows', 'Amazon EventBridge Pipes', 'AWS Batch'],
+        correctIndex: 0,
+        correctAnswer: 'AWS Step Functions',
+        score: 1,
+        subject: 'Điện toán đám mây AWS',
+        topic: 'Điều phối quy trình (Step Functions)',
+        difficulty: 'MEDIUM',
+        imageUrl: '',
+      },
     ];
+
+    return awsPool.slice(0, targetCount);
   }
 
   return [
@@ -1573,15 +1803,130 @@ export const generateTopicQuestions = (
   ];
 };
 
+/**
+ * Gọi trực tiếp Google Gemini API Client-Side
+ * Bỏ qua giới hạn 29s của API Gateway, hỗ trợ tạo 20+ câu hỏi siêu tốc
+ */
+export const generateQuestionsWithGeminiDirect = async (
+  rawText: string,
+  bankId: string,
+  subject: string,
+  topic: string,
+  apiKey: string,
+  model = 'gemini-3.8-flash'
+): Promise<{ questions: Question[]; modelUsed: string } | null> => {
+  if (!apiKey || !apiKey.trim()) return null;
+
+  const prompt = `Bạn là chuyên gia số hóa và biên soạn đề thi cho hệ thống Khảo thí CloudExam.
+Hãy xử lý nội dung văn bản dưới đây:
+- Nếu văn bản là đề thi có sẵn, hãy trích xuất toàn bộ câu hỏi và đáp án thành danh sách câu hỏi trắc nghiệm chuẩn.
+- Nếu văn bản là yêu cầu tạo/soạn câu hỏi (ví dụ: 'Tạo 20 câu hỏi...', 'Soạn câu hỏi về...'), hãy tự động tạo ra ĐÚNG số lượng câu hỏi trắc nghiệm chất lượng cao theo yêu cầu (nếu yêu cầu 20 câu, PHẢI TẠO ĐỦ 20 CÂU, không được dừng lại ở 5 câu).
+Hệ thống hỗ trợ cả đề thi Tiếng Việt và Tiếng Anh.
+
+YÊU CẦU QUAN TRỌNG:
+1. Tạo ĐỦ 100% SỐ LƯỢNG câu hỏi mà người dùng yêu cầu (ví dụ: yêu cầu 20 câu thì phải tạo đủ 20 câu, tuyệt đối không được cắt ngắn).
+2. Trả về DUY NHẤT một mảng JSON các object câu hỏi (hoặc object JSON có thuộc tính "questions"). Mỗi câu hỏi gồm:
+- "content": Nội dung câu hỏi (loại bỏ tiền tố "Câu 1:", "Question 1:", "1." nếu có).
+- "options": Mảng 4 phần tử chuỗi các phương án lựa chọn A, B, C, D (loại bỏ tiền tố A., B., C., D.; TUYỆT ĐỐI KHÔNG chứa giải thích bên trong lựa chọn).
+- "correctIndex": Số nguyên 0..3 (0 cho A, 1 cho B, 2 cho C, 3 cho D).
+- "correctAnswer": Nội dung chuỗi của đáp án đúng (khớp với options[correctIndex]).
+- "score": 1
+- "subject": "${subject}"
+- "topic": "${topic}"
+- "difficulty": "MEDIUM"
+
+LƯU Ý: Tuyệt đối KHÔNG đưa giải thích vào options hay content.
+
+Nội dung đề bài / Yêu cầu:
+${rawText.slice(0, 12000)}
+`;
+
+  // Ưu tiên model cấu hình, nếu 503/timeout lập tức fallback sang gemini-3.1-flash-lite siêu tốc
+  const modelsToTry = [
+    model,
+    'gemini-3.1-flash-lite',
+    'gemini-3.8-flash',
+    'gemini-2.5-flash-lite',
+    'gemini-3.5-flash',
+  ];
+  const uniqueModels = Array.from(new Set(modelsToTry.filter(Boolean)));
+
+  for (const m of uniqueModels) {
+    try {
+      const url = `https://generativelanguage.googleapis.com/v1beta/models/${m}:generateContent?key=${apiKey.trim()}`;
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), 45000);
+
+      const res = await fetch(url, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        signal: controller.signal,
+        body: JSON.stringify({
+          contents: [{ parts: [{ text: prompt }] }],
+          generationConfig: {
+            temperature: 0.2,
+            responseMimeType: 'application/json',
+          },
+        }),
+      });
+      clearTimeout(timeoutId);
+
+      if (!res.ok) {
+        console.warn(`[Gemini Direct] Model ${m} trả về HTTP ${res.status}`);
+        continue;
+      }
+
+      const data = await res.json();
+      const textOut = data?.candidates?.[0]?.content?.parts?.[0]?.text;
+      if (!textOut) continue;
+
+      const parsedJson = JSON.parse(textOut);
+      const rawList = Array.isArray(parsedJson) ? parsedJson : parsedJson.questions || [];
+
+      if (Array.isArray(rawList) && rawList.length > 0) {
+        const questions: Question[] = rawList.map((q: any, idx: number) => {
+          const opts = Array.isArray(q.options) && q.options.length >= 2 ? q.options : ['A', 'B', 'C', 'D'];
+          const cIdx = typeof q.correctIndex === 'number' && q.correctIndex >= 0 && q.correctIndex < opts.length ? q.correctIndex : 0;
+          const cAns = q.correctAnswer || opts[cIdx] || '';
+          return {
+            id: q.id || `q-gemini-${Date.now()}-${idx + 1}`,
+            questionId: q.questionId || `q-gemini-${Date.now()}-${idx + 1}`,
+            bankId,
+            content: q.content || `Câu hỏi ${idx + 1}`,
+            type: 'SINGLE_CHOICE' as const,
+            options: opts,
+            correctIndex: cIdx,
+            correctAnswer: cAns,
+            score: Number(q.score) || 1,
+            subject: q.subject || subject,
+            topic: q.topic || topic,
+            difficulty: q.difficulty || 'MEDIUM',
+            imageUrl: q.imageUrl || '',
+          };
+        });
+
+        console.log(`[Gemini Direct] Thành công tạo ${questions.length} câu hỏi với model ${m}`);
+        return { questions, modelUsed: m };
+      }
+    } catch (err) {
+      console.warn(`[Gemini Direct] Thử nghiệm model ${m} không thành công:`, err);
+    }
+  }
+
+  return null;
+};
+
 export const parseQuestionsFromDoc = async (payload: ParseDocRequest): Promise<ParseDocResponse> => {
   const bankId = payload.bankId || 'bank-se-arch-01';
   const subject = payload.subject || 'Kiến trúc hướng dịch vụ';
   const topic = payload.topic || 'Kiến trúc hệ thống';
+  const rawText = payload.docText || payload.text || '';
+  const activeApiKey = payload.apiKey || import.meta.env.VITE_GEMINI_API_KEY || '';
+  const activeModel = payload.model || import.meta.env.VITE_GEMINI_MODEL || 'gemini-3.8-flash';
 
   // 1. Chế độ Mock
   if (isMockMode()) {
     await new Promise((r) => setTimeout(r, 1000));
-    const rawText = payload.docText || payload.text || '';
     let parsed: Question[] = [];
     if (rawText) {
       parsed = parseQuestionsFromRawText(rawText, bankId, subject, topic);
@@ -1600,17 +1945,16 @@ export const parseQuestionsFromDoc = async (payload: ParseDocRequest): Promise<P
       }
     }
     return {
-      message: `[MOCK] Google Gemini 1.5 Flash đã bóc tách thành công ${parsed.length} câu hỏi trắc nghiệm từ tài liệu.`,
+      message: `[MOCK] Google Gemini đã tạo thành công ${parsed.length} câu hỏi trắc nghiệm.`,
       count: parsed.length,
       bankId,
       saved: true,
-      source: 'Google Gemini 1.5 Flash (Mock Engine)',
+      source: 'Google Gemini (Mock Engine)',
       questions: parsed,
     };
   }
 
-  // 2. Trích xuất tài liệu thông minh client-side (Đảm bảo bóc tách trọn vẹn 100% tất cả câu hỏi từ tệp Word .docx)
-  const rawText = payload.docText || payload.text || '';
+  // 2. Trích xuất tài liệu có sẵn bằng regex client-side (Đảm bảo bóc tách khi văn bản chứa sẵn "Câu 1: ... A. ... B. ...")
   let parsed: Question[] = [];
 
   if (rawText) {
@@ -1626,7 +1970,7 @@ export const parseQuestionsFromDoc = async (payload: ParseDocRequest): Promise<P
     }
   }
 
-  // Nếu bộ bóc tách client-side đã trích xuất thành công đầy đủ danh sách câu hỏi (>= 2 câu)
+  // Nếu bộ bóc tách regex client-side đã trích xuất thành công đầy đủ danh sách câu hỏi có sẵn (>= 2 câu)
   if (parsed.length >= 2) {
     console.log(`[CloudExam] Bóc tách thành công ${parsed.length} câu hỏi trực tiếp từ tài liệu.`);
     if (payload.autoSave !== false && parsed.length > 0) {
@@ -1639,19 +1983,56 @@ export const parseQuestionsFromDoc = async (payload: ParseDocRequest): Promise<P
       );
     }
     return {
-      message: `Đã số hóa thành công toàn bộ ${parsed.length} câu hỏi trắc nghiệm từ tệp Word qua Gemini AI.`,
+      message: `Đã số hóa thành công toàn bộ ${parsed.length} câu hỏi trắc nghiệm từ tệp Word.`,
       count: parsed.length,
       bankId,
       saved: true,
-      source: 'Google Gemini 1.5 Flash (AI Document Parser)',
+      source: 'Word Document Parser',
       questions: parsed,
     };
   }
 
-  // 3. Nếu chưa đủ câu hỏi, thử gọi API Gateway AWS Lambda
+  // 3. Nếu là Prompt soạn đề AI hoặc trích xuất tài liệu: Ưu tiên gọi Google Gemini AI Client-Side (Không bị giới hạn 29s của API Gateway)
+  if (activeApiKey && (rawText || payload.fileBase64)) {
+    try {
+      const textToProcess = rawText || (payload.fileBase64 ? await extractTextFromBase64Docx(payload.fileBase64) : '');
+      if (textToProcess) {
+        const geminiDirect = await generateQuestionsWithGeminiDirect(
+          textToProcess,
+          bankId,
+          subject,
+          topic,
+          activeApiKey,
+          activeModel
+        );
+
+        if (geminiDirect && geminiDirect.questions.length > 0) {
+          if (payload.autoSave !== false) {
+            await Promise.all(
+              geminiDirect.questions.map((q) =>
+                createQuestion(q).catch((saveErr) => {
+                  console.warn(`Lỗi lưu câu hỏi ${q.id}:`, saveErr);
+                })
+              )
+            );
+          }
+          return {
+            message: `Đã tạo thành công ${geminiDirect.questions.length} câu hỏi trắc nghiệm qua Google Gemini AI (${geminiDirect.modelUsed}).`,
+            count: geminiDirect.questions.length,
+            bankId,
+            saved: true,
+            source: `Google Gemini (${geminiDirect.modelUsed})`,
+            questions: geminiDirect.questions,
+          };
+        }
+      }
+    } catch (directErr) {
+      console.warn('[CloudExam] Lỗi gọi Gemini Direct, chuyển sang gọi API Gateway:', directErr);
+    }
+  }
+
+  // 4. Nếu chưa đủ câu hỏi, thử gọi API Gateway AWS Lambda
   try {
-    const activeApiKey = payload.apiKey || import.meta.env.VITE_GEMINI_API_KEY || '';
-    const activeModel = payload.model || import.meta.env.VITE_GEMINI_MODEL || 'gemini-3.8-flash';
     const res = await api.post('/questions/parse-doc', {
       ...payload,
       apiKey: activeApiKey || undefined,
@@ -1664,7 +2045,7 @@ export const parseQuestionsFromDoc = async (payload: ParseDocRequest): Promise<P
     console.warn('[CloudExam] API Gateway /questions/parse-doc trả về lỗi:', err.response?.status, err.message);
   }
 
-  // 4. Fallback tạo câu hỏi theo chủ đề nếu văn bản không chứa câu hỏi hợp lệ
+  // 5. Fallback tạo câu hỏi theo chủ đề nếu các kênh AI gặp sự cố
   if (parsed.length === 0) {
     parsed = generateTopicQuestions(bankId, subject, topic, rawText);
   }
@@ -1684,7 +2065,7 @@ export const parseQuestionsFromDoc = async (payload: ParseDocRequest): Promise<P
     count: parsed.length,
     bankId,
     saved: true,
-    source: 'Google Gemini 1.5 Flash',
+    source: 'Google Gemini Fallback',
     questions: parsed,
   };
 };

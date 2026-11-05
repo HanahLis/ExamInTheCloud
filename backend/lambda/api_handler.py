@@ -470,20 +470,21 @@ def parse_questions_with_gemini(raw_text: str, subject: str = "Điện toán đ�
     # Danh sách model kiểm chứng thực tế trên Google AI Studio
     # Ưu tiên model người dùng cấu hình, sau đó tuần tự dự phòng sang các model flash siêu tốc
     models_to_try = [primary_model]
-    for fb in ["gemini-3.8-flash", "gemini-3.1-flash-lite", "gemini-2.5-flash-lite", "gemini-3.5-flash", "gemini-3.6-flash", "gemini-1.5-flash"]:
+    for fb in ["gemini-3.1-flash-lite", "gemini-3.8-flash", "gemini-2.5-flash-lite", "gemini-3.5-flash", "gemini-3.6-flash"]:
         if fb not in models_to_try:
             models_to_try.append(fb)
 
     prompt = f"""Bạn là chuyên gia số hóa và biên soạn đề thi cho hệ thống Khảo thí CloudExam.
 Hãy xử lý nội dung văn bản dưới đây:
 - Nếu văn bản là đề thi có sẵn, hãy trích xuất toàn bộ câu hỏi và đáp án thành danh sách câu hỏi trắc nghiệm chuẩn.
-- Nếu văn bản là yêu cầu tạo/soạn câu hỏi (ví dụ: 'Tạo 5 câu hỏi trắc nghiệm về...', 'Soạn câu hỏi về...'), hãy sử dụng tri thức chuyên môn để tự động sinh ra số lượng câu hỏi trắc nghiệm chất lượng cao tương ứng.
+- Nếu văn bản là yêu cầu tạo/soạn câu hỏi (ví dụ: 'Tạo 20 câu hỏi trắc nghiệm...', 'Soạn câu hỏi về...'), hãy sử dụng tri thức chuyên môn để tự động sinh ra ĐÚNG 100% số lượng câu hỏi trắc nghiệm chất lượng cao tương ứng (nếu yêu cầu 20 câu thì PHẢI TẠO ĐỦ 20 CÂU, tuyệt đối không được tự ý giảm số lượng).
 Hệ thống hỗ trợ cả đề thi Tiếng Việt và Tiếng Anh (Bilingual English / Vietnamese).
 
 YÊU CẦU QUAN TRỌNG:
-1. Trích xuất TOÀN BỘ tất cả các câu hỏi có trong văn bản (tiếng Việt hoặc tiếng Anh), không được bỏ sót bất kỳ câu nào.
-2. Giữ nguyên ngôn ngữ gốc của văn bản (đề bài tiếng Anh thì giữ nguyên tiếng Anh, tiếng Việt thì giữ nguyên tiếng Việt).
-3. Trả về DUY NHẤT một mảng JSON các object câu hỏi (hoặc object JSON có thuộc tính "questions"). Mỗi câu hỏi gồm:
+1. Tạo ĐỦ 100% SỐ LƯỢNG câu hỏi mà người dùng yêu cầu (ví dụ yêu cầu 20 câu thì phải trả về đủ 20 câu).
+2. Trích xuất TOÀN BỘ tất cả các câu hỏi có trong văn bản (tiếng Việt hoặc tiếng Anh), không được bỏ sót bất kỳ câu nào.
+3. Giữ nguyên ngôn ngữ gốc của văn bản (đề bài tiếng Anh thì giữ nguyên tiếng Anh, tiếng Việt thì giữ nguyên tiếng Việt).
+4. Trả về DUY NHẤT một mảng JSON các object câu hỏi (hoặc object JSON có thuộc tính "questions"). Mỗi câu hỏi gồm:
 - "content": Nội dung câu hỏi (loại bỏ tiền tố "Câu 1:", "Question 1:", "Q1:", "1." nếu có).
 - "options": Mảng các phần tử chuỗi các phương án lựa chọn A, B, C, D (loại bỏ tiền tố A., B., C., D.; TUYỆT ĐỐI KHÔNG chứa đáp án hoặc giải thích bên trong lựa chọn).
 - "correctIndex": Số nguyên 0..n (0 cho A, 1 cho B, 2 cho C, 3 cho D). Nếu tài liệu không ghi rõ đáp án, hãy dùng tri thức chuyên môn để xác định đáp án đúng nhất.
@@ -519,7 +520,7 @@ Nội dung đề thi:
                 headers={"Content-Type": "application/json"},
                 method="POST"
             )
-            with urllib.request.urlopen(req, timeout=25) as resp:
+            with urllib.request.urlopen(req, timeout=12) as resp:
                 resp_body = json.loads(resp.read().decode("utf-8"))
                 candidates = resp_body.get("candidates", [])
                 if candidates:
@@ -569,7 +570,7 @@ YÊU CẦU:
 """
 
     models_to_try = [primary_model]
-    for fb in ["gemini-3.8-flash", "gemini-3.1-flash-lite", "gemini-2.5-flash-lite", "gemini-3.5-flash", "gemini-3.6-flash", "gemini-1.5-flash"]:
+    for fb in ["gemini-3.1-flash-lite", "gemini-3.8-flash", "gemini-2.5-flash-lite", "gemini-3.5-flash", "gemini-3.6-flash"]:
         if fb not in models_to_try:
             models_to_try.append(fb)
 
@@ -592,7 +593,7 @@ YÊU CẦU:
                 headers={"Content-Type": "application/json"},
                 method="POST"
             )
-            with urllib.request.urlopen(req, timeout=25) as resp:
+            with urllib.request.urlopen(req, timeout=12) as resp:
                 resp_body = json.loads(resp.read().decode("utf-8"))
                 candidates = resp_body.get("candidates", [])
                 if candidates:
