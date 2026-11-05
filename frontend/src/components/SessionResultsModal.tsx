@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
-import { fetchSessionResults, type CandidateSessionResult } from '../services/apiService';
+import { fetchSessionResults, sendSessionReport, type CandidateSessionResult } from '../services/apiService';
+import { useTranslation } from '../locales/i18nContext';
 
 interface ResultModalProps {
   isOpen: boolean;
@@ -8,16 +9,20 @@ interface ResultModalProps {
 }
 
 export default function SessionResultsModal({ isOpen, onClose, sessionId }: ResultModalProps) {
+  const { t } = useTranslation();
   const [results, setResults] = useState<CandidateSessionResult[]>([]);
   const [sessionName, setSessionName] = useState<string>('');
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [sendingReport, setSendingReport] = useState(false);
+  const [reportFeedback, setReportFeedback] = useState<string | null>(null);
 
   useEffect(() => {
     if (!isOpen || !sessionId) return;
     let isMounted = true;
     setLoading(true);
     setError(null);
+    setReportFeedback(null);
 
     fetchSessionResults(sessionId)
       .then((data) => {
@@ -64,6 +69,22 @@ export default function SessionResultsModal({ isOpen, onClose, sessionId }: Resu
     document.body.removeChild(link);
   };
 
+  const handleSendSNSReport = async () => {
+    if (!sessionId || sendingReport) return;
+    try {
+      setSendingReport(true);
+      setReportFeedback(null);
+      const res = await sendSessionReport(sessionId);
+      setReportFeedback(res.message || 'Đã gửi email báo cáo tổng hợp ca thi qua Amazon SNS thành công!');
+      setTimeout(() => setReportFeedback(null), 6000);
+    } catch (err: any) {
+      console.error('Lỗi gửi báo cáo qua SNS:', err);
+      alert(err?.response?.data?.error || err?.message || 'Lỗi gửi email báo cáo qua SNS.');
+    } finally {
+      setSendingReport(false);
+    }
+  };
+
   if (!isOpen) return null;
 
   return (
@@ -73,15 +94,15 @@ export default function SessionResultsModal({ isOpen, onClose, sessionId }: Resu
         <div className="p-4 border-b border-slate-200 flex justify-between items-center bg-slate-50">
           <div>
             <h2 className="text-base font-semibold text-slate-800">
-              Bảng điểm ca thi {sessionName && <span className="font-normal text-slate-600">- {sessionName}</span>}
+              {t('res_modal_title')} {sessionName && <span className="font-normal text-slate-600">- {sessionName}</span>}
             </h2>
             <div className="flex items-center gap-2 mt-0.5">
               <span className="text-xs font-mono text-slate-500">
-                Mã ca thi: #{sessionId}
+                #{sessionId}
               </span>
               {!loading && (
                 <span className="text-xs text-slate-500">
-                  • Tổng số bài thi: {results.length}
+                  • {results.length} {t('cand_title')}
                 </span>
               )}
             </div>
@@ -89,17 +110,32 @@ export default function SessionResultsModal({ isOpen, onClose, sessionId }: Resu
           <button
             onClick={onClose}
             className="text-slate-400 hover:text-slate-600 p-1 text-sm cursor-pointer"
-            title="Đóng"
+            title={t('close')}
           >
             ✕
           </button>
         </div>
 
+        {/* Thông báo gửi SNS thành công */}
+        {reportFeedback && (
+          <div className="mx-4 mt-3 p-2.5 bg-emerald-50 border border-emerald-200 text-emerald-800 text-xs rounded flex items-center justify-between">
+            <span className="flex items-center gap-1.5 font-medium">
+              ✅ {reportFeedback}
+            </span>
+            <button
+              onClick={() => setReportFeedback(null)}
+              className="text-emerald-600 hover:text-emerald-800 text-xs cursor-pointer"
+            >
+              ✕
+            </button>
+          </div>
+        )}
+
         {/* Nội dung bảng điểm */}
         <div className="p-4 overflow-y-auto flex-1">
           {loading ? (
             <div className="flex flex-col items-center justify-center py-10 space-y-2">
-              <p className="text-xs text-slate-500">Đang tải bảng điểm...</p>
+              <p className="text-xs text-slate-500">{t('loading')}</p>
             </div>
           ) : error ? (
             <div className="p-4 text-center text-rose-600 bg-rose-50 rounded border border-rose-200 text-xs">
@@ -109,19 +145,19 @@ export default function SessionResultsModal({ isOpen, onClose, sessionId }: Resu
             <table className="w-full text-left border-collapse border border-slate-200 rounded text-xs">
               <thead className="bg-slate-50 text-slate-600 font-medium">
                 <tr>
-                  <th className="p-2.5 border-b border-slate-200">Mã SV</th>
-                  <th className="p-2.5 border-b border-slate-200">Họ tên</th>
-                  <th className="p-2.5 border-b border-slate-200">Email</th>
-                  <th className="p-2.5 border-b border-slate-200 text-center">Điểm</th>
-                  <th className="p-2.5 border-b border-slate-200 text-center">Số câu đúng</th>
-                  <th className="p-2.5 border-b border-slate-200 text-right">Thời gian nộp</th>
+                  <th className="p-2.5 border-b border-slate-200">{t('cand_table_code')}</th>
+                  <th className="p-2.5 border-b border-slate-200">{t('cand_table_name')}</th>
+                  <th className="p-2.5 border-b border-slate-200">{t('cand_table_email')}</th>
+                  <th className="p-2.5 border-b border-slate-200 text-center">{t('res_score')}</th>
+                  <th className="p-2.5 border-b border-slate-200 text-center">{t('res_correct_count')}</th>
+                  <th className="p-2.5 border-b border-slate-200 text-right">{t('status')}</th>
                 </tr>
               </thead>
               <tbody className="text-slate-700 divide-y divide-slate-100">
                 {results.length === 0 ? (
                   <tr>
                     <td colSpan={6} className="p-6 text-center text-slate-400 italic">
-                      Chưa có thí sinh nào nộp bài trong ca thi này.
+                      {t('sess_empty')}
                     </td>
                   </tr>
                 ) : (
@@ -145,7 +181,7 @@ export default function SessionResultsModal({ isOpen, onClose, sessionId }: Resu
                         {res.correctCount} / {res.totalQuestions}
                       </td>
                       <td className="p-2.5 text-right text-slate-500 font-mono">
-                        {res.submittedAt ? new Date(res.submittedAt).toLocaleString('vi-VN') : '—'}
+                        {res.submittedAt ? new Date(res.submittedAt).toLocaleTimeString() : '—'}
                       </td>
                     </tr>
                   ))
@@ -156,20 +192,32 @@ export default function SessionResultsModal({ isOpen, onClose, sessionId }: Resu
         </div>
 
         {/* Footer */}
-        <div className="p-3 border-t border-slate-200 bg-slate-50 flex justify-end gap-2">
-          <button
-            onClick={onClose}
-            className="px-3 py-1.5 bg-white border border-slate-200 text-slate-700 text-xs rounded hover:bg-slate-50 cursor-pointer"
-          >
-            Đóng
-          </button>
-          <button
-            onClick={handleExportCSV}
-            disabled={loading || results.length === 0}
-            className="px-3 py-1.5 bg-slate-900 text-white text-xs font-medium rounded hover:bg-slate-800 disabled:bg-slate-300 disabled:cursor-not-allowed transition cursor-pointer"
-          >
-            Xuất file CSV
-          </button>
+        <div className="p-3 border-t border-slate-200 bg-slate-50 flex justify-between items-center">
+          <div>
+            <button
+              onClick={handleSendSNSReport}
+              disabled={loading || sendingReport || results.length === 0}
+              className="px-3 py-1.5 bg-blue-600 text-white text-xs font-medium rounded hover:bg-blue-700 disabled:bg-slate-300 disabled:cursor-not-allowed transition flex items-center gap-1.5 cursor-pointer shadow-sm"
+              title="Amazon SNS Email"
+            >
+              {sendingReport ? t('loading') : 'Amazon SNS Email'}
+            </button>
+          </div>
+          <div className="flex gap-2">
+            <button
+              onClick={onClose}
+              className="px-3 py-1.5 bg-white border border-slate-200 text-slate-700 text-xs rounded hover:bg-slate-50 cursor-pointer"
+            >
+              {t('close')}
+            </button>
+            <button
+              onClick={handleExportCSV}
+              disabled={loading || results.length === 0}
+              className="px-3 py-1.5 bg-slate-900 text-white text-xs font-medium rounded hover:bg-slate-800 disabled:bg-slate-300 disabled:cursor-not-allowed transition cursor-pointer"
+            >
+              {t('download_csv')}
+            </button>
+          </div>
         </div>
       </div>
     </div>

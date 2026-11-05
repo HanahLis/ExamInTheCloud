@@ -1,10 +1,11 @@
 [
   {
-    "id": "EX-VNU-2026-01",
-    "name": "Thi Đánh Giá Năng Lực: Kiến trúc & Phát triển Phần mềm",
-    "startTime": "2026-10-20T00:00:00.000Z",
-    "endTime": "2026-10-31T23:59:59.000Z",
+    "id": "EXAM-DEMO-K69",
+    "name": "Thi Đánh Giá Năng Lực: Điện Toán Đám Mây & Kiến Trúc Phần Mềm (UET)",
+    "startTime": "2026-11-01T00:00:00.000Z",
+    "endTime": "2026-12-31T23:59:59.000Z",
     "status": "RUNNING",
+    "durationMinutes": 45,
     "questionIds": [
       "q-se-001",
       "q-se-002",
@@ -18,6 +19,7 @@
       "q-se-010"
     ],
     "candidateEmails": [
+      "tranducmanh2006@gmail.com",
       "annv@uet.vnu.edu.vn",
       "duc.tm24@vnu.edu.vn",
       "mai.lt24@vnu.edu.vn",
@@ -30,6 +32,27 @@
       "quan.dm24@vnu.edu.vn",
       "chi.nq24@vnu.edu.vn"
     ],
-    "link": "https://cloudexam.vn/exam/EX-VNU-2026-01"
+    "link": "http://localhost:5173/?exam=EXAM-DEMO-K69"
+  },
+  {
+    "id": "EX-VNU-2026-01",
+    "name": "Thi Thử Nghiệm Chuẩn: Kiến trúc Serverless & Multi-Cloud",
+    "startTime": "2026-11-01T00:00:00.000Z",
+    "endTime": "2026-12-31T23:59:59.000Z",
+    "status": "RUNNING",
+    "durationMinutes": 30,
+    "questionIds": [
+      "q-se-001",
+      "q-se-002",
+      "q-se-003",
+      "q-se-004",
+      "q-se-005"
+    ],
+    "candidateEmails": [
+      "tranducmanh2006@gmail.com",
+      "annv@uet.vnu.edu.vn",
+      "duc.tm24@vnu.edu.vn"
+    ],
+    "link": "http://localhost:5173/?exam=EX-VNU-2026-01"
   }
 ]

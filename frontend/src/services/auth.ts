@@ -1,6 +1,11 @@
 const DOMAIN = import.meta.env.VITE_COGNITO_DOMAIN; // gồm cả https://
 const CLIENT_ID = import.meta.env.VITE_COGNITO_CLIENT_ID;
-const REDIRECT_URI = import.meta.env.VITE_COGNITO_REDIRECT_URI;
+export const getRedirectUri = (): string => {
+  if (typeof window !== 'undefined' && window.location.origin) {
+    return `${window.location.origin}/callback`;
+  }
+  return import.meta.env.VITE_COGNITO_REDIRECT_URI || 'http://localhost:5173/callback';
+};
 
 export interface AuthUser {
   email: string;
@@ -38,6 +43,12 @@ export const DATABASE_ACCOUNTS_MAP: Record<
   string,
   { role: 'Organizer' | 'Candidate'; name: string; email: string; studentCode?: string }
 > = {
+  'tranducmanh2006@gmail.com': {
+    role: 'Organizer',
+    name: 'Trần Đức Mạnh',
+    email: 'tranducmanh2006@gmail.com',
+    studentCode: '24021561',
+  },
   'annv@uet.vnu.edu.vn': {
     role: 'Organizer',
     name: 'PGS. TS. Nguyễn Văn An',
@@ -218,22 +229,29 @@ const sha256Challenge = async (verifier: string) =>
   base64Url(new Uint8Array(await crypto.subtle.digest('SHA-256', new TextEncoder().encode(verifier))));
 
 // 1. Chuyển hướng sang Cognito Hosted UI
-export const redirectToCognitoLogin = async () => {
+export const redirectToCognitoLogin = async (isSignUp?: boolean | unknown) => {
+  const isDirectSignUp = isSignUp === true;
+  if (!DOMAIN || !CLIENT_ID) {
+    alert('Hệ thống chưa tìm thấy cấu hình Cognito Domain hoặc Client ID. Vui lòng kiểm tra lại tệp cấu hình .env.');
+    return;
+  }
   const verifier = randomString(48);
   const state = randomString(16);
   sessionStorage.setItem('pkce_verifier', verifier);
   sessionStorage.setItem('pkce_state', state);
 
+  const redirectUri = getRedirectUri();
   const params = new URLSearchParams({
     response_type: 'code',
     client_id: CLIENT_ID,
-    redirect_uri: REDIRECT_URI,
+    redirect_uri: redirectUri,
     scope: 'openid email profile',
     state,
     code_challenge: await sha256Challenge(verifier),
     code_challenge_method: 'S256',
   });
-  window.location.href = `${DOMAIN}/oauth2/authorize?${params}`;
+  const endpoint = isDirectSignUp ? `${DOMAIN}/signup` : `${DOMAIN}/oauth2/authorize`;
+  window.location.href = `${endpoint}?${params}`;
 };
 
 // 2. Đổi `code` (trên URL /callback?code=...) lấy token thật từ Cognito
@@ -259,7 +277,7 @@ const exchangeCode = async () => {
       grant_type: 'authorization_code',
       client_id: CLIENT_ID,
       code,
-      redirect_uri: REDIRECT_URI,
+      redirect_uri: getRedirectUri(),
       code_verifier: verifier,
     }),
   });

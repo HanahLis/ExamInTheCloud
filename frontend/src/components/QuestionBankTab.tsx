@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useRef, useState, type FormEvent } from 'react';
+import { useTranslation } from '../locales/i18nContext';
 import { uploadQuestionImage } from '../services/s3Service';
 import {
   createQuestion,
@@ -26,6 +27,7 @@ interface Props {
 }
 
 export const QuestionBankTab = ({ questions, onRefresh }: Props) => {
+  const { t } = useTranslation();
   // 1. Định danh Giảng viên hiện tại (Cô lập dữ liệu theo tài khoản)
   const currentUser = getCurrentUser();
   const lecturerEmail = (currentUser.email || 'annv@uet.vnu.edu.vn').toLowerCase().trim();
@@ -74,6 +76,13 @@ export const QuestionBankTab = ({ questions, onRefresh }: Props) => {
   const [importError, setImportError] = useState('');
   const [importSuccessMessage, setImportSuccessMessage] = useState('');
   const [extractedQuestions, setExtractedQuestions] = useState<Question[]>([]);
+  const [importApiKey, setImportApiKey] = useState(
+    (import.meta as any).env.VITE_GEMINI_API_KEY || ''
+  );
+  const [importModel, setImportModel] = useState(
+    (import.meta as any).env.VITE_GEMINI_MODEL || 'gemini-3.8-flash'
+  );
+  const [showApiKey, setShowApiKey] = useState(false);
   const docFileInputRef = useRef<HTMLInputElement>(null);
 
   // Tải danh sách ngân hàng câu hỏi
@@ -459,6 +468,8 @@ export const QuestionBankTab = ({ questions, onRefresh }: Props) => {
         docText,
         text: docText,
         autoSave: importAutoSave,
+        model: importModel.trim() || undefined,
+        apiKey: importApiKey.trim() || undefined,
       });
 
       setImportSuccessMessage(
@@ -486,10 +497,10 @@ export const QuestionBankTab = ({ questions, onRefresh }: Props) => {
         <div className="flex flex-wrap items-center justify-between gap-3">
           <div>
             <h3 className="text-sm font-semibold text-slate-800">
-              Ngân hàng câu hỏi của tôi
+              {t('qb_my_banks')}
             </h3>
             <p className="text-xs text-slate-500 mt-0.5">
-              Tài khoản giảng viên:{' '}
+              {t('qb_lecturer_account')}{' '}
               <span className="font-medium text-slate-700">{lecturerName}</span> (
               {lecturerEmail})
             </p>
@@ -501,8 +512,10 @@ export const QuestionBankTab = ({ questions, onRefresh }: Props) => {
               onClick={handleOpenImportModal}
               className="px-3 py-1.5 bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-medium rounded-md shadow-xs transition flex items-center gap-1.5 cursor-pointer"
             >
-              <span>📥</span>
-              <span>Nhập câu hỏi từ file Word</span>
+              <svg className="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                <path d="m12 3-1.912 5.813a2 2 0 0 1-1.275 1.275L3 12l5.813 1.912a2 2 0 0 1 1.275 1.275L12 21l1.912-5.813a2 2 0 0 1 1.275-1.275L21 12l-5.813-1.912a2 2 0 0 1-1.275-1.275L12 3Z"/>
+              </svg>
+              <span>{t('qb_ai_generate_btn')}</span>
             </button>
 
             <button
@@ -510,7 +523,7 @@ export const QuestionBankTab = ({ questions, onRefresh }: Props) => {
               onClick={() => setShowCreateBankModal(true)}
               className="px-3 py-1.5 bg-slate-900 text-white text-xs font-medium rounded-md hover:bg-slate-800 transition cursor-pointer"
             >
-              + Tạo ngân hàng mới
+              + {t('qb_create_bank')}
             </button>
           </div>
         </div>
@@ -518,18 +531,18 @@ export const QuestionBankTab = ({ questions, onRefresh }: Props) => {
         {/* Bộ lọc ngân hàng */}
         <div className="mt-3 pt-3 border-t border-slate-100 flex flex-wrap items-center justify-between gap-3">
           <div className="flex items-center gap-2">
-            <span className="text-xs text-slate-500">Lọc theo ngân hàng:</span>
+            <span className="text-xs text-slate-500">{t('qb_filter_bank')}:</span>
             <select
               value={selectedBankFilter}
               onChange={(e) => setSelectedBankFilter(e.target.value)}
               className="text-xs p-1.5 border border-slate-200 rounded-md bg-white text-slate-700 outline-none"
             >
-              <option value="ALL">Tất cả ({lecturerQuestions.length} câu)</option>
+              <option value="ALL">{t('all')} ({lecturerQuestions.length} {t('sess_questions_unit')})</option>
               {lecturerBanks.map((b) => {
                 const count = lecturerQuestions.filter((q) => q.bankId === b.id).length;
                 return (
                   <option key={b.id} value={b.id}>
-                    {b.name} ({count} câu)
+                    {b.name} ({count} {t('sess_questions_unit')})
                   </option>
                 );
               })}
@@ -539,7 +552,7 @@ export const QuestionBankTab = ({ questions, onRefresh }: Props) => {
           <div className="flex flex-wrap gap-2 text-xs items-center">
             {lecturerBanks.length === 0 && (
               <span className="text-xs text-slate-400 italic">
-                Chưa có ngân hàng nào. Bấm "+ Tạo ngân hàng mới" để thêm.
+                {t('qb_empty')}
               </span>
             )}
             {lecturerBanks.map((b) => {
@@ -598,7 +611,7 @@ export const QuestionBankTab = ({ questions, onRefresh }: Props) => {
           <div className="bg-white rounded-lg p-5 max-w-md w-full border border-slate-200 shadow-sm">
             <div className="flex justify-between items-center mb-3">
               <h4 className="text-sm font-semibold text-slate-800">
-                Tạo ngân hàng câu hỏi mới
+                {t('qb_create_bank_modal_title')}
               </h4>
               <button
                 type="button"
@@ -611,7 +624,7 @@ export const QuestionBankTab = ({ questions, onRefresh }: Props) => {
             <form onSubmit={handleCreateBank} className="space-y-3">
               <div>
                 <label className="block text-xs font-medium text-slate-700 mb-1">
-                  Tên ngân hàng *
+                  {t('qb_bank_name_label')}
                 </label>
                 <input
                   type="text"
@@ -625,7 +638,7 @@ export const QuestionBankTab = ({ questions, onRefresh }: Props) => {
 
               <div>
                 <label className="block text-xs font-medium text-slate-700 mb-1">
-                  Môn học *
+                  {t('qb_subject_label')}
                 </label>
                 <input
                   type="text"
@@ -639,7 +652,7 @@ export const QuestionBankTab = ({ questions, onRefresh }: Props) => {
 
               <div>
                 <label className="block text-xs font-medium text-slate-700 mb-1">
-                  Mô tả (tùy chọn)
+                  {t('qb_desc_label')}
                 </label>
                 <textarea
                   value={newBankDesc}
@@ -656,14 +669,14 @@ export const QuestionBankTab = ({ questions, onRefresh }: Props) => {
                   onClick={() => setShowCreateBankModal(false)}
                   className="px-3 py-1.5 border border-slate-200 rounded-md text-xs text-slate-600 hover:bg-slate-50 cursor-pointer"
                 >
-                  Hủy
+                  {t('cancel')}
                 </button>
                 <button
                   type="submit"
                   disabled={creatingBank}
                   className="px-3 py-1.5 bg-slate-900 text-white text-xs font-medium rounded-md hover:bg-slate-800 disabled:bg-slate-400 cursor-pointer"
                 >
-                  {creatingBank ? 'Đang tạo...' : 'Tạo ngân hàng'}
+                  {creatingBank ? t('qb_creating_bank') : t('qb_create_bank_btn')}
                 </button>
               </div>
             </form>
@@ -678,9 +691,9 @@ export const QuestionBankTab = ({ questions, onRefresh }: Props) => {
             {/* Header Modal */}
             <div className="bg-slate-900 p-4 text-white flex justify-between items-start">
               <div>
-                <h4 className="text-sm font-semibold">Nhập câu hỏi từ tệp Word (.docx)</h4>
+                <h4 className="text-sm font-semibold">{t('qb_import_modal_title')}</h4>
                 <p className="text-xs text-slate-300 mt-0.5">
-                  Hỗ trợ tự động bóc tách trọn vẹn cả đề thi Tiếng Việt và Tiếng Anh (Question 1, Q1, Answer, Ans, Key) kèm đáp án.
+                  {t('qb_import_modal_desc')}
                 </p>
               </div>
               <button
@@ -697,7 +710,7 @@ export const QuestionBankTab = ({ questions, onRefresh }: Props) => {
               <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 bg-slate-50 p-3 rounded-lg border border-slate-200">
                 <div>
                   <label className="block text-xs font-semibold text-slate-700 mb-1">
-                    Ngân hàng câu hỏi đích *
+                    {t('qb_target_bank')}
                   </label>
                   <select
                     value={importBankId}
@@ -709,7 +722,7 @@ export const QuestionBankTab = ({ questions, onRefresh }: Props) => {
                     className="w-full p-2 border border-slate-300 rounded-md text-xs bg-white text-slate-800 outline-none"
                   >
                     {lecturerBanks.length === 0 ? (
-                      <option value="">Chưa có ngân hàng câu hỏi</option>
+                      <option value="">{t('qb_empty')}</option>
                     ) : (
                       lecturerBanks.map((b) => (
                         <option key={b.id} value={b.id}>
@@ -722,7 +735,7 @@ export const QuestionBankTab = ({ questions, onRefresh }: Props) => {
 
                 <div>
                   <label className="block text-xs font-semibold text-slate-700 mb-1">
-                    Môn học
+                    {t('qb_subject')}
                   </label>
                   <input
                     type="text"
@@ -735,7 +748,7 @@ export const QuestionBankTab = ({ questions, onRefresh }: Props) => {
 
                 <div>
                   <label className="block text-xs font-semibold text-slate-700 mb-1">
-                    Chủ đề
+                    {t('qb_topic')}
                   </label>
                   <input
                     type="text"
@@ -744,6 +757,58 @@ export const QuestionBankTab = ({ questions, onRefresh }: Props) => {
                     placeholder="Ví dụ: Kiến trúc hệ thống"
                     className="w-full p-2 border border-slate-300 rounded-md text-xs bg-white text-slate-800 outline-none"
                   />
+                </div>
+              </div>
+
+              {/* Cấu hình Google Gemini AI */}
+              <div className="bg-indigo-50/70 p-3.5 rounded-lg border border-indigo-200/80 space-y-2.5">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-1.5">
+                    <span className="w-2 h-2 rounded-full bg-indigo-500 animate-pulse"></span>
+                    <span className="text-xs font-semibold text-indigo-900">
+                      {t('qb_gemini_config')}
+                    </span>
+                  </div>
+                  <span className="text-[11px] text-indigo-600 font-mono">
+                    {importApiKey.trim() ? '✓ OK' : '.env'}
+                  </span>
+                </div>
+
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                  <div>
+                    <label className="block text-xs font-medium text-slate-700 mb-1">
+                      {t('qb_model_label')}
+                    </label>
+                    <input
+                      type="text"
+                      value={importModel}
+                      onChange={(e) => setImportModel(e.target.value)}
+                      placeholder="gemini-3.8-flash hoặc gemini-3.1-flash-lite"
+                      className="w-full p-2 border border-slate-300 rounded-md text-xs bg-white text-slate-800 outline-none focus:border-indigo-500 font-mono"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block text-xs font-medium text-slate-700 mb-1">
+                      {t('qb_api_key_label')}
+                    </label>
+                    <div className="relative">
+                      <input
+                        type={showApiKey ? 'text' : 'password'}
+                        value={importApiKey}
+                        onChange={(e) => setImportApiKey(e.target.value)}
+                        placeholder="Dán AIzaSy... (hoặc để trống nếu đã có trong .env)"
+                        className="w-full p-2 pr-12 border border-slate-300 rounded-md text-xs bg-white text-slate-800 outline-none focus:border-indigo-500 font-mono"
+                      />
+                      <button
+                        type="button"
+                        onClick={() => setShowApiKey(!showApiKey)}
+                        className="absolute right-2 top-1/2 -translate-y-1/2 text-[10px] text-slate-500 hover:text-slate-800 px-1 py-0.5 rounded cursor-pointer"
+                      >
+                        {showApiKey ? 'Ẩn' : 'Hiện'}
+                      </button>
+                    </div>
+                  </div>
                 </div>
               </div>
 
@@ -759,7 +824,7 @@ export const QuestionBankTab = ({ questions, onRefresh }: Props) => {
                         : 'border-transparent text-slate-500 hover:text-slate-700'
                     }`}
                   >
-                    Tải tệp Word (.docx) / Văn bản (.txt)
+                    {t('qb_tab_file')}
                   </button>
                   <button
                     type="button"
@@ -770,7 +835,7 @@ export const QuestionBankTab = ({ questions, onRefresh }: Props) => {
                         : 'border-transparent text-slate-500 hover:text-slate-700'
                     }`}
                   >
-                    Dán văn bản thô
+                    {t('qb_tab_text')}
                   </button>
                 </div>
 
@@ -792,25 +857,26 @@ export const QuestionBankTab = ({ questions, onRefresh }: Props) => {
                     />
                     <label
                       htmlFor="doc-file-upload-input"
-                      className="cursor-pointer flex flex-col items-center justify-center space-y-1"
+                      className="cursor-pointer flex flex-col items-center justify-center space-y-1.5"
                     >
-                      <span className="text-2xl">📄</span>
+                      <svg className="w-8 h-8 text-slate-400" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5">
+                        <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" />
+                        <polyline points="14 2 14 8 20 8" />
+                        <line x1="16" y1="13" x2="8" y2="13" />
+                        <line x1="16" y1="17" x2="8" y2="17" />
+                        <polyline points="10 9 9 9 8 9" />
+                      </svg>
                       <span className="text-xs font-semibold text-slate-700">
-                        {importFile ? importFile.name : 'Bấm vào đây để chọn tệp .docx hoặc .txt'}
-                      </span>
-                      <span className="text-[11px] text-slate-400">
-                        {importFile
-                          ? `${(importFile.size / 1024).toFixed(1)} KB`
-                          : 'Hỗ trợ tệp Microsoft Word (.docx) và văn bản thuần (.txt)'}
+                        {importFile ? importFile.name : 'Word (.docx) / Text (.txt)'}
                       </span>
                     </label>
                   </div>
                 ) : (
-                  <div>
+                  <div className="space-y-2">
                     <textarea
                       value={importText}
                       onChange={(e) => setImportText(e.target.value)}
-                      placeholder="Dán nội dung đề thi vào đây (hỗ trợ Tiếng Việt: Câu 1: ... A. ... Đáp án: A hoặc Tiếng Anh: Question 1: ... A. ... Answer: A)..."
+                      placeholder="Dán nội dung đề thi có sẵn (Câu 1: ... A. ... B. ...) HOẶC nhập prompt yêu cầu Gemini soạn câu hỏi mới..."
                       rows={6}
                       className="w-full p-2.5 border border-slate-200 rounded-md text-xs outline-none focus:border-slate-400 font-mono"
                     />
@@ -830,7 +896,7 @@ export const QuestionBankTab = ({ questions, onRefresh }: Props) => {
                   htmlFor="chk-auto-save"
                   className="text-xs text-slate-700 cursor-pointer"
                 >
-                  Tự động lưu toàn bộ câu hỏi trích xuất vào ngân hàng câu hỏi
+                  {t('qb_auto_save_check')}
                 </label>
               </div>
 
@@ -851,10 +917,10 @@ export const QuestionBankTab = ({ questions, onRefresh }: Props) => {
                 <div className="space-y-2 pt-2 border-t border-slate-200">
                   <div className="flex justify-between items-center">
                     <span className="text-xs font-bold text-slate-800">
-                      Danh sách câu hỏi trích xuất ({extractedQuestions.length} câu):
+                      {t('qb_question_list_title')} ({extractedQuestions.length} {t('sess_questions_unit')}):
                     </span>
                     <span className="text-[11px] text-emerald-700 font-medium">
-                      Đã đồng bộ vào ngân hàng
+                      ✓ OK
                     </span>
                   </div>
                   <div className="space-y-2 max-h-56 overflow-y-auto pr-1">
@@ -864,7 +930,7 @@ export const QuestionBankTab = ({ questions, onRefresh }: Props) => {
                         className="p-3 rounded-lg border border-slate-200 bg-slate-50 text-xs space-y-1.5"
                       >
                         <div className="flex items-start gap-1.5">
-                          <span className="font-bold text-indigo-700">Câu {idx + 1}:</span>
+                          <span className="font-bold text-indigo-700">{t('exam_question_num')} {idx + 1}:</span>
                           <span className="font-medium text-slate-800 flex-1">
                             {q.content}
                           </span>
@@ -907,7 +973,7 @@ export const QuestionBankTab = ({ questions, onRefresh }: Props) => {
                   onClick={handleCloseImportModal}
                   className="px-3 py-1.5 border border-slate-300 rounded-md text-xs font-medium text-slate-700 hover:bg-slate-100 transition cursor-pointer"
                 >
-                  {extractedQuestions.length > 0 ? 'Đóng cửa sổ' : 'Hủy bỏ'}
+                  {extractedQuestions.length > 0 ? t('close') : t('cancel')}
                 </button>
                 <button
                   type="button"
@@ -918,13 +984,11 @@ export const QuestionBankTab = ({ questions, onRefresh }: Props) => {
                   {importLoading ? (
                     <>
                       <div className="w-3.5 h-3.5 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
-                      <span>Đang trích xuất...</span>
+                      <span>{t('qb_extracting_btn')}</span>
                     </>
                   ) : (
                     <span>
-                      {extractedQuestions.length > 0
-                        ? 'Trích xuất thêm tệp khác'
-                        : 'Trích xuất câu hỏi'}
+                      {t('qb_extract_btn')}
                     </span>
                   )}
                 </button>
@@ -938,7 +1002,7 @@ export const QuestionBankTab = ({ questions, onRefresh }: Props) => {
       <div className="bg-white p-5 rounded-lg border border-slate-200 shadow-xs">
         <div className="flex justify-between items-center mb-3">
           <h3 className="text-sm font-semibold text-slate-800">
-            {editingId ? 'Chỉnh sửa câu hỏi' : 'Thêm câu hỏi mới'}
+            {editingId ? t('qb_edit_question_title') : t('qb_create_question')}
           </h3>
         </div>
 
@@ -947,7 +1011,7 @@ export const QuestionBankTab = ({ questions, onRefresh }: Props) => {
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 bg-slate-50 p-3 rounded-md border border-slate-100">
             <div>
               <label className="block text-xs font-medium text-slate-700 mb-1">
-                Ngân hàng câu hỏi *
+                {t('qb_target_bank')}
               </label>
               <select
                 value={bankId}
@@ -956,7 +1020,7 @@ export const QuestionBankTab = ({ questions, onRefresh }: Props) => {
                 required
               >
                 {lecturerBanks.length === 0 ? (
-                  <option value="">Chưa có ngân hàng câu hỏi</option>
+                  <option value="">{t('qb_empty')}</option>
                 ) : (
                   lecturerBanks.map((b) => (
                     <option key={b.id} value={b.id}>
@@ -969,7 +1033,7 @@ export const QuestionBankTab = ({ questions, onRefresh }: Props) => {
 
             <div>
               <label className="block text-xs font-medium text-slate-700 mb-1">
-                Môn học *
+                {t('qb_subject_label')}
               </label>
               <input
                 type="text"
@@ -983,7 +1047,7 @@ export const QuestionBankTab = ({ questions, onRefresh }: Props) => {
 
             <div>
               <label className="block text-xs font-medium text-slate-700 mb-1">
-                Chủ đề *
+                {t('qb_topic')} *
               </label>
               <input
                 type="text"
@@ -999,7 +1063,7 @@ export const QuestionBankTab = ({ questions, onRefresh }: Props) => {
           {/* Hàng 2: Nội dung câu hỏi */}
           <div>
             <label className="block text-xs font-medium text-slate-700 mb-1">
-              Nội dung câu hỏi *
+              {t('qb_question_content')} *
             </label>
             <textarea
               value={content}
@@ -1013,7 +1077,7 @@ export const QuestionBankTab = ({ questions, onRefresh }: Props) => {
 
           {/* Lựa chọn loại câu hỏi: Trắc nghiệm (A-F) hoặc Tự luận */}
           <div className="flex items-center gap-3 pb-1">
-            <span className="text-xs font-semibold text-slate-700">Loại câu hỏi:</span>
+            <span className="text-xs font-semibold text-slate-700">{t('qb_question_type_label')}</span>
             <div className="inline-flex rounded-md p-0.5 bg-slate-100 border border-slate-200">
               <button
                 type="button"
@@ -1024,7 +1088,7 @@ export const QuestionBankTab = ({ questions, onRefresh }: Props) => {
                     : 'text-slate-600 hover:text-slate-900'
                 }`}
               >
-                📝 Trắc nghiệm (A-F)
+                {t('qb_mode_choice')}
               </button>
               <button
                 type="button"
@@ -1035,7 +1099,7 @@ export const QuestionBankTab = ({ questions, onRefresh }: Props) => {
                     : 'text-slate-600 hover:text-indigo-700'
                 }`}
               >
-                ✍️ Tự luận (Essay)
+                {t('qb_mode_essay')}
               </button>
             </div>
           </div>
@@ -1045,18 +1109,15 @@ export const QuestionBankTab = ({ questions, onRefresh }: Props) => {
             <div className="space-y-1.5 p-3 rounded-md border border-indigo-200 bg-indigo-50/40">
               <div className="flex justify-between items-center">
                 <label className="block text-xs font-semibold text-indigo-900">
-                  Gợi ý đáp án / Barem chấm điểm (Rubric)
+                  {t('qb_essay_rubric_label')}
                 </label>
-                <span className="text-[11px] text-indigo-600 font-medium">
-                  ✍️ Thí sinh sẽ nhập câu trả lời trực tiếp trong phòng thi
-                </span>
               </div>
               <textarea
                 value={essayRubric}
                 onChange={(e) => setEssayRubric(e.target.value)}
                 className="w-full p-2.5 border border-indigo-200 rounded-md outline-none focus:border-indigo-400 text-xs leading-relaxed bg-white text-slate-800"
                 rows={4}
-                placeholder="Nhập barem chấm điểm, các ý chính cần có hoặc câu trả lời mẫu cho giảng viên đối chiếu..."
+                placeholder="Nhập barem chấm điểm, các ý chính cần có..."
               />
             </div>
           ) : (
@@ -1065,12 +1126,8 @@ export const QuestionBankTab = ({ questions, onRefresh }: Props) => {
               <div className="flex flex-wrap justify-between items-center">
                 <div>
                   <label className="block text-xs font-medium text-slate-700">
-                    Các lựa chọn trả lời và đánh dấu đáp án đúng *
+                    {t('qb_options_and_correct')}
                   </label>
-                  <p className="text-[11px] text-slate-500">
-                    Hỗ trợ từ 2 đến 6 phương án (A, B, C, D, E, F). Chọn nút tròn để đánh dấu đáp
-                    án đúng.
-                  </p>
                 </div>
 
                 {options.length < 6 && (
@@ -1079,7 +1136,7 @@ export const QuestionBankTab = ({ questions, onRefresh }: Props) => {
                     onClick={handleAddOption}
                     className="text-xs text-indigo-600 hover:text-indigo-800 font-medium px-2 py-1 rounded bg-indigo-50 hover:bg-indigo-100 transition cursor-pointer"
                   >
-                    + Thêm lựa chọn ({OPTION_LABELS[options.length]})
+                    {t('qb_add_option_btn')} ({OPTION_LABELS[options.length]})
                   </button>
                 )}
               </div>
@@ -1121,7 +1178,7 @@ export const QuestionBankTab = ({ questions, onRefresh }: Props) => {
                       />
                       {isSelected && (
                         <span className="text-[10px] font-bold text-emerald-700 bg-emerald-100 border border-emerald-300 px-2 py-0.5 rounded shrink-0">
-                          ✓ Đáp án đúng
+                          {t('qb_correct_answer_badge')}
                         </span>
                       )}
                       {options.length > 2 && (
@@ -1145,7 +1202,7 @@ export const QuestionBankTab = ({ questions, onRefresh }: Props) => {
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-1">
             <div>
               <label className="block text-xs font-medium text-slate-700 mb-1">
-                Điểm số *
+                {t('qb_score_label')}
               </label>
               <input
                 type="number"
@@ -1160,7 +1217,7 @@ export const QuestionBankTab = ({ questions, onRefresh }: Props) => {
 
             <div>
               <label className="block text-xs font-medium text-slate-700 mb-1">
-                Ảnh minh họa (nếu có)
+                {t('qb_image_label')}
               </label>
               <input
                 ref={fileInput}
@@ -1193,7 +1250,7 @@ export const QuestionBankTab = ({ questions, onRefresh }: Props) => {
                 onClick={() => setExistingImage('')}
                 className="text-xs text-rose-600 hover:underline px-2 py-1 cursor-pointer"
               >
-                Gỡ ảnh
+                {t('qb_remove_image')}
               </button>
             </div>
           )}
@@ -1204,7 +1261,7 @@ export const QuestionBankTab = ({ questions, onRefresh }: Props) => {
               disabled={loading}
               className="px-4 py-2 bg-slate-900 text-white font-medium rounded-md text-xs hover:bg-slate-800 disabled:bg-slate-400 transition cursor-pointer"
             >
-              {loading ? 'Đang lưu...' : editingId ? 'Cập nhật câu hỏi' : 'Lưu câu hỏi'}
+              {loading ? t('qb_saving') : editingId ? t('qb_update_btn') : t('qb_save_btn')}
             </button>
             {editingId && (
               <button
@@ -1212,7 +1269,7 @@ export const QuestionBankTab = ({ questions, onRefresh }: Props) => {
                 onClick={resetForm}
                 className="px-4 py-2 border border-slate-200 rounded-md text-slate-600 text-xs font-medium hover:bg-slate-50 cursor-pointer"
               >
-                Hủy bỏ
+                {t('qb_cancel_edit')}
               </button>
             )}
           </div>
@@ -1224,26 +1281,26 @@ export const QuestionBankTab = ({ questions, onRefresh }: Props) => {
         <div className="flex flex-wrap justify-between items-center mb-3 gap-2">
           <div>
             <h3 className="text-sm font-semibold text-slate-800">
-              Danh sách câu hỏi ({filteredQuestions.length})
+              {t('qb_question_list_title')} ({filteredQuestions.length})
             </h3>
             <p className="text-xs text-slate-500">
               {selectedBankFilter === 'ALL'
-                ? 'Tất cả câu hỏi trong ngân hàng của bạn.'
-                : `Ngân hàng: ${
+                ? t('qb_all_banks')
+                : `${t('sess_bank')}: ${
                     lecturerBanks.find((b) => b.id === selectedBankFilter)?.name ??
                     selectedBankFilter
                   }`}
             </p>
           </div>
           <span className="text-xs font-medium text-slate-600">
-            Tổng điểm:{' '}
-            {filteredQuestions.reduce((sum, q) => sum + (Number(q.score) || 0), 0)} điểm
+            {t('qb_total_score')}{' '}
+            {filteredQuestions.reduce((sum, q) => sum + (Number(q.score) || 0), 0)} {t('qb_points_suffix')}
           </span>
         </div>
 
         {filteredQuestions.length === 0 && (
           <div className="text-center py-8 border border-dashed rounded-md border-slate-200">
-            <p className="text-xs text-slate-400">Chưa có câu hỏi nào trong ngân hàng này.</p>
+            <p className="text-xs text-slate-400">{t('qb_empty')}</p>
           </div>
         )}
 
@@ -1256,7 +1313,7 @@ export const QuestionBankTab = ({ questions, onRefresh }: Props) => {
                 <div className="flex items-start justify-between gap-2">
                   <div className="flex-1">
                     <span className="font-bold text-slate-900 text-sm mr-2">
-                      Câu {index + 1}:
+                      {t('exam_question_num')} {index + 1}:
                     </span>
                     <span className="text-slate-800 text-sm font-medium leading-relaxed">
                       {q.content}
@@ -1269,7 +1326,7 @@ export const QuestionBankTab = ({ questions, onRefresh }: Props) => {
                         : 'bg-blue-50 text-blue-700 border-blue-200'
                     }`}
                   >
-                    {q.type === 'ESSAY' ? '✍️ Tự luận' : '📝 Trắc nghiệm'}
+                    {q.type === 'ESSAY' ? t('qb_type_essay_badge') : t('qb_type_choice_badge')}
                   </span>
                 </div>
 
@@ -1278,7 +1335,7 @@ export const QuestionBankTab = ({ questions, onRefresh }: Props) => {
                   <div className="pt-1">
                     <img
                       src={q.imageUrl}
-                      alt="Ảnh minh họa"
+                      alt="Question Image"
                       className="max-h-48 rounded border border-slate-200 object-contain bg-slate-50"
                     />
                   </div>
@@ -1288,15 +1345,15 @@ export const QuestionBankTab = ({ questions, onRefresh }: Props) => {
                 {q.type === 'ESSAY' ? (
                   <div className="p-3 rounded-md border border-slate-200 bg-slate-50/70 text-xs space-y-1">
                     <div className="flex items-center gap-1.5 text-slate-600 font-semibold text-[11px]">
-                      <span>✍️ Câu hỏi tự luận</span>
-                      {q.correctAnswer && <span className="text-slate-400">• Barem / Gợi ý đáp án:</span>}
+                      <span>{t('qb_type_essay_badge')}</span>
+                      {q.correctAnswer && <span className="text-slate-400">• {t('qb_essay_rubric_label')}:</span>}
                     </div>
                     {q.correctAnswer ? (
                       <p className="text-slate-700 whitespace-pre-wrap leading-relaxed pl-1 border-l-2 border-indigo-400">
                         {q.correctAnswer}
                       </p>
                     ) : (
-                      <p className="text-slate-400 italic">Chưa có barem gợi ý đáp án.</p>
+                      <p className="text-slate-400 italic">{t('qb_empty')}</p>
                     )}
                   </div>
                 ) : (
@@ -1331,7 +1388,7 @@ export const QuestionBankTab = ({ questions, onRefresh }: Props) => {
                           </span>
                           {isCorrect && (
                             <span className="text-[10px] font-bold text-emerald-700 bg-emerald-100 border border-emerald-300 px-1.5 py-0.5 rounded shrink-0">
-                              ✓ Đáp án đúng
+                              {t('qb_correct_answer_badge')}
                             </span>
                           )}
                         </div>
@@ -1348,20 +1405,20 @@ export const QuestionBankTab = ({ questions, onRefresh }: Props) => {
                       onClick={() => startEdit(q)}
                       className="px-2.5 py-1 text-slate-700 hover:text-slate-900 bg-slate-100 hover:bg-slate-200 rounded transition cursor-pointer font-medium"
                     >
-                      Sửa
+                      {t('edit')}
                     </button>
                     <button
                       type="button"
                       onClick={() => handleDelete(q)}
                       className="px-2.5 py-1 text-rose-600 hover:text-rose-700 hover:bg-rose-50 rounded transition cursor-pointer font-medium"
                     >
-                      Xóa
+                      {t('delete')}
                     </button>
                   </div>
 
                   <div className="text-right">
                     <span className="font-semibold text-slate-700 bg-slate-100 px-2.5 py-1 rounded-md">
-                      {q.score} điểm
+                      {q.score} {t('qb_points_suffix')}
                     </span>
                   </div>
                 </div>

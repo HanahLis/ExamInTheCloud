@@ -8,6 +8,7 @@ import {
   sendSessionReport,
 } from '../services/apiService';
 import SessionResultsModal from './SessionResultsModal';
+import { useTranslation } from '../locales/i18nContext';
 
 export type { ExamSession };
 
@@ -23,10 +24,16 @@ interface Props {
   onRefresh?: () => Promise<void> | void;
 }
 
-const STATUS_CONFIG: Record<SessionStatus, { label: string; style: string }> = {
-  SCHEDULED: { label: 'Chưa bắt đầu', style: 'bg-slate-100 text-slate-700 border-slate-200' },
-  RUNNING: { label: 'Đang diễn ra', style: 'bg-emerald-50 text-emerald-700 border-emerald-200' },
-  CLOSED: { label: 'Đã kết thúc', style: 'bg-slate-100 text-slate-500 border-slate-200' },
+const STATUS_STYLES: Record<SessionStatus, string> = {
+  SCHEDULED: 'bg-slate-100 text-slate-700 border-slate-200',
+  RUNNING: 'bg-emerald-50 text-emerald-700 border-emerald-200',
+  CLOSED: 'bg-slate-100 text-slate-500 border-slate-200',
+};
+
+const STATUS_KEYS: Record<SessionStatus, string> = {
+  SCHEDULED: 'sess_status_scheduled',
+  RUNNING: 'sess_status_running',
+  CLOSED: 'sess_status_closed',
 };
 
 export const ExamSessionTab = ({
@@ -40,6 +47,7 @@ export const ExamSessionTab = ({
   onOpenExam,
   onRefresh,
 }: Props) => {
+  const { t } = useTranslation();
   const [name, setName] = useState('');
   const [startTime, setStartTime] = useState('');
   const [endTime, setEndTime] = useState('');
@@ -74,8 +82,8 @@ export const ExamSessionTab = ({
 
       await onCreateSession({
         name: name.trim(),
-        startTime,
-        endTime,
+        startTime: new Date(startTime).toISOString(),
+        endTime: new Date(endTime).toISOString(),
         status: initialStatus,
         questionIds: selectedQuestions,
         candidateEmails: selectedCandidates,
@@ -122,31 +130,31 @@ export const ExamSessionTab = ({
       {/* Form tạo ca thi */}
       <div className="bg-white p-5 rounded-lg border border-slate-200 space-y-4">
         <div className="flex justify-between items-center">
-          <h3 className="text-sm font-semibold text-slate-800">Tạo ca thi mới</h3>
+          <h3 className="text-sm font-semibold text-slate-800">{t('sess_create_new')}</h3>
           {onRefresh && (
             <button
               onClick={() => onRefresh()}
               className="text-xs text-slate-600 hover:text-slate-900 font-medium cursor-pointer"
             >
-              Làm mới
+              {t('refresh')}
             </button>
           )}
         </div>
 
         <div>
-          <label className="block text-xs font-medium text-slate-700 mb-1">Tên ca thi *</label>
+          <label className="block text-xs font-medium text-slate-700 mb-1">{t('sess_name_label')}</label>
           <input
             type="text"
             value={name}
             onChange={(e) => setName(e.target.value)}
-            placeholder="Ví dụ: Thi cuối kỳ môn Điện toán đám mây - Ca 1"
+            placeholder={t('sess_placeholder_name')}
             className="w-full p-2 border border-slate-200 rounded-md text-xs outline-none focus:border-slate-400"
           />
         </div>
 
         <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
           <div>
-            <label className="block text-xs font-medium text-slate-700 mb-1">Thời gian bắt đầu *</label>
+            <label className="block text-xs font-medium text-slate-700 mb-1">{t('sess_start_time_label')}</label>
             <input
               type="datetime-local"
               value={startTime}
@@ -155,7 +163,7 @@ export const ExamSessionTab = ({
             />
           </div>
           <div>
-            <label className="block text-xs font-medium text-slate-700 mb-1">Thời gian kết thúc *</label>
+            <label className="block text-xs font-medium text-slate-700 mb-1">{t('sess_end_time_label')}</label>
             <input
               type="datetime-local"
               value={endTime}
@@ -168,7 +176,7 @@ export const ExamSessionTab = ({
         <div>
           <div className="flex justify-between items-center mb-1.5">
             <label className="text-xs font-medium text-slate-700">
-              Chọn câu hỏi cho ca thi ({selectedQuestions.length}/{questions.length} đã chọn) *
+              {t('sess_select_questions')} ({selectedQuestions.length}/{questions.length}) *
             </label>
             <button
               type="button"
@@ -177,12 +185,12 @@ export const ExamSessionTab = ({
                 setSelectedQuestions(selectedQuestions.length === questions.length ? [] : questions.map((q) => q.id))
               }
             >
-              {selectedQuestions.length === questions.length ? 'Bỏ chọn tất cả' : 'Chọn tất cả'}
+              {selectedQuestions.length === questions.length ? t('sess_deselect_all') : t('sess_select_all')}
             </button>
           </div>
           <div className="max-h-40 overflow-y-auto border border-slate-200 rounded-md p-2.5 space-y-1.5 bg-slate-50">
             {questions.length === 0 && (
-              <p className="text-xs text-slate-400 py-3 text-center">Chưa có câu hỏi nào trong ngân hàng.</p>
+              <p className="text-xs text-slate-400 py-3 text-center">{t('sess_no_questions')}</p>
             )}
             {questions.map((q) => (
               <label
@@ -197,7 +205,7 @@ export const ExamSessionTab = ({
                 />
                 <span className="flex-1">
                   <span className="font-medium text-slate-900">[{q.difficulty}]</span> {q.content}{' '}
-                  <span className="text-slate-400">({q.score} điểm)</span>
+                  <span className="text-slate-400">({q.score} {t('exam_points_unit')})</span>
                 </span>
               </label>
             ))}
@@ -207,7 +215,7 @@ export const ExamSessionTab = ({
         <div>
           <div className="flex justify-between items-center mb-1.5">
             <label className="text-xs font-medium text-slate-700">
-              Danh sách thí sinh tham gia ({selectedCandidates.length}/{candidates.length} đã chọn) *
+              {t('sess_select_candidates')} ({selectedCandidates.length}/{candidates.length}) *
             </label>
             <button
               type="button"
@@ -218,12 +226,12 @@ export const ExamSessionTab = ({
                 )
               }
             >
-              {selectedCandidates.length === candidates.length ? 'Bỏ chọn tất cả' : 'Chọn tất cả'}
+              {selectedCandidates.length === candidates.length ? t('sess_deselect_all') : t('sess_select_all')}
             </button>
           </div>
           <div className="max-h-40 overflow-y-auto border border-slate-200 rounded-md p-2.5 space-y-1.5 bg-slate-50">
             {candidates.length === 0 && (
-              <p className="text-xs text-slate-400 py-3 text-center">Chưa có thí sinh nào trong hệ thống.</p>
+              <p className="text-xs text-slate-400 py-3 text-center">{t('sess_no_candidates')}</p>
             )}
             {candidates.map((c) => (
               <label
@@ -251,7 +259,7 @@ export const ExamSessionTab = ({
             disabled={submitting}
             className="px-5 py-2.5 bg-slate-900 text-white font-medium rounded-md text-xs hover:bg-slate-800 disabled:bg-slate-400 transition cursor-pointer"
           >
-            {submitting ? 'Đang tạo ca thi...' : 'Tạo ca thi'}
+            {submitting ? t('sess_submitting') : t('sess_create_btn')}
           </button>
         </div>
       </div>
@@ -260,19 +268,20 @@ export const ExamSessionTab = ({
       <div className="bg-white p-5 rounded-lg border border-slate-200">
         <div className="flex justify-between items-center mb-3">
           <h3 className="text-sm font-semibold text-slate-800">
-            Danh sách ca thi ({sessions.length})
+            {t('sess_list_title')} ({sessions.length})
           </h3>
-          {loading && <span className="text-xs text-slate-400">Đang tải...</span>}
+          {loading && <span className="text-xs text-slate-400">{t('loading')}</span>}
         </div>
 
         {sessions.length === 0 && !loading && (
-          <p className="text-xs text-slate-400 py-6 text-center">Chưa có ca thi nào được tạo.</p>
+          <p className="text-xs text-slate-400 py-6 text-center">{t('sess_empty_list')}</p>
         )}
 
         <div className="space-y-3">
           {sessions.map((s) => {
             const currentStatus = resolveSessionStatus(s.status, s.startTime, s.endTime);
-            const statusConfig = STATUS_CONFIG[currentStatus] || STATUS_CONFIG.SCHEDULED;
+            const statusStyle = STATUS_STYLES[currentStatus] || STATUS_STYLES.SCHEDULED;
+            const statusLabelKey = STATUS_KEYS[currentStatus] || 'sess_status_scheduled';
             const examUrl = `${window.location.origin}/?exam=${s.id}`;
 
             return (
@@ -283,11 +292,11 @@ export const ExamSessionTab = ({
                     <span className="font-medium text-slate-800 text-sm">{s.name}</span>
                   </div>
                   <div className="flex items-center gap-2">
-                    <span className="text-[10px] text-slate-400 font-mono">Vòng đời: Step Functions</span>
+                    <span className="text-[10px] text-slate-400 font-mono">{t('sess_lifecycle')}</span>
                     <span
-                      className={`text-[11px] font-medium px-2 py-0.5 rounded border ${statusConfig.style}`}
+                      className={`text-[11px] font-medium px-2 py-0.5 rounded border ${statusStyle}`}
                     >
-                      {statusConfig.label}
+                      {t(statusLabelKey)}
                     </span>
                   </div>
                 </div>
@@ -304,15 +313,15 @@ export const ExamSessionTab = ({
                       timeStyle: 'short',
                     })}
                   </span>
-                  <span>{s.questionIds?.length || 0} câu hỏi</span>
-                  <span>{s.candidateEmails?.length || 0} thí sinh</span>
+                  <span>{s.questionIds?.length || 0} {t('sess_questions_unit')}</span>
+                  <span>{s.candidateEmails?.length || 0} {t('sess_candidates_unit')}</span>
                 </div>
 
                 <div className="bg-white p-2.5 rounded border border-slate-200 space-y-1">
                   <div className="flex justify-between items-center text-[11px] text-slate-600 font-medium">
-                    <span>Thí sinh tham gia:</span>
+                    <span>{t('sess_candidates_joined')}</span>
                     <span className="text-[10px] text-slate-400">
-                      ({s.candidateEmails?.length || 0} người)
+                      ({s.candidateEmails?.length || 0} {t('sess_candidates_unit')})
                     </span>
                   </div>
                   <div className="flex flex-wrap gap-1">
@@ -347,14 +356,14 @@ export const ExamSessionTab = ({
 
                 <div className="pt-2 border-t border-slate-200 flex flex-wrap items-center justify-between gap-2">
                   <div className="flex items-center gap-1.5">
-                    <span className="text-xs text-slate-500 mr-1">Trạng thái:</span>
+                    <span className="text-xs text-slate-500 mr-1">{t('sess_status_label')}</span>
                     {currentStatus !== 'RUNNING' && (
                       <button
                         onClick={() => handleStatusChange(s.id, 'RUNNING')}
                         disabled={updatingId === s.id}
                         className="px-2 py-1 bg-emerald-600 text-white text-xs rounded hover:bg-emerald-700 transition cursor-pointer"
                       >
-                        Bắt đầu
+                        {t('sess_start_btn')}
                       </button>
                     )}
                     {currentStatus !== 'SCHEDULED' && (
@@ -363,7 +372,7 @@ export const ExamSessionTab = ({
                         disabled={updatingId === s.id}
                         className="px-2 py-1 bg-slate-200 text-slate-700 text-xs rounded hover:bg-slate-300 transition cursor-pointer"
                       >
-                        Tạm dừng
+                        {t('sess_pause_btn')}
                       </button>
                     )}
                     {currentStatus !== 'CLOSED' && (
@@ -372,7 +381,7 @@ export const ExamSessionTab = ({
                         disabled={updatingId === s.id}
                         className="px-2 py-1 bg-slate-600 text-white text-xs rounded hover:bg-slate-700 transition cursor-pointer"
                       >
-                        Kết thúc
+                        {t('sess_end_btn')}
                       </button>
                     )}
                   </div>
@@ -382,7 +391,7 @@ export const ExamSessionTab = ({
                       onClick={() => setViewingResultsSessionId(s.id)}
                       className="px-2.5 py-1 bg-slate-100 text-slate-700 text-xs rounded hover:bg-slate-200 transition cursor-pointer"
                     >
-                      Bảng điểm
+                      {t('view_results')}
                     </button>
 
                     <button
@@ -391,7 +400,7 @@ export const ExamSessionTab = ({
                       className="px-2.5 py-1 bg-slate-100 text-slate-700 text-xs rounded hover:bg-slate-200 transition cursor-pointer disabled:text-slate-400"
                       title="Gửi báo cáo bảng điểm qua Amazon SNS Topic"
                     >
-                      {sendingReportId === s.id ? 'Đang gửi...' : 'Gửi báo cáo SNS'}
+                      {sendingReportId === s.id ? t('sess_sending_sns') : t('sess_send_sns')}
                     </button>
                     
                     {onOpenExam && (
@@ -399,17 +408,17 @@ export const ExamSessionTab = ({
                         onClick={() => onOpenExam(s.id)}
                         className="px-2.5 py-1 bg-slate-900 text-white text-xs rounded hover:bg-slate-800 transition cursor-pointer"
                       >
-                        Vào thi
+                        {t('enter_exam')}
                       </button>
                     )}
                     <button
                       onClick={() => {
                         navigator.clipboard.writeText(examUrl);
-                        alert(`Đã sao chép liên kết ca thi:\n${examUrl}`);
+                        alert(`${t('sess_copied_link')}\n${examUrl}`);
                       }}
                       className="px-2.5 py-1 bg-white border border-slate-200 text-slate-600 text-xs rounded hover:bg-slate-50 cursor-pointer"
                     >
-                      Sao chép liên kết
+                      {t('sess_copy_link')}
                     </button>
                   </div>
                 </div>

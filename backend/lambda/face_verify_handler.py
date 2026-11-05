@@ -4,7 +4,8 @@ Xác thực khuôn mặt thí sinh điểm danh vào ca thi theo đặc tả:
 1. Candidate thuộc Session (candidateEmails chứa email thí sinh)
 2. Session = RUNNING
 3. Face Similarity >= 80% (Amazon Rekognition CompareFaces)
-=> Trả về kết quả: PASS / FAIL kèm thông điệp thân thiện & chi tiết
+4. Tự động cập nhật trạng thái CHECKED_IN vào DynamoDB Submissions khi thành công (Quy trình B Bước 7)
+5. Phát cảnh báo khẩn tới Giám thị qua Amazon SNS Topic và từ chối HTTP 403 Forbidden khi thất bại (Bảng 2.3 [L-17])
 """
 
 import json
@@ -25,18 +26,24 @@ except ImportError:
 
 import boto3
 from botocore.exceptions import ClientError
+from botocore.config import Config
 
 REGION = os.getenv("AWS_REGION", "ap-southeast-1")
 ENV = os.getenv("ENV", "dev")
 BUCKET_NAME = os.getenv("S3_BUCKET_NAME", "cloudexam-storage-409289618109-dev")
 SIMILARITY_THRESHOLD = float(os.getenv("SIMILARITY_THRESHOLD", "80.0"))
+SNS_TOPIC_ARN = os.getenv("SNS_TOPIC_ARN", "")
 
 dynamodb = boto3.resource("dynamodb", region_name=REGION)
 rekognition = boto3.client("rekognition", region_name=REGION)
 s3 = boto3.client("s3", region_name=REGION)
+# Dat timeout ngan cho SNS de tranh block Lambda neu chay trong Isolated Private Subnet
+sns_config = Config(connect_timeout=1, read_timeout=1, retries={"max_attempts": 0})
+sns_client = boto3.client("sns", region_name=REGION, config=sns_config)
 
 candidates_table = dynamodb.Table(f"CloudExam_Candidates_{ENV}")
 sessions_table = dynamodb.Table(f"CloudExam_Sessions_{ENV}")
+submissions_table = dynamodb.Table(f"CloudExam_Submissions_{ENV}")
 
 CORS_HEADERS = {
     "Content-Type": "application/json",
@@ -80,6 +87,25 @@ def log_structured_metric(event_name: str, payload: dict):
     }
     print(json.dumps(log_data, ensure_ascii=False))
 
+def send_security_alert(session_id: str, candidate_name: str, candidate_email: str, similarity: float, threshold: float):
+    """Phát cảnh báo khẩn tới Giám thị qua Amazon SNS Topic khi nghi vấn thi hộ (Mục 1.2.3, [L-17], [D-17])"""
+    if not SNS_TOPIC_ARN:
+        return
+    try:
+        sns_client.publish(
+            TopicArn=SNS_TOPIC_ARN,
+            Subject=f"[CẢNH BÁO AN NINH CLOUDEXAM] Thí sinh không khớp ảnh thẻ tại ca thi {session_id}",
+            Message=f"CẢNH BÁO AN NINH PHÒNG THI (Chống thi hộ):\n"
+                    f"- Ca thi: {session_id}\n"
+                    f"- Thí sinh: {candidate_name} ({candidate_email})\n"
+                    f"- Độ tương đồng sinh trắc học: {similarity:.1f}%\n"
+                    f"- Ngưỡng tối thiểu yêu cầu: {threshold}%\n"
+                    f"- Phán quyết hệ thống: TỪ CHỐI TRUY CẬP (HTTP 403 Forbidden)\n"
+                    f"- Thời gian ghi nhận: {datetime.now(timezone.utc).isoformat()}"
+        )
+    except Exception as sns_err:
+        print(f"[WARN] Lỗi gửi thông báo cảnh báo SNS: {sns_err}")
+
 def lambda_handler(event, context):
     start_time = time.time()
 
@@ -102,7 +128,7 @@ def lambda_handler(event, context):
 
     session_id = body.get("sessionId")
     captured_image_b64 = body.get("capturedImage")  # Base64 chuỗi ảnh chụp từ webcam
-    captured_s3_key = body.get("capturedS3Key")      # Hoặc S3 key nếu upload trước
+    captured_s3_key = body.get("capturedS3Key")      # Hoặc S3 key nếu upload trước (temp-faces/)
 
     # Ưu tiên email thí sinh truyền trong body (hỗ trợ Giảng viên điểm danh cho thí sinh)
     requested_email = body.get("email")
@@ -297,7 +323,6 @@ def lambda_handler(event, context):
             # Rekognition phát hiện mặt nhưng độ khớp < 80%
             unmatched_sim = 0.0
             if unmatched_faces:
-                # Lấy similarity cao nhất từ unmatched faces nếu có
                 unmatched_sim = round(float(unmatched_faces[0].get("Similarity", 0.0)), 2)
 
             log_structured_metric("FACE_VERIFICATION_ATTEMPT", {
@@ -310,7 +335,9 @@ def lambda_handler(event, context):
                 "errorCode": "SIMILARITY_BELOW_THRESHOLD"
             })
 
-            return build_response(200, {
+            send_security_alert(session_id, candidate_name, user_email, unmatched_sim, SIMILARITY_THRESHOLD)
+
+            return build_response(403, {
                 "status": "FAIL",
                 "verified": False,
                 "similarity": unmatched_sim,
@@ -332,6 +359,23 @@ def lambda_handler(event, context):
                 "durationMs": duration_ms
             })
 
+            # Task 10 & Quy trình B Bước 7: Cập nhật trạng thái CHECKED_IN vào DynamoDB
+            try:
+                submissions_table.update_item(
+                    Key={"id": f"{session_id}#{user_email}"},
+                    UpdateExpression="SET #st = :checked_in, faceSimilarity = :sim, checkedInAt = :now, sessionId = :sid, candidateEmail = :email",
+                    ExpressionAttributeNames={"#st": "status"},
+                    ExpressionAttributeValues={
+                        ":checked_in": "CHECKED_IN",
+                        ":sim": Decimal(str(similarity)),
+                        ":now": datetime.now(timezone.utc).isoformat(),
+                        ":sid": session_id,
+                        ":email": user_email
+                    }
+                )
+            except Exception as update_err:
+                print(f"[WARN] Không thể cập nhật trạng thái CHECKED_IN vào DynamoDB Submissions: {update_err}")
+
             return build_response(200, {
                 "status": "PASS",
                 "verified": True,
@@ -350,7 +394,9 @@ def lambda_handler(event, context):
                 "errorCode": "SIMILARITY_BELOW_THRESHOLD"
             })
 
-            return build_response(200, {
+            send_security_alert(session_id, candidate_name, user_email, similarity, SIMILARITY_THRESHOLD)
+
+            return build_response(403, {
                 "status": "FAIL",
                 "verified": False,
                 "similarity": similarity,

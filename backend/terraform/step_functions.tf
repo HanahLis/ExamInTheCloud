@@ -1,6 +1,6 @@
 # ==============================================================================
 # AWS STEP FUNCTIONS: QUẢN LÝ CHU KỲ TỰ ĐỘNG CỦA CA THI (EXAM LIFECYCLE)
-# Quy trình: SCHEDULED -> RUNNING -> WAITING (DURATION) -> CLOSED
+# Quy trình: SCHEDULED -> RUNNING -> WAITING (DURATION) -> CLOSED -> AUTO-FINALIZE -> SEND-REPORT
 # ==============================================================================
 
 # 1. IAM Role cho Step Functions State Machine
@@ -25,7 +25,7 @@ resource "aws_iam_role" "step_functions_exam_lifecycle" {
   }
 }
 
-# Policy cấp quyền cho Step Functions tương tác DynamoDB và CloudWatch Logs
+# Policy cấp quyền cho Step Functions tương tác DynamoDB, Lambda, SNS và CloudWatch Logs
 resource "aws_iam_role_policy" "step_functions_exam_lifecycle_policy" {
   name = "${var.project_name}-policy-sfn-lifecycle-${var.environment}"
   role = aws_iam_role.step_functions_exam_lifecycle.id
@@ -60,10 +60,20 @@ resource "aws_iam_role_policy" "step_functions_exam_lifecycle_policy" {
         Resource = "*"
       },
       {
-        Sid = "SNSPublishAlert"
-        Effect = "Allow"
-        Action = ["sns:Publish"]
+        Sid      = "SNSPublishAlert"
+        Effect   = "Allow"
+        Action   = ["sns:Publish"]
         Resource = aws_sns_topic.alerts.arn
+      },
+      # Quyền kích hoạt Lambda AutoFinalizeTask và SendReportTask
+      {
+        Sid    = "LambdaInvokeTask"
+        Effect = "Allow"
+        Action = ["lambda:InvokeFunction"]
+        Resource = [
+          "arn:aws:lambda:${var.aws_region}:${data.aws_caller_identity.current.account_id}:function:${var.project_name}-core-api-${var.environment}",
+          "arn:aws:lambda:${var.aws_region}:${data.aws_caller_identity.current.account_id}:function:${var.project_name}-core-api-${var.environment}:*"
+        ]
       }
     ]
   })
@@ -93,17 +103,24 @@ resource "aws_sfn_state_machine" "exam_lifecycle" {
   }
 
   definition = jsonencode({
-    Comment = "State Machine điều phối chu kỳ ca thi: SCHEDULED -> RUNNING -> WAITING -> CLOSED"
+    Comment = "State Machine điều phối chu kỳ ca thi: SCHEDULED -> RUNNING -> WAITING -> CLOSED -> AUTO-FINALIZE -> SEND-REPORT"
     StartAt = "CheckWaitBeforeStart"
     States = {
       CheckWaitBeforeStart = {
         Type = "Choice"
         Choices = [
           {
-            Variable           = "$.waitBeforeStartSeconds"
-            IsPresent          = true
-            NumericGreaterThan = 0
-            Next               = "WaitUntilStartTime"
+            And = [
+              {
+                Variable  = "$.waitBeforeStartSeconds"
+                IsPresent = true
+              },
+              {
+                Variable           = "$.waitBeforeStartSeconds"
+                NumericGreaterThan = 0
+              }
+            ]
+            Next = "WaitUntilStartTime"
           }
         ]
         Default = "StartExamSession"
@@ -174,17 +191,49 @@ resource "aws_sfn_state_machine" "exam_lifecycle" {
           }
         }
         ResultPath = "$.closeResult"
-        Next       = "PublishExamClosedNotification"
+        Next       = "AutoFinalizeTask"
       }
-      PublishExamClosedNotification = {
+
+      AutoFinalizeTask = {
         Type     = "Task"
-        Resource = "arn:aws:states:::sns:publish"
+        Resource = "arn:aws:states:::lambda:invoke"
         Parameters = {
-          TopicArn = aws_sns_topic.alerts.arn
-          Subject  = "CloudExam: Ca thi da ket thuc tu dong"
-          "Message.$" = "States.Format('Ca thi {} da duoc he thong dong tu dong vao luc {}. Bang diem da duoc cap nhat day du vao DynamoDB.', $.sessionId, $$.State.EnteredTime)"
+          "FunctionName" = "arn:aws:lambda:${var.aws_region}:${data.aws_caller_identity.current.account_id}:function:${var.project_name}-core-api-${var.environment}"
+          "Payload" = {
+            "action"     = "AUTO_FINALIZE"
+            "httpMethod" = "POST"
+            "resource"   = "/sessions/{id}/auto-finalize"
+            "pathParameters" = {
+              "id.$" = "$.sessionId"
+            }
+          }
         }
-        Next     = "ExamCompleted"
+        ResultSelector = {
+          "result.$" = "$.Payload"
+        }
+        ResultPath = "$.autoFinalizeResult"
+        Next       = "SendReportTask"
+      }
+
+      SendReportTask = {
+        Type     = "Task"
+        Resource = "arn:aws:states:::lambda:invoke"
+        Parameters = {
+          "FunctionName" = "arn:aws:lambda:${var.aws_region}:${data.aws_caller_identity.current.account_id}:function:${var.project_name}-core-api-${var.environment}"
+          "Payload" = {
+            "action"     = "SEND_REPORT"
+            "httpMethod" = "POST"
+            "resource"   = "/sessions/{id}/send-report"
+            "pathParameters" = {
+              "id.$" = "$.sessionId"
+            }
+          }
+        }
+        ResultSelector = {
+          "result.$" = "$.Payload"
+        }
+        ResultPath = "$.sendReportResult"
+        Next       = "ExamCompleted"
       }
 
       ExamCompleted = {

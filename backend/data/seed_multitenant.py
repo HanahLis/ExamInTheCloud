@@ -21,7 +21,13 @@ Cách chạy:
 
 import os
 import sys
+import io
+if sys.platform == "win32":
+    sys.stdout = io.TextIOWrapper(sys.stdout.buffer, encoding="utf-8", errors="replace")
+    sys.stderr = io.TextIOWrapper(sys.stderr.buffer, encoding="utf-8", errors="replace")
+
 import json
+from decimal import Decimal
 import argparse
 from pathlib import Path
 
@@ -371,7 +377,8 @@ def main():
             table = tables[table_key]
             print(f"--> Đang nạp {len(items)} bản ghi vào bảng {table.name}...")
             for item in items:
-                table.put_item(Item=item)
+                clean_item = json.loads(json.dumps(item), parse_float=Decimal)
+                table.put_item(Item=clean_item)
             print(f"    [Xong] Bảng {table.name} đã được cập nhật.")
 
         print("\n=================================================================")

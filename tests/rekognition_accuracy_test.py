@@ -22,6 +22,11 @@ Mục tiêu kiểm thử:
 import sys
 import os
 import json
+import io
+
+if sys.platform == "win32":
+    sys.stdout = io.TextIOWrapper(sys.stdout.buffer, encoding="utf-8", errors="replace")
+    sys.stderr = io.TextIOWrapper(sys.stderr.buffer, encoding="utf-8", errors="replace")
 import time
 import math
 import argparse
@@ -414,7 +419,7 @@ class RekognitionAccuracyEvaluator:
 
 def main():
     parser = argparse.ArgumentParser(description="Evaluate Amazon Rekognition Biometric Accuracy (Task 3.2)")
-    parser.add_argument("--threshold", type=float, default=80.0, help="Ngưỡng so khớp khuôn mặt (Mặc định: 80.0%)")
+    parser.add_argument("--threshold", type=float, default=80.0, help="Ngưỡng so khớp khuôn mặt (Mặc định: 80.0%%)")
     args = parser.parse_args()
 
     evaluator = RekognitionAccuracyEvaluator(threshold=args.threshold)

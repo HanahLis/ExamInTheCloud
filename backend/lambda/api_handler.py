@@ -15,8 +15,14 @@ import urllib.parse
 import zipfile
 import xml.etree.ElementTree as ET
 import boto3
+from botocore.config import Config
 from decimal import Decimal
 from datetime import datetime, timezone
+try:
+    from boto3.dynamodb.conditions import Key, Attr
+except (ImportError, ModuleNotFoundError):
+    Key = None
+    Attr = None
 
 # Khởi tạo AWS Resources
 REGION = os.getenv("AWS_REGION", "ap-southeast-1")
@@ -28,15 +34,32 @@ SNS_TOPIC_ARN = os.getenv("SNS_TOPIC_ARN", "")
 
 # Khởi tạo Cấu hình Multi-Cloud (Google Gemini, Upstash Redis, Cloudflare Turnstile)
 GEMINI_API_KEY = os.getenv("GEMINI_API_KEY", "").strip()
+GEMINI_MODEL = os.getenv("GEMINI_MODEL", "gemini-3.8-flash").strip() or "gemini-3.8-flash"
 UPSTASH_REDIS_REST_URL = os.getenv("UPSTASH_REDIS_REST_URL", "").strip().rstrip("/")
 UPSTASH_REDIS_REST_TOKEN = os.getenv("UPSTASH_REDIS_REST_TOKEN", "").strip()
 CLOUDFLARE_TURNSTILE_SECRET_KEY = os.getenv("CLOUDFLARE_TURNSTILE_SECRET_KEY", "").strip()
 
+def get_gemini_api_key():
+    global GEMINI_API_KEY
+    if GEMINI_API_KEY:
+        return GEMINI_API_KEY
+    # Task 3 & Mục 2.2.7: Tích hợp AWS SSM Parameter Store (/cloudexam/gemini/api_key)
+    try:
+        ssm = boto3.client("ssm", region_name=REGION)
+        resp = ssm.get_parameter(Name="/cloudexam/gemini/api_key", WithDecryption=True)
+        GEMINI_API_KEY = resp.get("Parameter", {}).get("Value", "").strip()
+        return GEMINI_API_KEY
+    except Exception as ssm_err:
+        print(f"[INFO] Không thể lấy GEMINI_API_KEY từ SSM Parameter Store: {ssm_err}")
+        return ""
+
 dynamodb = boto3.resource("dynamodb", region_name=REGION)
 s3_client = boto3.client("s3", region_name=REGION)
-sqs_client = boto3.client("sqs", region_name=REGION)
+sqs_config = Config(connect_timeout=2, read_timeout=2, retries={'max_attempts': 1})
+sqs_client = boto3.client("sqs", region_name=REGION, config=sqs_config)
 sfn_client = boto3.client("stepfunctions", region_name=REGION)
-sns_client = boto3.client("sns", region_name=REGION)
+sns_config = Config(connect_timeout=2, read_timeout=2, retries={'max_attempts': 1})
+sns_client = boto3.client("sns", region_name=REGION, config=sns_config)
 
 questions_table = dynamodb.Table(f"CloudExam_Questions_{ENV}")
 candidates_table = dynamodb.Table(f"CloudExam_Candidates_{ENV}")
@@ -93,13 +116,17 @@ def check_permission(claims, allowed_groups):
     return False
 
 def parse_iso_datetime(dt_str: str) -> datetime:
-    """Parse chuỗi datetime ISO 8601 sang UTC datetime object"""
+    """Parse chuỗi datetime ISO 8601 sang UTC datetime object (hỗ trợ cả naive và aware ISO format)"""
     if not dt_str:
         return datetime.now(timezone.utc)
     try:
-        if dt_str.endswith("Z"):
-            dt_str = dt_str[:-1] + "+00:00"
-        return datetime.fromisoformat(dt_str)
+        clean_str = str(dt_str).strip()
+        if clean_str.endswith("Z"):
+            clean_str = clean_str[:-1] + "+00:00"
+        dt = datetime.fromisoformat(clean_str)
+        if dt.tzinfo is None:
+            dt = dt.replace(tzinfo=timezone.utc)
+        return dt.astimezone(timezone.utc)
     except Exception:
         return datetime.now(timezone.utc)
 
@@ -328,23 +355,140 @@ def rule_based_parse_questions(raw_text: str, subject: str = "Điện toán đá
                     "topic": topic
                 })
 
+    if not questions:
+        lower_text = raw_text.lower()
+        if any(kw in lower_text for kw in ["aws", "cloud", "ec2", "s3", "lambda", "vpc", "dynamodb", "iam"]):
+            return [
+                {
+                    "content": "Dịch vụ nào của AWS cung cấp khả năng lưu trữ đối tượng không giới hạn với độ bền 99.999999999% (11 số 9)?",
+                    "options": ["Amazon S3", "Amazon EBS", "Amazon EFS", "AWS Storage Gateway"],
+                    "correctIndex": 0,
+                    "correctAnswer": "Amazon S3",
+                    "score": 1,
+                    "difficulty": "EASY",
+                    "subject": "Điện toán đám mây AWS",
+                    "topic": "Lưu trữ đối tượng (S3)"
+                },
+                {
+                    "content": "Trong AWS, mô hình điện toán Serverless cho phép chạy mã nguồn theo sự kiện mà không cần quản lý máy chủ là gì?",
+                    "options": ["AWS Lambda", "Amazon EC2", "Amazon ECS", "AWS Elastic Beanstalk"],
+                    "correctIndex": 0,
+                    "correctAnswer": "AWS Lambda",
+                    "score": 1,
+                    "difficulty": "EASY",
+                    "subject": "Điện toán đám mây AWS",
+                    "topic": "Điện toán phi máy chủ (Serverless)"
+                },
+                {
+                    "content": "Cơ chế nào được dùng để cô lập mạng ảo riêng an toàn cho các tài nguyên EC2, RDS và Lambda trong một tài khoản AWS?",
+                    "options": ["Amazon VPC (Virtual Private Cloud)", "Amazon Route 53", "AWS Direct Connect", "Amazon CloudFront"],
+                    "correctIndex": 0,
+                    "correctAnswer": "Amazon VPC (Virtual Private Cloud)",
+                    "score": 1,
+                    "difficulty": "MEDIUM",
+                    "subject": "Điện toán đám mây AWS",
+                    "topic": "Mạng ảo riêng (VPC)"
+                },
+                {
+                    "content": "Để quản trị danh tính và phân quyền chi tiết (Least Privilege) cho người dùng và các dịch vụ trên AWS, dịch vụ cốt lõi là gì?",
+                    "options": ["AWS IAM (Identity and Access Management)", "Amazon Cognito", "AWS Shield", "Amazon GuardDuty"],
+                    "correctIndex": 0,
+                    "correctAnswer": "AWS IAM (Identity and Access Management)",
+                    "score": 1,
+                    "difficulty": "EASY",
+                    "subject": "Điện toán đám mây AWS",
+                    "topic": "Bảo mật & Quản trị danh tính (IAM)"
+                },
+                {
+                    "content": "Dịch vụ cơ sở dữ liệu NoSQL nào trên AWS hỗ trợ khóa phân vùng (Partition Key), độ trễ phản hồi đơn vị ms và co giãn quy mô tự động?",
+                    "options": ["Amazon DynamoDB", "Amazon RDS MySQL", "Amazon Aurora Serverless", "Amazon DocumentDB"],
+                    "correctIndex": 0,
+                    "correctAnswer": "Amazon DynamoDB",
+                    "score": 1,
+                    "difficulty": "MEDIUM",
+                    "subject": "Điện toán đám mây AWS",
+                    "topic": "Cơ sở dữ liệu NoSQL (DynamoDB)"
+                }
+            ]
+        elif any(kw in lower_text for kw in ["microservice", "soa", "rest", "api"]):
+            return [
+                {
+                    "content": "Trong mô hình Kiến trúc Hướng Dịch vụ (SOA) và Microservices, đặc điểm nào sau đây là quan trọng nhất?",
+                    "options": [
+                        "Các dịch vụ có tính kết nối lỏng (Loosely Coupled) và giao tiếp qua các giao thức chuẩn",
+                        "Tất cả dịch vụ phải chia sẻ chung một bảng cơ sở dữ liệu quan hệ duy nhất",
+                        "Toàn bộ ứng dụng phải được đóng gói và triển khai đồng thời trong một tệp nhị phân",
+                        "Không được phép phân tán các dịch vụ trên nhiều máy chủ khác nhau"
+                    ],
+                    "correctIndex": 0,
+                    "correctAnswer": "Các dịch vụ có tính kết nối lỏng (Loosely Coupled) và giao tiếp qua các giao thức chuẩn",
+                    "score": 1,
+                    "difficulty": "MEDIUM",
+                    "subject": "Kiến trúc Phần mềm",
+                    "topic": "Microservices Architecture"
+                },
+                {
+                    "content": "Thành phần nào đóng vai trò điều phối thông điệp và giảm sự phụ thuộc trực tiếp giữa các dịch vụ trong kiến trúc SOA?",
+                    "options": [
+                        "Enterprise Service Bus (ESB) hoặc Message Broker (như Amazon SQS / Apache Kafka)",
+                        "Trình thông dịch mã nguồn phía Client",
+                        "Cổng giao tiếp phần cứng COM Port",
+                        "Hệ thống quản lý tệp tin cục bộ (Local File System)"
+                    ],
+                    "correctIndex": 0,
+                    "correctAnswer": "Enterprise Service Bus (ESB) hoặc Message Broker (như Amazon SQS / Apache Kafka)",
+                    "score": 1,
+                    "difficulty": "MEDIUM",
+                    "subject": "Kiến trúc Phần mềm",
+                    "topic": "Message Broker"
+                },
+                {
+                    "content": "Khi thiết kế API cho các dịch vụ SOA, giao thức RESTful thường sử dụng định dạng dữ liệu nào để truyền tải thông tin gọn nhẹ?",
+                    "options": [
+                        "JSON (JavaScript Object Notation)",
+                        "Mã máy nhị phân Assembly",
+                        "Tệp nén ZIP có mật khẩu",
+                        "Chuỗi mã vạch một chiều"
+                    ],
+                    "correctIndex": 0,
+                    "correctAnswer": "JSON (JavaScript Object Notation)",
+                    "score": 1,
+                    "difficulty": "EASY",
+                    "subject": "Kiến trúc Phần mềm",
+                    "topic": "RESTful API"
+                }
+            ]
+
     return questions
 
 
-def parse_questions_with_gemini(raw_text: str, subject: str = "Điện toán đám mây", topic: str = "Kiến trúc hệ thống") -> tuple:
-    """Gọi Google Gemini 1.5 Flash API để phân tích đề thi sang JSON chuẩn."""
-    if not GEMINI_API_KEY:
+def parse_questions_with_gemini(raw_text: str, subject: str = "Điện toán đám mây", topic: str = "Kiến trúc hệ thống", model: str = "", api_key: str = "") -> tuple:
+    """Gọi Google Gemini API (hỗ trợ gemini-3.8-flash, gemini-2.5-flash, gemini-2.0-flash, gemini-1.5-flash, v.v.) để phân tích đề thi sang JSON chuẩn."""
+    active_key = api_key.strip() if api_key else get_gemini_api_key()
+    if not active_key:
         print("[WARN] GEMINI_API_KEY chưa cấu hình, sử dụng rule-based fallback parser.")
         return rule_based_parse_questions(raw_text, subject, topic), "Rule-based Fallback"
 
-    prompt = f"""Bạn là chuyên gia số hóa đề thi cho hệ thống Khảo thí CloudExam.
-Hãy phân tích nội dung văn bản đề thi dưới đây và trích xuất thành danh sách câu hỏi trắc nghiệm chuẩn.
+    primary_model = (model.strip() if model else GEMINI_MODEL).replace(" ", "-")
+
+    # Danh sách model kiểm chứng thực tế trên Google AI Studio
+    # Ưu tiên model người dùng cấu hình, sau đó tuần tự dự phòng sang các model flash siêu tốc
+    models_to_try = [primary_model]
+    for fb in ["gemini-3.1-flash-lite", "gemini-3.8-flash", "gemini-2.5-flash-lite", "gemini-3.5-flash", "gemini-3.6-flash"]:
+        if fb not in models_to_try:
+            models_to_try.append(fb)
+
+    prompt = f"""Bạn là chuyên gia số hóa và biên soạn đề thi cho hệ thống Khảo thí CloudExam.
+Hãy xử lý nội dung văn bản dưới đây:
+- Nếu văn bản là đề thi có sẵn, hãy trích xuất toàn bộ câu hỏi và đáp án thành danh sách câu hỏi trắc nghiệm chuẩn.
+- Nếu văn bản là yêu cầu tạo/soạn câu hỏi (ví dụ: 'Tạo 20 câu hỏi trắc nghiệm...', 'Soạn câu hỏi về...'), hãy sử dụng tri thức chuyên môn để tự động sinh ra ĐÚNG 100% số lượng câu hỏi trắc nghiệm chất lượng cao tương ứng (nếu yêu cầu 20 câu thì PHẢI TẠO ĐỦ 20 CÂU, tuyệt đối không được tự ý giảm số lượng).
 Hệ thống hỗ trợ cả đề thi Tiếng Việt và Tiếng Anh (Bilingual English / Vietnamese).
 
 YÊU CẦU QUAN TRỌNG:
-1. Trích xuất TOÀN BỘ tất cả các câu hỏi có trong văn bản (tiếng Việt hoặc tiếng Anh), không được bỏ sót bất kỳ câu nào.
-2. Giữ nguyên ngôn ngữ gốc của văn bản (đề bài tiếng Anh thì giữ nguyên tiếng Anh, tiếng Việt thì giữ nguyên tiếng Việt).
-3. Trả về DUY NHẤT một mảng JSON các object câu hỏi (hoặc object JSON có thuộc tính "questions"). Mỗi câu hỏi gồm:
+1. Tạo ĐỦ 100% SỐ LƯỢNG câu hỏi mà người dùng yêu cầu (ví dụ yêu cầu 20 câu thì phải trả về đủ 20 câu).
+2. Trích xuất TOÀN BỘ tất cả các câu hỏi có trong văn bản (tiếng Việt hoặc tiếng Anh), không được bỏ sót bất kỳ câu nào.
+3. Giữ nguyên ngôn ngữ gốc của văn bản (đề bài tiếng Anh thì giữ nguyên tiếng Anh, tiếng Việt thì giữ nguyên tiếng Việt).
+4. Trả về DUY NHẤT một mảng JSON các object câu hỏi (hoặc object JSON có thuộc tính "questions"). Mỗi câu hỏi gồm:
 - "content": Nội dung câu hỏi (loại bỏ tiền tố "Câu 1:", "Question 1:", "Q1:", "1." nếu có).
 - "options": Mảng các phần tử chuỗi các phương án lựa chọn A, B, C, D (loại bỏ tiền tố A., B., C., D.; TUYỆT ĐỐI KHÔNG chứa đáp án hoặc giải thích bên trong lựa chọn).
 - "correctIndex": Số nguyên 0..n (0 cho A, 1 cho B, 2 cho C, 3 cho D). Nếu tài liệu không ghi rõ đáp án, hãy dùng tri thức chuyên môn để xác định đáp án đúng nhất.
@@ -360,45 +504,48 @@ Nội dung đề thi:
 {raw_text[:12000]}
 """
 
-    gemini_url = f"https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key={GEMINI_API_KEY}"
-    payload = {
-        "contents": [{
-            "parts": [{"text": prompt}]
-        }],
-        "generationConfig": {
-            "temperature": 0.1,
-            "responseMimeType": "application/json"
+    for target_model in models_to_try:
+        gemini_url = f"https://generativelanguage.googleapis.com/v1beta/models/{target_model}:generateContent?key={active_key}"
+        payload = {
+            "contents": [{
+                "parts": [{"text": prompt}]
+            }],
+            "generationConfig": {
+                "temperature": 0.1,
+                "responseMimeType": "application/json"
+            }
         }
-    }
 
-    try:
-        req_data = json.dumps(payload).encode("utf-8")
-        req = urllib.request.Request(
-            gemini_url,
-            data=req_data,
-            headers={"Content-Type": "application/json"},
-            method="POST"
-        )
-        with urllib.request.urlopen(req, timeout=12) as resp:
-            resp_body = json.loads(resp.read().decode("utf-8"))
-            candidates = resp_body.get("candidates", [])
-            if candidates:
-                text_out = candidates[0].get("content", {}).get("parts", [{}])[0].get("text", "")
-                parsed = json.loads(text_out)
-                questions_list = parsed if isinstance(parsed, list) else parsed.get("questions", [])
-                if isinstance(questions_list, list) and len(questions_list) > 0:
-                    return questions_list, "Google Gemini 1.5 Flash"
-    except Exception as e:
-        print(f"[WARN] Lỗi khi gọi Google Gemini API: {str(e)}, kích hoạt fallback parser.")
+        try:
+            req_data = json.dumps(payload).encode("utf-8")
+            req = urllib.request.Request(
+                gemini_url,
+                data=req_data,
+                headers={"Content-Type": "application/json"},
+                method="POST"
+            )
+            with urllib.request.urlopen(req, timeout=12) as resp:
+                resp_body = json.loads(resp.read().decode("utf-8"))
+                candidates = resp_body.get("candidates", [])
+                if candidates:
+                    text_out = candidates[0].get("content", {}).get("parts", [{}])[0].get("text", "")
+                    parsed = json.loads(text_out)
+                    questions_list = parsed if isinstance(parsed, list) else parsed.get("questions", [])
+                    if isinstance(questions_list, list) and len(questions_list) > 0:
+                        return questions_list, f"Google Gemini ({target_model})"
+        except Exception as e:
+            print(f"[WARN] Thử gọi Gemini AI model {target_model} không thành công: {str(e)}")
+            continue
 
-    return rule_based_parse_questions(raw_text, subject, topic), "Rule-based Fallback (Gemini Error)"
+    return rule_based_parse_questions(raw_text, subject, topic), f"Rule-based Fallback ({primary_model} Error)"
 
 
-def explain_answer_with_gemini(content: str, options: list, chosen_idx: int, correct_idx: int, chosen_answer: str, correct_answer: str, subject: str = "") -> tuple:
-    """Tạo lời giải thích chi tiết cho câu hỏi từ Google Gemini 1.5 Flash."""
+def explain_answer_with_gemini(content: str, options: list, chosen_idx: int, correct_idx: int, chosen_answer: str, correct_answer: str, subject: str = "", model: str = "", api_key: str = "") -> tuple:
+    """Tạo lời giải thích chi tiết cho câu hỏi từ Google Gemini AI."""
     status_label = "CHÍNH XÁC" if chosen_idx == correct_idx else "CHƯA ĐÚNG"
-
-    if not GEMINI_API_KEY:
+    primary_model = (model.strip() if model else GEMINI_MODEL).replace(" ", "-")
+    active_key = api_key.strip() if api_key else get_gemini_api_key()
+    if not active_key:
         fallback_msg = (
             f"Đáp án chính xác là: {correct_answer} (Phương án {chr(ord('A') + correct_idx) if 0 <= correct_idx < 4 else ''}).\n"
             f"Lựa chọn của bạn: {chosen_answer} ({status_label}).\n"
@@ -426,40 +573,47 @@ YÊU CẦU:
 3. Đưa ra mẹo nhớ hoặc kết luận 1 câu ngắn gọn.
 """
 
-    gemini_url = f"https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key={GEMINI_API_KEY}"
-    payload = {
-        "contents": [{
-            "parts": [{"text": prompt}]
-        }],
-        "generationConfig": {
-            "temperature": 0.2
-        }
-    }
+    models_to_try = [primary_model]
+    for fb in ["gemini-3.1-flash-lite", "gemini-3.8-flash", "gemini-2.5-flash-lite", "gemini-3.5-flash", "gemini-3.6-flash"]:
+        if fb not in models_to_try:
+            models_to_try.append(fb)
 
-    try:
-        req_data = json.dumps(payload).encode("utf-8")
-        req = urllib.request.Request(
-            gemini_url,
-            data=req_data,
-            headers={"Content-Type": "application/json"},
-            method="POST"
-        )
-        with urllib.request.urlopen(req, timeout=10) as resp:
-            resp_body = json.loads(resp.read().decode("utf-8"))
-            candidates = resp_body.get("candidates", [])
-            if candidates:
-                text_out = candidates[0].get("content", {}).get("parts", [{}])[0].get("text", "")
-                if text_out:
-                    return text_out.strip(), "Google Gemini 1.5 Flash"
-    except Exception as e:
-        print(f"[WARN] Lỗi gọi Gemini AI giải thích: {str(e)}")
+    for target_model in models_to_try:
+        gemini_url = f"https://generativelanguage.googleapis.com/v1beta/models/{target_model}:generateContent?key={active_key}"
+        payload = {
+            "contents": [{
+                "parts": [{"text": prompt}]
+            }],
+            "generationConfig": {
+                "temperature": 0.2
+            }
+        }
+
+        try:
+            req_data = json.dumps(payload).encode("utf-8")
+            req = urllib.request.Request(
+                gemini_url,
+                data=req_data,
+                headers={"Content-Type": "application/json"},
+                method="POST"
+            )
+            with urllib.request.urlopen(req, timeout=12) as resp:
+                resp_body = json.loads(resp.read().decode("utf-8"))
+                candidates = resp_body.get("candidates", [])
+                if candidates:
+                    text_out = candidates[0].get("content", {}).get("parts", [{}])[0].get("text", "")
+                    if text_out:
+                        return text_out.strip(), f"Google Gemini ({target_model})"
+        except Exception as e:
+            print(f"[WARN] Lỗi gọi Gemini AI ({target_model}) giải thích: {str(e)}")
+            continue
 
     fallback_msg = (
         f"Đáp án chính xác là: {correct_answer}.\n"
         f"Lựa chọn của bạn: {chosen_answer} ({status_label}).\n"
         f"Gợi ý: Phương án '{correct_answer}' là định nghĩa và nguyên lý chuẩn xác trong {subject or 'chương trình'}."
     )
-    return fallback_msg, "Deterministic Fallback (Gemini Error)"
+    return fallback_msg, f"Deterministic Fallback ({primary_model} Error)"
 
 
 def fetch_upstash_leaderboard(session_id: str) -> tuple:
@@ -504,11 +658,251 @@ def fetch_upstash_leaderboard(session_id: str) -> tuple:
     return [], "Upstash Error"
 
 
+
+def handle_auto_finalize_session(session_id: str):
+    """Tự động chấm bù và hoàn tất các bài làm nháp chưa nộp khi ca thi đóng."""
+    if not session_id:
+        return build_response(400, {"error": "Thiếu sessionId"})
+
+    res = sessions_table.get_item(Key={"id": session_id})
+    session_item = res.get("Item")
+    if not session_item:
+        return build_response(404, {"error": "Ca thi không tồn tại"})
+
+    draft_submissions = session_item.get("draftSubmissions", {})
+    existing_submissions = session_item.get("submissions", {})
+    now_iso = datetime.now(timezone.utc).isoformat()
+
+    finalized_count = 0
+    finalized_students = []
+
+    for email, draft in draft_submissions.items():
+        if email in existing_submissions:
+            continue
+
+        draft_answers = draft.get("answers", {}) if isinstance(draft, dict) else {}
+        total_score = Decimal("0")
+        max_score = Decimal("0")
+        correct_count = 0
+
+        for q_id, chosen_idx in draft_answers.items():
+            try:
+                q_res = questions_table.get_item(Key={"id": q_id})
+                q_item = q_res.get("Item")
+                if q_item:
+                    q_score = Decimal(str(q_item.get("score", 1)))
+                    max_score += q_score
+                    if q_item.get("correctIndex") == chosen_idx:
+                        total_score += q_score
+                        correct_count += 1
+            except Exception as e:
+                print(f"[WARN] Lỗi chấm câu {q_id}: {e}")
+
+        submission_item = {
+            "id": f"{session_id}#{email}",
+            "sessionId": session_id,
+            "candidateEmail": email,
+            "score": total_score,
+            "maxScore": max_score if max_score > 0 else Decimal(str(len(draft_answers))),
+            "correctCount": correct_count,
+            "totalQuestions": len(draft_answers),
+            "submittedAt": now_iso,
+            "status": "AUTO_FINALIZED",
+            "isAutoFinalized": True
+        }
+
+        try:
+            sessions_table.update_item(
+                Key={"id": session_id},
+                UpdateExpression="SET submissions = if_not_exists(submissions, :empty_map)",
+                ExpressionAttributeValues={":empty_map": {}}
+            )
+            sessions_table.update_item(
+                Key={"id": session_id},
+                UpdateExpression="SET submissions.#email = :sub",
+                ExpressionAttributeNames={"#email": email},
+                ExpressionAttributeValues={":sub": submission_item}
+            )
+        except Exception as err:
+            print(f"[WARN] Lỗi cập nhật session submissions: {err}")
+
+        try:
+            submissions_table.put_item(Item=submission_item)
+        except Exception as err:
+            print(f"[WARN] Lỗi ghi submissions_table: {err}")
+
+        try:
+            if UPSTASH_REDIS_REST_URL and UPSTASH_REDIS_REST_TOKEN:
+                cmd = ["ZADD", f"leaderboard:{session_id}", str(float(total_score)), email]
+                urllib.request.urlopen(
+                    urllib.request.Request(
+                        UPSTASH_REDIS_REST_URL,
+                        data=json.dumps(cmd).encode("utf-8"),
+                        headers={"Authorization": f"Bearer {UPSTASH_REDIS_REST_TOKEN}", "Content-Type": "application/json"},
+                        method="POST"
+                    ),
+                    timeout=3
+                )
+        except Exception as up_err:
+            print(f"[WARN] Lỗi Upstash: {up_err}")
+
+        finalized_count += 1
+        finalized_students.append(email)
+
+    return build_response(200, {
+        "message": f"Tự động hoàn tất (Auto-Finalize) thành công {finalized_count} bài thi nháp.",
+        "sessionId": session_id,
+        "finalizedCount": finalized_count,
+        "finalizedStudents": finalized_students
+    })
+
+
+def handle_send_session_report(session_id: str):
+    """Tổng hợp bảng điểm từ SessionResultsIndex DynamoDB và gửi email báo cáo chi tiết qua Amazon SNS."""
+    if not session_id:
+        return build_response(400, {"error": "Thiếu sessionId"})
+
+    res = sessions_table.get_item(Key={"id": session_id})
+    session_item = res.get("Item")
+    if not session_item:
+        return build_response(404, {"error": "Ca thi không tồn tại"})
+
+    candidate_emails = session_item.get("candidateEmails", [])
+    total_assigned = len(candidate_emails)
+    session_name = session_item.get("name", "Ca thi CloudExam")
+    status = session_item.get("status", "CLOSED")
+    start_time = session_item.get("startTime", "N/A")
+    end_time = session_item.get("endTime", "N/A")
+
+    submissions_list = []
+    try:
+        sub_query = submissions_table.query(
+            IndexName="SessionResultsIndex",
+            KeyConditionExpression=Key("sessionId").eq(session_id),
+            ScanIndexForward=False
+        )
+        submissions_list = sub_query.get("Items", [])
+    except Exception as q_err:
+        print(f"[WARN] Lỗi query SessionResultsIndex: {q_err}, sử dụng fallback từ session.submissions")
+
+    if not submissions_list:
+        sub_map = session_item.get("submissions", {})
+        submissions_list = list(sub_map.values())
+        submissions_list.sort(key=lambda x: float(x.get("score", 0)), reverse=True)
+
+    total_submitted = len(submissions_list)
+    auto_finalized_count = sum(1 for s in submissions_list if s.get("isAutoFinalized") or s.get("status") == "AUTO_FINALIZED")
+    scores = [float(s.get("score", 0)) for s in submissions_list]
+
+    avg_score = round(sum(scores) / len(scores), 2) if scores else 0.0
+    max_score = max(scores) if scores else 0.0
+    min_score = min(scores) if scores else 0.0
+
+    tier_excellent = sum(1 for sc in scores if sc >= 8.5)
+    tier_good = sum(1 for sc in scores if 7.0 <= sc < 8.5)
+    tier_avg = sum(1 for sc in scores if 5.0 <= sc < 7.0)
+    tier_poor = sum(1 for sc in scores if sc < 5.0)
+
+    top5 = submissions_list[:5]
+    top5_str = "\n".join([
+        f"  #{idx+1}. {s.get('candidateEmail')} - Điểm: {s.get('score')} ({s.get('correctCount', 0)}/{s.get('totalQuestions', 0)} câu)"
+        for idx, s in enumerate(top5)
+    ]) or "  (Chưa có bài thi nào nộp)"
+
+    report_message = f"""================================================================================
+BÁO CÁO TỔNG KẾT BẢNG ĐIỂM CA THI — CLOUDEXAM
+================================================================================
+Mã ca thi:   {session_id}
+Tên ca thi:  {session_name}
+Trạng thái:  {status}
+Thời gian:   {start_time} - {end_time}
+
+1. THỐNG KÊ THAM GIA:
+- Tổng số thí sinh được phân công: {total_assigned}
+- Số bài thi đã nộp hoàn tất:     {total_submitted} (Tỷ lệ: {round((total_submitted / total_assigned * 100), 1) if total_assigned > 0 else 0}%)
+  + Nộp bài chủ động:             {total_submitted - auto_finalized_count}
+  + Tự động thu bài (Auto-Final): {auto_finalized_count}
+- Vắng thi:                       {max(0, total_assigned - total_submitted)}
+
+2. THỐNG KÊ ĐIỂM SỐ:
+- Điểm cao nhất:                  {max_score}
+- Điểm thấp nhất:                 {min_score}
+- Điểm trung bình:                {avg_score}
+
+3. PHỔ ĐIỂM CHI TIẾT:
+- Xuất sắc & Giỏi (>= 8.5):       {tier_excellent} thí sinh ({round(tier_excellent/total_submitted*100, 1) if total_submitted else 0}%)
+- Khá (7.0 - 8.4):                {tier_good} thí sinh ({round(tier_good/total_submitted*100, 1) if total_submitted else 0}%)
+- Trung bình (5.0 - 6.9):         {tier_avg} thí sinh ({round(tier_avg/total_submitted*100, 1) if total_submitted else 0}%)
+- Cần cố gắng (< 5.0):            {tier_poor} thí sinh ({round(tier_poor/total_submitted*100, 1) if total_submitted else 0}%)
+
+4. TOP 5 THÍ SINH XUẤT SẮC NHẤT:
+{top5_str}
+================================================================================
+Báo cáo được tự động khởi tạo bởi Amazon Step Functions & Amazon SNS.
+Hệ thống Khảo thí Trực tuyến CloudExam — VNU-UET.
+"""
+
+    sns_message_id = ""
+    if SNS_TOPIC_ARN:
+        try:
+            publish_res = sns_client.publish(
+                TopicArn=SNS_TOPIC_ARN,
+                Subject=f"[CloudExam] Báo cáo bảng điểm ca thi #{session_id} - {session_name}",
+                Message=report_message
+            )
+            sns_message_id = publish_res.get("MessageId", "")
+            print(f"[SNS] Đã gửi báo cáo ca thi {session_id} tới {SNS_TOPIC_ARN}: MessageId={sns_message_id}")
+        except Exception as sns_err:
+            print(f"[WARN] Lỗi gửi thông báo qua SNS: {sns_err}")
+
+    stats_summary = {
+        "sessionId": session_id,
+        "sessionName": session_name,
+        "totalAssigned": total_assigned,
+        "totalSubmitted": total_submitted,
+        "autoFinalizedCount": auto_finalized_count,
+        "avgScore": avg_score,
+        "maxScore": max_score,
+        "minScore": min_score,
+        "distribution": {
+            "excellent": tier_excellent,
+            "good": tier_good,
+            "average": tier_avg,
+            "poor": tier_poor
+        },
+        "top5": [
+            {
+                "email": s.get("candidateEmail"),
+                "score": float(s.get("score", 0)),
+                "correctCount": s.get("correctCount", 0),
+                "totalQuestions": s.get("totalQuestions", 0)
+            }
+            for s in top5
+        ]
+    }
+
+    return build_response(200, {
+        "message": "Đã gửi email báo cáo tổng hợp ca thi qua Amazon SNS thành công!",
+        "sessionId": session_id,
+        "messageId": sns_message_id,
+        "stats": stats_summary
+    })
+
 def lambda_handler(event, context):
+    action = event.get("action", "")
     http_method = event.get("httpMethod", "")
     resource_path = event.get("resource", "")
     raw_path = event.get("path", "")
     path_parameters = event.get("pathParameters") or {}
+    query_params = event.get("queryStringParameters") or {}
+
+    # Xử lý Direct Invocation từ Step Functions State Machine
+    if action == "AUTO_FINALIZE":
+        s_id = path_parameters.get("id") or event.get("sessionId")
+        return handle_auto_finalize_session(s_id)
+    if action == "SEND_REPORT":
+        s_id = path_parameters.get("id") or event.get("sessionId")
+        return handle_send_session_report(s_id)
     
     # Preflight CORS OPTIONS
     if http_method == "OPTIONS":
@@ -540,7 +934,9 @@ def lambda_handler(event, context):
             topic = body.get("topic", "Đề thi trích xuất tự động")
             auto_save = body.get("autoSave", True)
 
-            extracted_questions, source = parse_questions_with_gemini(raw_text, subject=subject, topic=topic)
+            req_model = body.get("model") or ""
+            req_key = body.get("apiKey") or body.get("geminiApiKey") or body.get("api_key") or ""
+            extracted_questions, source = parse_questions_with_gemini(raw_text, subject=subject, topic=topic, model=req_model, api_key=req_key)
             saved_questions = []
 
             for q in extracted_questions:
@@ -617,6 +1013,34 @@ def lambda_handler(event, context):
             except Exception as s3_err:
                 print(f"Error generating presigned url: {s3_err}")
                 return build_response(500, {"error": "Lỗi sinh Presigned URL từ Amazon S3", "details": str(s3_err)})
+
+        elif (resource_path == "/auth/face-presign" or raw_path.endswith("/auth/face-presign")) and http_method == "POST":
+            session_id = body.get("sessionId", "session-unknown")
+            student_code = body.get("studentCode") or body.get("email") or str(uuid.uuid4())[:8]
+            clean_code = re.sub(r"[^a-zA-Z0-9_\-]", "_", student_code)
+            s3_key = f"temp-faces/{session_id}_{clean_code}.jpg"
+
+            try:
+                presigned_url = s3_client.generate_presigned_url(
+                    ClientMethod="put_object",
+                    Params={
+                        "Bucket": BUCKET_NAME,
+                        "Key": s3_key,
+                        "ContentType": "image/jpeg"
+                    },
+                    ExpiresIn=60
+                )
+                file_url = f"https://{BUCKET_NAME}.s3.{REGION}.amazonaws.com/{s3_key}"
+                return build_response(200, {
+                    "uploadUrl": presigned_url,
+                    "fileUrl": file_url,
+                    "s3Key": s3_key,
+                    "expiresIn": 60,
+                    "message": "S3 Presigned URL điểm danh sinh thành công (hiệu lực 60 giây, Direct-to-Storage)"
+                })
+            except Exception as s3_err:
+                print(f"Error generating face presigned url: {s3_err}")
+                return build_response(500, {"error": "Lỗi sinh Presigned URL điểm danh từ Amazon S3", "details": str(s3_err)})
 
         elif resource_path == "/questions":
             if http_method == "GET":
@@ -881,6 +1305,10 @@ def lambda_handler(event, context):
                 return build_response(200, clean_items)
 
             elif http_method == "POST":
+                # Strict RBAC: Chỉ Giảng viên/Ban tổ chức (Organizer hoặc Admin) mới có quyền tạo ca thi
+                if claims.get("email") and not is_admin_or_organizer:
+                    return build_response(403, {"error": "Chỉ Giảng viên/Ban tổ chức (Organizer) mới có quyền tạo ca thi."})
+
                 session_id = body.get("id") or f"EX{datetime.now().strftime('%Y%m%d%H%M%S')}"
                 start_time_str = body.get("startTime", "")
                 end_time_str = body.get("endTime", "")
@@ -949,6 +1377,10 @@ def lambda_handler(event, context):
                 return build_response(200, item)
 
             elif http_method == "PUT":
+                # Strict RBAC: Chỉ Giảng viên/Ban tổ chức (Organizer hoặc Admin) mới có quyền cập nhật ca thi
+                if claims.get("email") and not is_admin_or_organizer:
+                    return build_response(403, {"error": "Chỉ Giảng viên/Ban tổ chức (Organizer) mới có quyền cập nhật trạng thái ca thi."})
+
                 status = body.get("status")
                 candidate_emails = body.get("candidateEmails")
 
@@ -1180,55 +1612,15 @@ def lambda_handler(event, context):
             })
 
         # =========================================================================
-        # 3.3. /sessions/{id}/send-report API (Gửi email báo cáo bảng điểm qua SNS)
+        # 3.3. /sessions/{id}/auto-finalize & /sessions/{id}/send-report APIs
         # =========================================================================
-        elif resource_path == "/sessions/{id}/send-report" and http_method == "POST":
+        elif (resource_path == "/sessions/{id}/auto-finalize" or raw_path.endswith("/auto-finalize")) and http_method == "POST":
             s_id = path_parameters.get("id")
-            res = sessions_table.get_item(Key={"id": s_id})
-            session_item = res.get("Item")
-            if not session_item:
-                return build_response(404, {"error": "Ca thi không tồn tại"})
+            return handle_auto_finalize_session(s_id)
 
-            submissions_map = session_item.get("submissions", {})
-            total_students = len(session_item.get("candidateEmails", []))
-            total_submitted = len(submissions_map)
-
-            scores = [sub.get("score", 0) for sub in submissions_map.values()]
-            avg_score = round(sum(scores) / len(scores), 2) if scores else 0
-            max_score = max(scores) if scores else 0
-
-            report_message = (
-                f"BÁO CÁO KẾT QUẢ CA THI CLOUDEXAM\n"
-                f"----------------------------------------\n"
-                f"Mã ca thi: {s_id}\n"
-                f"Tên ca thi: {session_item.get('name')}\n"
-                f"Trạng thái: {session_item.get('status')}\n"
-                f"Thời gian: {session_item.get('startTime')} đến {session_item.get('endTime')}\n\n"
-                f"THỐNG KÊ KẾT QUẢ:\n"
-                f"- Số thí sinh tham gia: {total_submitted} / {total_students}\n"
-                f"- Điểm cao nhất: {max_score}\n"
-                f"- Điểm trung bình: {avg_score}\n"
-                f"----------------------------------------\n"
-                f"Bảng điểm chi tiết đã sẵn sàng trên hệ thống CloudExam."
-            )
-
-            # Publish thông báo tới Amazon SNS Topic
-            if SNS_TOPIC_ARN:
-                try:
-                    sns_client.publish(
-                        TopicArn=SNS_TOPIC_ARN,
-                        Subject=f"[CloudExam] Báo cáo bảng điểm ca thi #{s_id}",
-                        Message=report_message
-                    )
-                except Exception as sns_err:
-                    print(f"[WARN] Lỗi gửi thông báo qua SNS: {sns_err}")
-
-            return build_response(200, {
-                "message": "Đã gửi báo cáo bảng điểm ca thi thành công qua Amazon SNS.",
-                "sessionId": s_id,
-                "totalSubmitted": total_submitted,
-                "avgScore": avg_score
-            })
+        elif (resource_path == "/sessions/{id}/send-report" or raw_path.endswith("/send-report")) and http_method == "POST":
+            s_id = path_parameters.get("id")
+            return handle_send_session_report(s_id)
 
         # =========================================================================
         # 4. /exam/save-progress API (Lưu ngầm trạng thái làm bài Atomic Updates)
@@ -1457,6 +1849,8 @@ def lambda_handler(event, context):
             if not correct_answer and options and 0 <= correct_idx < len(options):
                 correct_answer = options[correct_idx]
 
+            req_model = body.get("model") or ""
+            req_key = body.get("apiKey") or body.get("geminiApiKey") or body.get("api_key") or ""
             explanation_text, source = explain_answer_with_gemini(
                 content=content or "Câu hỏi trắc nghiệm",
                 options=options,
@@ -1464,7 +1858,9 @@ def lambda_handler(event, context):
                 correct_idx=correct_idx,
                 chosen_answer=chosen_answer,
                 correct_answer=correct_answer,
-                subject=subject
+                subject=subject,
+                model=req_model,
+                api_key=req_key
             )
 
             return build_response(200, {

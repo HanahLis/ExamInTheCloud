@@ -1,0 +1,96 @@
+// ==============================================================================
+// CLOUDEXAM — KIẾN TRÚC TÍNH NĂNG (DÀN RỘNG CHUẨN FORM HOMEWALLET)
+// Thiết kế tổng quan · 9 tính năng cốt lõi · Bố cục ngang thoáng đãng, không đè chữ
+// Cú pháp: Eraser.io Diagram-as-Code (https://app.eraser.io)
+// ==============================================================================
+
+// ------------------------------------------------------------------------------
+// NGƯỜI DÙNG / TÁC NHÂN HỆ THỐNG
+// ------------------------------------------------------------------------------
+Users [icon: users, label: "Thí sinh / Giảng viên / Giám thị"]
+
+// ------------------------------------------------------------------------------
+// LỚP ỨNG DỤNG VÀ NGHIỆP VỤ (DÀN NGANG RỘNG RÃI)
+// ------------------------------------------------------------------------------
+"LỚP ỨNG DỤNG VÀ NGHIỆP VỤ" [color: blue] {
+  "Giao diện & Cổng API" {
+    ReactWeb [icon: react, label: "React Web SPA\nResponsive · Đa ngôn ngữ (VI/LA/EN)"]
+    Cognito [icon: aws-cognito, label: "Amazon Cognito\nUser & Identity Pool · PKCE Flow"]
+    CoreAPI [icon: aws-lambda, label: "API Gateway & Lambda Core\nREST API (Python 3.11)"]
+  }
+
+  "Các Module Logic trong API" {
+    APIModules [icon: file-text, label: "9 MODULES LOGIC NGHIỆP VỤ CỐT LÕI\n• 1. Xác thực & Phân quyền tập trung (Cognito JWT · PKCE)\n• 2. Quản lý ngân hàng đề & Tải ảnh trực tiếp S3 Presigned URL\n• 3. Tự động số hóa đề thi từ file Word/PDF bằng Gemini AI\n• 4. Quản lý hồ sơ thí sinh (Mã SV, GSI) & Nạp ảnh thẻ gốc S3\n• 5. Điểm danh sinh trắc học AI khuôn mặt (CompareFaces ≥ 80%)\n• 6. Phòng thi an toàn, đồng hồ đếm ngược & Ẩn đáp án F12\n• 7. Nộp bài đệm tải SQS & Chấm điểm tự động theo lô (Batch 10)\n• 8. Tự động hóa ca thi Step Functions & Báo cáo email qua SNS\n• 9. Đa ngôn ngữ & Bản sắc giao diện đa quốc gia (Edge Injection)"]
+  }
+}
+
+// ------------------------------------------------------------------------------
+// AWS CLOUD — DỮ LIỆU, XỬ LÝ NỀN VÀ AI
+// ------------------------------------------------------------------------------
+"AWS CLOUD — DỮ LIỆU, XỬ LÝ NỀN VÀ AI" [color: amber] {
+  "Dữ liệu dùng chung" {
+    DynamoDB [icon: aws-dynamodb, label: "Amazon DynamoDB (4 Bảng On-Demand)\nĐề thi · Câu hỏi · Thí sinh (GSI) · Ca thi"]
+    S3Storage [icon: aws-s3, label: "Amazon S3 Media Bucket\nquestions/ (ảnh đề) · faces/ (ảnh thẻ gốc)"]
+  }
+
+  "Điểm danh sinh trắc học AI" {
+    S3Faces [icon: aws-s3, label: "S3 faces/\nẢnh thẻ gốc"]
+    LambdaFace [icon: aws-lambda, label: "Lambda Biometric Handler\n512MB · Base64"]
+    Rekognition [icon: aws-rekognition, label: "Amazon Rekognition\nCompareFaces >= 80%"]
+    CheckedIn [icon: check-circle, label: "CHECKED_IN\nCấp quyền vào thi"]
+  }
+
+  "Hàng đợi nộp bài & Chấm tự động" {
+    SQSQueue [icon: aws-sqs, label: "Amazon SQS Buffer Queue\nĐệm tải nộp bài (<0.1s)"]
+    GradingWorker [icon: aws-lambda, label: "Lambda Grading Worker\nChấm thi tự động Batch 10"]
+    SQSDLQ [icon: aws-sqs, label: "Dead-Letter Queue (DLQ)\nBảo toàn bài thi lỗi"]
+  }
+
+  "Tự động hóa ca thi & Báo cáo" {
+    StepFunctions [icon: aws-step-functions, label: "AWS Step Functions\nSCHEDULED -> RUNNING -> CLOSED"]
+    SNSTopic [icon: aws-sns, label: "Amazon SNS Topic\nEmail báo cáo điểm"]
+  }
+
+  "Quản trị & Giám sát vận hành" {
+    IAMRoles [icon: aws-iam, label: "IAM Roles / Least Privilege\nPhân quyền tối thiểu"]
+    CloudWatch [icon: aws-cloudwatch, label: "CloudWatch Logs 14 ngày & Metrics\nCảnh báo lỗi 5XX & DLQ ($0 FinOps)"]
+  }
+}
+
+// ------------------------------------------------------------------------------
+// DỊCH VỤ NGOÀI / THIẾT BỊ
+// ------------------------------------------------------------------------------
+"DỊCH VỤ NGOÀI / THIẾT BỊ" [color: purple] {
+  GeminiAI [icon: google-cloud, label: "Google Gemini 1.5 Flash API\nSố hóa đề Word/PDF sang JSON (0$)\nGiải thích chi tiết bài làm"]
+  UpstashRedis [icon: redis, label: "Upstash Serverless Redis\nLive Leaderboard < 5ms"]
+  WebcamDevice [icon: camera, label: "Webcam HTML5 / Turnstile\nChụp ảnh thí sinh · Chống Botnet"]
+}
+
+// ==============================================================================
+// CÁC LUỒNG KẾT NỐI (TUÂN THỦ CHIỀU TỰ NHIÊN, DÀN NGANG, KHÔNG CHÉO)
+// ==============================================================================
+
+// 1. Luồng Người dùng & Xác thực (Dàn ngang từ trái qua phải)
+Users > ReactWeb: "HTTPS"
+ReactWeb <> Cognito: "Đăng nhập / PKCE"
+ReactWeb > CoreAPI: "REST / JSON + JWT"
+CoreAPI > APIModules: "Điều phối 9 logic"
+
+// 2. S3 Presigned URL & Gemini AI Số hóa đề
+CoreAPI > S3Storage: "Presigned URL (TTL 300s)"
+CoreAPI > GeminiAI: "Bóc tách file Word/PDF"
+
+// 3. Luồng Điểm danh sinh trắc học AI (Ống ngang)
+S3Faces > LambdaFace: "Ảnh thẻ gốc"
+LambdaFace > Rekognition: "CompareFaces"
+Rekognition > CheckedIn: "Khớp >= 80%"
+
+// 4. Luồng Nộp bài đệm SQS & Chấm theo lô (Ống ngang)
+CoreAPI > SQSQueue: "Nộp bài (<0.1s)"
+SQSQueue > GradingWorker: "Rút bài Batch 10"
+GradingWorker > SQSDLQ: "Retry 3 lần lỗi"
+GradingWorker > UpstashRedis: "Cập nhật BXH < 5ms"
+
+// 5. Tự động hóa ca thi & Báo cáo Email
+StepFunctions > CoreAPI: "Mở/Khóa ca thi"
+StepFunctions > SNSTopic: "Phát Email báo cáo"
