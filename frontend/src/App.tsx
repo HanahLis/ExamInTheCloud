@@ -42,6 +42,7 @@ export const CountryLanguageBar = () => {
     setThemeName(c);
     if (c === 'vn') setLang('vi');
     else if (c === 'la') setLang('la');
+    else if (c === 'de') setLang('de');
     else setLang('en');
   };
 
@@ -56,6 +57,7 @@ export const CountryLanguageBar = () => {
         >
           <option value="vn">{t('country_vn')}</option>
           <option value="la">{t('country_la')}</option>
+          <option value="de">{t('country_de')}</option>
           <option value="default">{t('country_intl')}</option>
         </select>
       </div>
@@ -70,6 +72,7 @@ export const CountryLanguageBar = () => {
           <option value="vi">Tiếng Việt</option>
           <option value="en">English</option>
           <option value="la">ພາສາລາວ</option>
+          <option value="de">Deutsch</option>
         </select>
       </div>
     </div>

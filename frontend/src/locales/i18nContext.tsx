@@ -2,10 +2,11 @@ import React, { createContext, useContext, useState, useEffect } from 'react';
 import vi from './vi.json';
 import en from './en.json';
 import la from './la.json';
+import de from './de.json';
 
-export type Language = 'vi' | 'en' | 'la';
+export type Language = 'vi' | 'en' | 'la' | 'de';
 
-const translations: Record<Language, Record<string, string>> = { vi, en, la };
+const translations: Record<Language, Record<string, string>> = { vi, en, la, de };
 
 interface I18nContextType {
   lang: Language;

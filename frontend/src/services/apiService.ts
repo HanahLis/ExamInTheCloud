@@ -5,7 +5,9 @@ import JSZip from 'jszip';
 export const isMockMode = (): boolean => import.meta.env.VITE_USE_MOCK === 'true';
 
 const api = axios.create({
-  baseURL: import.meta.env.VITE_API_BASE_URL || '',
+  baseURL:
+    import.meta.env.VITE_API_BASE_URL ||
+    'https://tmfbgkjy03.execute-api.ap-southeast-1.amazonaws.com/dev',
   headers: {
     'Content-Type': 'application/json',
   },

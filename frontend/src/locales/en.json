@@ -219,5 +219,7 @@
   "exam_select_session_desc": "Select an exam session to enter the candidate room.",
   "country_vn": "Vietnam",
   "country_la": "Laos",
-  "country_intl": "International"
+  "country_intl": "International",
+  "country_de": "Germany",
+  "lang_de": "German"
 }
