@@ -1,5 +1,6 @@
 # ==============================================================================
 # FINOPS ARCHITECTURE: AWS BUDGETS & COST CONTROL (0 USD CLOUD)
+# Phụ trách: Phạm Tuấn Phong (24021596) — Task P-03
 # Tự động giám sát chi phí đám mây, cảnh báo ngưỡng 0.50 USD bảo vệ ngân sách sinh viên
 # ==============================================================================
 

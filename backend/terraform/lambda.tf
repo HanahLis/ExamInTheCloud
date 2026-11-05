@@ -14,17 +14,12 @@ resource "aws_lambda_function" "core_api" {
   function_name    = "${var.project_name}-core-api-${var.environment}"
   role             = aws_iam_role.lambda_core_api.arn
   handler          = "api_handler.lambda_handler"
-  runtime          = "python3.12"
-  architectures    = ["arm64"] # Graviton2 arm64 (tiết kiệm chi phí điện toán)
-  timeout          = 30
+  runtime          = "python3.11"
+  architectures    = ["arm64"] # Graviton2 arm64 theo đặc tả Task 11 (tiết kiệm 20% chi phí điện toán)
+  timeout          = 15
   memory_size      = 256
   filename         = data.archive_file.lambda_payload.output_path
   source_code_hash = data.archive_file.lambda_payload.output_base64sha256
-
-  # vpc_config {
-  #   subnet_ids         = [aws_subnet.private_a.id, aws_subnet.private_b.id]
-  #   security_group_ids = [aws_security_group.lambda_vpc_sg.id]
-  # }
 
   environment {
     variables = {
@@ -34,7 +29,6 @@ resource "aws_lambda_function" "core_api" {
       STATE_MACHINE_ARN               = aws_sfn_state_machine.exam_lifecycle.arn
       SNS_TOPIC_ARN                   = aws_sns_topic.alerts.arn
       GEMINI_API_KEY                  = var.gemini_api_key
-      GEMINI_MODEL                    = var.gemini_model
       UPSTASH_REDIS_REST_URL          = var.upstash_redis_rest_url
       UPSTASH_REDIS_REST_TOKEN        = var.upstash_redis_rest_token
       CLOUDFLARE_TURNSTILE_SECRET_KEY = var.cloudflare_turnstile_secret_key
@@ -45,27 +39,17 @@ resource "aws_lambda_function" "core_api" {
     Name        = "${var.project_name}-core-api"
     Environment = var.environment
   }
-
-  depends_on = [
-    aws_iam_role_policy.lambda_core_api_policy,
-    aws_iam_role_policy_attachment.lambda_core_api_vpc
-  ]
 }
 
 # 3. Lambda Face Verification Function
 resource "aws_lambda_function" "face_verify" {
-  function_name = "${var.project_name}-face-verify-${var.environment}"
-  role          = aws_iam_role.lambda_face_verify.arn
-  handler       = "face_verify_handler.lambda_handler"
-  runtime       = "python3.12"
-  architectures = ["arm64"] # Graviton2 arm64
-  timeout       = 30
-  memory_size   = 512
-
-  # vpc_config {
-  #   subnet_ids         = [aws_subnet.private_a.id, aws_subnet.private_b.id]
-  #   security_group_ids = [aws_security_group.lambda_vpc_sg.id]
-  # }
+  function_name    = "${var.project_name}-face-verify-${var.environment}"
+  role             = aws_iam_role.lambda_face_verify.arn
+  handler          = "face_verify_handler.lambda_handler"
+  runtime          = "python3.11"
+  architectures    = ["arm64"] # Graviton2 arm64 (Task 11)
+  timeout          = 30
+  memory_size      = 512
   filename         = data.archive_file.lambda_payload.output_path
   source_code_hash = data.archive_file.lambda_payload.output_base64sha256
 
@@ -73,7 +57,6 @@ resource "aws_lambda_function" "face_verify" {
     variables = {
       ENV            = var.environment
       S3_BUCKET_NAME = var.s3_bucket_name
-      SNS_TOPIC_ARN  = ""
     }
   }
 
@@ -81,20 +64,16 @@ resource "aws_lambda_function" "face_verify" {
     Name        = "${var.project_name}-face-verify"
     Environment = var.environment
   }
-
-  depends_on = [
-    aws_iam_role_policy.lambda_face_verify_policy,
-    aws_iam_role_policy_attachment.lambda_face_verify_vpc
-  ]
 }
 
 # 4. Lambda Grading Worker Function (Chấm điểm bất đồng bộ từ SQS)
+# Phụ trách: Nguyễn Thị Ngọc Hà (24020115) & Trần Đức Mạnh (24021561)
 resource "aws_lambda_function" "grading_worker" {
   function_name    = "${var.project_name}-grading-worker-${var.environment}"
   role             = aws_iam_role.lambda_grading_worker.arn
   handler          = "grading_worker.lambda_handler"
-  runtime          = "python3.12"
-  architectures    = ["arm64"] # Graviton2 arm64
+  runtime          = "python3.11"
+  architectures    = ["arm64"] # Graviton2 arm64 (Task 11)
   timeout          = 30
   memory_size      = 256
   filename         = data.archive_file.lambda_payload.output_path
@@ -118,6 +97,8 @@ resource "aws_lambda_function" "grading_worker" {
 }
 
 # 5. SQS Event Source Mapping cho Lambda Grading Worker (Batch Size = 10, Window = 2s)
+# Phụ trách: Nguyễn Thị Ngọc Hà (24020115) — Trưởng nhóm
+# Task H-02 / Task 20: Event Source Mapping kết nối SQS với Lambda grading_worker (Batch size = 10, BatchWindow = 2s)
 resource "aws_lambda_event_source_mapping" "sqs_to_grading_worker" {
   event_source_arn                   = aws_sqs_queue.exam_submission.arn
   function_name                      = aws_lambda_function.grading_worker.arn
@@ -125,8 +106,4 @@ resource "aws_lambda_event_source_mapping" "sqs_to_grading_worker" {
   maximum_batching_window_in_seconds = 2
   function_response_types            = ["ReportBatchItemFailures"]
   enabled                            = true
-
-  depends_on = [
-    aws_iam_role_policy.lambda_grading_worker_policy
-  ]
 }

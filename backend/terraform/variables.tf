@@ -67,24 +67,19 @@ variable "enable_waf" {
 variable "waf_rate_limit" {
   description = "Ngưỡng số lượng request tối đa trong 5 phút từ một IP trước khi bị WAF chặn"
   type        = number
-  default     = 2000
+  default     = 100
 }
 
 # ==============================================================================
 # CẤU HÌNH ĐA ĐÁM MÂY (MULTI-CLOUD): GOOGLE GEMINI, UPSTASH REDIS & CLOUDFLARE
+# Phụ trách: Phạm Tuấn Phong (24021596) — Task P-01
 # ==============================================================================
 
 variable "gemini_api_key" {
-  description = "Google Gemini API Key từ Google AI Studio"
+  description = "Google Gemini 1.5 Flash API Key từ Google AI Studio (miễn phí 1,500 req/ngày, 0 USD)"
   type        = string
   default     = ""
   sensitive   = true
-}
-
-variable "gemini_model" {
-  description = "Tên mô hình Google Gemini AI được sử dụng (ví dụ: gemini-4-argon, gemini-2.5-flash, gemini-2.0-flash)"
-  type        = string
-  default     = "gemini-3.8-flash"
 }
 
 variable "upstash_redis_rest_url" {
@@ -109,6 +104,7 @@ variable "cloudflare_turnstile_secret_key" {
 
 # ==============================================================================
 # CẤU HÌNH FINOPS & AWS BUDGETS (0 USD CLOUD)
+# Phụ trách: Phạm Tuấn Phong (24021596) — Task P-03
 # ==============================================================================
 
 variable "budget_limit_amount" {
@@ -120,16 +116,8 @@ variable "budget_limit_amount" {
 variable "budget_alert_emails" {
   description = "Danh sách email nhận thông báo cảnh báo ngân sách AWS Budget"
   type        = list(string)
-  default     = ["admin@cloudexam.vn", "cloudexam-alerts@example.com"]
+  default     = ["phongpt@example.edu.vn", "cloudexam-admin@example.com"]
 }
 
-# ==============================================================================
-# CẤU HÌNH CI/CD GITHUB ACTIONS OIDC
-# ==============================================================================
 
-variable "github_repo" {
-  description = "GitHub Repository cho OIDC trust policy (ví dụ: org/repo hoặc *)"
-  type        = string
-  default     = "*"
-}
 

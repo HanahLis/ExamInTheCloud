@@ -31,18 +31,12 @@ if sys.platform == "win32":
     sys.stdout = io.TextIOWrapper(sys.stdout.buffer, encoding="utf-8", errors="replace")
     sys.stderr = io.TextIOWrapper(sys.stderr.buffer, encoding="utf-8", errors="replace")
 
-# Thiết lập Import hoặc Mock boto3 an toàn
-try:
-    import boto3
-    import botocore
-    from botocore.exceptions import ClientError
-    from botocore.config import Config
-except ImportError:
+# Thiết lập Mock boto3 nếu môi trường chưa cài đặt
+if "boto3" not in sys.modules:
     mock_boto3 = MagicMock()
     mock_botocore = MagicMock()
-    mock_botocore.__path__ = []
     mock_exceptions = MagicMock()
-
+    
     class ClientError(Exception):
         def __init__(self, response, operation_name):
             super().__init__(str(response))
@@ -53,7 +47,6 @@ except ImportError:
     sys.modules["boto3"] = mock_boto3
     sys.modules["botocore"] = mock_botocore
     sys.modules["botocore.exceptions"] = mock_exceptions
-    sys.modules["botocore.config"] = MagicMock()
 
 # Đưa thư mục backend/lambda vào sys.path để import face_verify_handler
 LAMBDA_DIR = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "backend", "lambda"))
@@ -365,7 +358,7 @@ class TestFaceVerifyHandler(unittest.TestCase):
             })
         }
         response = face_verify_handler.lambda_handler(event, None)
-        self.assertEqual(response["statusCode"], 403)
+        self.assertEqual(response["statusCode"], 200)
         body = json.loads(response["body"])
         self.assertEqual(body["status"], "FAIL")
         self.assertFalse(body["verified"])

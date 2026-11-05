@@ -74,8 +74,8 @@ export const ExamSessionTab = ({
 
       await onCreateSession({
         name: name.trim(),
-        startTime: new Date(startTime).toISOString(),
-        endTime: new Date(endTime).toISOString(),
+        startTime,
+        endTime,
         status: initialStatus,
         questionIds: selectedQuestions,
         candidateEmails: selectedCandidates,

@@ -76,42 +76,12 @@ export const CountryLanguageBar = () => {
   );
 };
 
-const TABS: { id: Tab; labelKey: string; path: string }[] = [
-  { id: 'questions', labelKey: 'tab_questions', path: '/questions' },
-  { id: 'candidates', labelKey: 'tab_candidates', path: '/candidates' },
-  { id: 'session', labelKey: 'tab_sessions', path: '/sessions' },
-  { id: 'exam_test', labelKey: 'tab_exam_test', path: '/exam' },
+const TABS: { id: Tab; labelKey: string }[] = [
+  { id: 'questions', labelKey: 'tab_questions' },
+  { id: 'candidates', labelKey: 'tab_candidates' },
+  { id: 'session', labelKey: 'tab_sessions' },
+  { id: 'exam_test', labelKey: 'tab_exam_test' },
 ];
-
-const parseRouteFromUrl = (): { tab: Tab; examId: string | null } => {
-  const pathname = window.location.pathname.toLowerCase();
-  const searchParams = new URLSearchParams(window.location.search);
-  const examParam = searchParams.get('sessionId') || searchParams.get('exam');
-
-  if (pathname.startsWith('/exam/')) {
-    const id = window.location.pathname.replace(/^\/exam\//, '').trim();
-    return { tab: 'exam_test', examId: id || null };
-  }
-  if (pathname === '/exam' || pathname === '/exam_test') {
-    return { tab: 'exam_test', examId: examParam || null };
-  }
-  if (pathname === '/candidates' || pathname === '/candidate') {
-    return { tab: 'candidates', examId: null };
-  }
-  if (pathname === '/sessions' || pathname === '/session') {
-    return { tab: 'session', examId: null };
-  }
-  if (pathname === '/questions' || pathname === '/question') {
-    return { tab: 'questions', examId: null };
-  }
-
-  const tabParam = searchParams.get('tab') as Tab;
-  if (tabParam && ['questions', 'candidates', 'session', 'exam_test'].includes(tabParam)) {
-    return { tab: tabParam, examId: examParam || null };
-  }
-
-  return { tab: 'questions', examId: examParam || null };
-};
 
 export interface SystemAccount {
   role: 'Organizer' | 'Candidate';
@@ -122,27 +92,6 @@ export interface SystemAccount {
 }
 
 const DATABASE_ACCOUNTS: SystemAccount[] = [
-  {
-    role: 'Organizer',
-    name: 'Phạm Tuấn Phong',
-    email: 'phongpt@vnu.edu.vn',
-    studentCode: '24021598',
-    unit: 'Trưởng nhóm - Khoa Công nghệ Thông tin - UET',
-  },
-  {
-    role: 'Candidate',
-    name: 'Phạm Tuấn Phong',
-    email: 'phongpt@vnu.edu.vn',
-    studentCode: '24021598',
-    unit: 'Sinh viên K66 - Khoa CNTT - UET',
-  },
-  {
-    role: 'Organizer',
-    name: 'Trần Đức Mạnh',
-    email: 'tranducmanh2006@gmail.com',
-    studentCode: '24021561',
-    unit: 'Khoa Công nghệ Thông tin - ĐH Công nghệ (UET)',
-  },
   {
     role: 'Organizer',
     name: 'PGS. TS. Nguyễn Văn An',
@@ -225,51 +174,14 @@ const DATABASE_ACCOUNTS: SystemAccount[] = [
 export default function App() {
   const { theme } = useTheme();
   const { t } = useTranslation();
-  const initialRoute = parseRouteFromUrl();
-  const [activeTab, setActiveTab] = useState<Tab>(initialRoute.tab);
+  const [activeTab, setActiveTab] = useState<Tab>('questions');
   const [questions, setQuestions] = useState<Question[]>([]);
   const [candidates, setCandidates] = useState<Candidate[]>([]);
   const [sessions, setSessions] = useState<ExamSession[]>([]);
   const [loading, setLoading] = useState(false);
 
   // ID ca thi đang mở (nếu đang ở trong phòng thi)
-  const [activeExamSessionId, setActiveExamSessionId] = useState<string | null>(initialRoute.examId);
-
-  const navigateToTab = (tab: Tab) => {
-    setActiveTab(tab);
-    setActiveExamSessionId(null);
-    let path = '/questions';
-    if (tab === 'candidates') path = '/candidates';
-    else if (tab === 'session') path = '/sessions';
-    else if (tab === 'exam_test') path = '/exam';
-
-    if (window.location.pathname !== path || window.location.search) {
-      window.history.pushState({ tab }, '', path);
-    }
-  };
-
-  const openExamRoom = (sessionId: string) => {
-    setActiveExamSessionId(sessionId);
-    setActiveTab('exam_test');
-    const path = `/exam?sessionId=${encodeURIComponent(sessionId)}`;
-    if (window.location.pathname + window.location.search !== path) {
-      window.history.pushState({ sessionId }, '', path);
-    }
-  };
-
-  const exitExamRoom = () => {
-    setActiveExamSessionId(null);
-    const u = getCurrentUser();
-    const isOrg = u?.groups?.includes('Organizer') ?? false;
-    const targetPath = isOrg
-      ? activeTab === 'exam_test'
-        ? '/exam'
-        : activeTab === 'session'
-        ? '/sessions'
-        : `/${activeTab}`
-      : '/sessions';
-    window.history.pushState({}, '', targetPath);
-  };
+  const [activeExamSessionId, setActiveExamSessionId] = useState<string | null>(null);
 
   // Trạng thái đồng bộ CSDL AWS Cloud
   const [syncing, setSyncing] = useState(false);
@@ -308,28 +220,14 @@ export default function App() {
     }
   }, []);
 
-  // Lắng nghe sự kiện Back/Forward của trình duyệt để đồng bộ Tab & URL
+  // Kiểm tra URL param `?exam=ID`
   useEffect(() => {
-    const handlePopState = () => {
-      const route = parseRouteFromUrl();
-      setActiveTab(route.tab);
-      setActiveExamSessionId(route.examId);
-    };
-    window.addEventListener('popstate', handlePopState);
-    return () => window.removeEventListener('popstate', handlePopState);
-  }, []);
-
-  // Tự động gán endpoint URL rõ ràng ngay khi vào trang nếu URL đang ở "/"
-  useEffect(() => {
-    if (window.location.pathname === '/' || window.location.pathname === '') {
-      let path = '/questions';
-      if (activeExamSessionId) path = `/exam?sessionId=${encodeURIComponent(activeExamSessionId)}`;
-      else if (activeTab === 'candidates') path = '/candidates';
-      else if (activeTab === 'session') path = '/sessions';
-      else if (activeTab === 'exam_test') path = '/exam';
-      window.history.replaceState({ tab: activeTab }, '', path);
+    const params = new URLSearchParams(window.location.search);
+    const examParam = params.get('exam');
+    if (examParam) {
+      setActiveExamSessionId(examParam);
     }
-  }, [activeTab, activeExamSessionId]);
+  }, []);
 
   useEffect(() => {
     if (loggedIn) {
@@ -445,7 +343,7 @@ export default function App() {
             <div className="pt-2 text-center border-t border-slate-100">
               <button
                 type="button"
-                onClick={() => redirectToCognitoLogin(false)}
+                onClick={redirectToCognitoLogin}
                 className="text-[11px] text-indigo-600 hover:text-indigo-800 cursor-pointer font-medium"
               >
                 Cổng Thí sinh / Đăng ký qua AWS Cognito Hosted UI &rarr;
@@ -501,8 +399,12 @@ export default function App() {
         <ExamRoom
           sessionId={activeExamSessionId}
           currentUserEmail={user.email}
-          isOrganizer={isAdminOrOrganizer}
-          onExit={exitExamRoom}
+          onExit={() => {
+            setActiveExamSessionId(null);
+            const url = new URL(window.location.href);
+            url.searchParams.delete('exam');
+            window.history.replaceState({}, '', url.pathname);
+          }}
         />
       </div>
     );
@@ -552,7 +454,7 @@ export default function App() {
                     </p>
                   </div>
                   <button
-                    onClick={() => openExamRoom(s.id)}
+                    onClick={() => setActiveExamSessionId(s.id)}
                     className="px-3 py-1.5 bg-slate-900 text-white rounded text-xs font-medium hover:bg-slate-800 transition cursor-pointer"
                   >
                     Vào phòng thi
@@ -612,7 +514,7 @@ export default function App() {
           {TABS.map((tItem) => (
             <button
               key={tItem.id}
-              onClick={() => navigateToTab(tItem.id)}
+              onClick={() => setActiveTab(tItem.id)}
               className={`pb-2.5 px-4 font-medium text-xs border-b-2 transition whitespace-nowrap cursor-pointer ${
                 activeTab === tItem.id
                   ? 'border-slate-800 text-slate-900'
@@ -657,7 +559,7 @@ export default function App() {
             onCreateSession={handleCreateSession}
             onUpdateStatus={handleUpdateSessionStatus}
             onUpdateCandidates={handleUpdateSessionCandidates}
-            onOpenExam={(id) => openExamRoom(id)}
+            onOpenExam={(id) => setActiveExamSessionId(id)}
             onRefresh={refreshAll}
           />
         )}
@@ -706,7 +608,7 @@ export default function App() {
                     </p>
 
                     <button
-                      onClick={() => openExamRoom(s.id)}
+                      onClick={() => setActiveExamSessionId(s.id)}
                       className="w-full py-2 bg-slate-900 text-white font-medium rounded-md text-xs hover:bg-slate-800 transition cursor-pointer"
                     >
                       Vào phòng thi

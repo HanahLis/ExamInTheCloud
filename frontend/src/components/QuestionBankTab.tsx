@@ -74,13 +74,6 @@ export const QuestionBankTab = ({ questions, onRefresh }: Props) => {
   const [importError, setImportError] = useState('');
   const [importSuccessMessage, setImportSuccessMessage] = useState('');
   const [extractedQuestions, setExtractedQuestions] = useState<Question[]>([]);
-  const [importApiKey, setImportApiKey] = useState(
-    (import.meta as any).env.VITE_GEMINI_API_KEY || ''
-  );
-  const [importModel, setImportModel] = useState(
-    (import.meta as any).env.VITE_GEMINI_MODEL || 'gemini-3.8-flash'
-  );
-  const [showApiKey, setShowApiKey] = useState(false);
   const docFileInputRef = useRef<HTMLInputElement>(null);
 
   // Tải danh sách ngân hàng câu hỏi
@@ -466,8 +459,6 @@ export const QuestionBankTab = ({ questions, onRefresh }: Props) => {
         docText,
         text: docText,
         autoSave: importAutoSave,
-        model: importModel.trim() || undefined,
-        apiKey: importApiKey.trim() || undefined,
       });
 
       setImportSuccessMessage(
@@ -510,10 +501,8 @@ export const QuestionBankTab = ({ questions, onRefresh }: Props) => {
               onClick={handleOpenImportModal}
               className="px-3 py-1.5 bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-medium rounded-md shadow-xs transition flex items-center gap-1.5 cursor-pointer"
             >
-              <svg className="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                <path d="m12 3-1.912 5.813a2 2 0 0 1-1.275 1.275L3 12l5.813 1.912a2 2 0 0 1 1.275 1.275L12 21l1.912-5.813a2 2 0 0 1 1.275-1.275L21 12l-5.813-1.912a2 2 0 0 1-1.275-1.275L12 3Z"/>
-              </svg>
-              <span>Soạn câu hỏi bằng Gemini AI / Nhập Word</span>
+              <span>📥</span>
+              <span>Nhập câu hỏi từ file Word</span>
             </button>
 
             <button
@@ -758,61 +747,6 @@ export const QuestionBankTab = ({ questions, onRefresh }: Props) => {
                 </div>
               </div>
 
-              {/* Cấu hình Google Gemini AI */}
-              <div className="bg-indigo-50/70 p-3.5 rounded-lg border border-indigo-200/80 space-y-2.5">
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center gap-1.5">
-                    <span className="w-2 h-2 rounded-full bg-indigo-500 animate-pulse"></span>
-                    <span className="text-xs font-semibold text-indigo-900">
-                      Cấu hình Google Gemini AI Studio
-                    </span>
-                  </div>
-                  <span className="text-[11px] text-indigo-600 font-mono">
-                    {importApiKey.trim() ? '✓ Đã cấu hình Key' : 'Mặc định: .env'}
-                  </span>
-                </div>
-
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                  <div>
-                    <label className="block text-xs font-medium text-slate-700 mb-1">
-                      Mô hình AI (Model)
-                    </label>
-                    <input
-                      type="text"
-                      value={importModel}
-                      onChange={(e) => setImportModel(e.target.value)}
-                      placeholder="gemini-3.8-flash hoặc gemini-3.1-flash-lite"
-                      className="w-full p-2 border border-slate-300 rounded-md text-xs bg-white text-slate-800 outline-none focus:border-indigo-500 font-mono"
-                    />
-                  </div>
-
-                  <div>
-                    <label className="block text-xs font-medium text-slate-700 mb-1">
-                      Google Gemini API Key
-                    </label>
-                    <div className="relative">
-                      <input
-                        type={showApiKey ? 'text' : 'password'}
-                        value={importApiKey}
-                        onChange={(e) => setImportApiKey(e.target.value)}
-                        placeholder="Dán AIzaSy... (hoặc để trống nếu đã có trong .env)"
-                        className="w-full p-2 pr-12 border border-slate-300 rounded-md text-xs bg-white text-slate-800 outline-none focus:border-indigo-500 font-mono"
-                      />
-                      <button
-                        type="button"
-                        onClick={() => setShowApiKey(!showApiKey)}
-                        className="absolute right-2 top-1/2 -translate-y-1/2 text-[10px] text-slate-500 hover:text-slate-800 px-1 py-0.5 rounded cursor-pointer"
-                      >
-                        {showApiKey ? 'Ẩn' : 'Hiện'}
-                      </button>
-                    </div>
-                  </div>
-                </div>
-                <p className="text-[11px] text-slate-500 leading-relaxed">
-                  <span className="font-semibold text-slate-700">Lưu ý:</span> Bạn có thể cấu hình cố định trong tệp <code className="bg-white px-1 py-0.5 rounded border border-slate-200 font-mono text-slate-700">frontend/.env</code> với <code className="text-indigo-600 font-mono">VITE_GEMINI_API_KEY</code> và <code className="text-indigo-600 font-mono">VITE_GEMINI_MODEL=gemini-3.8-flash</code> để không cần nhập lại mỗi lần.
-                </p>
-              </div>
-
               {/* Chế độ nhập */}
               <div>
                 <div className="flex border-b border-slate-200 mb-3">
@@ -836,7 +770,7 @@ export const QuestionBankTab = ({ questions, onRefresh }: Props) => {
                         : 'border-transparent text-slate-500 hover:text-slate-700'
                     }`}
                   >
-                    Dán đề thi / Soạn câu hỏi bằng AI Prompt
+                    Dán văn bản thô
                   </button>
                 </div>
 
@@ -858,15 +792,9 @@ export const QuestionBankTab = ({ questions, onRefresh }: Props) => {
                     />
                     <label
                       htmlFor="doc-file-upload-input"
-                      className="cursor-pointer flex flex-col items-center justify-center space-y-1.5"
+                      className="cursor-pointer flex flex-col items-center justify-center space-y-1"
                     >
-                      <svg className="w-8 h-8 text-slate-400" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5">
-                        <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" />
-                        <polyline points="14 2 14 8 20 8" />
-                        <line x1="16" y1="13" x2="8" y2="13" />
-                        <line x1="16" y1="17" x2="8" y2="17" />
-                        <polyline points="10 9 9 9 8 9" />
-                      </svg>
+                      <span className="text-2xl">📄</span>
                       <span className="text-xs font-semibold text-slate-700">
                         {importFile ? importFile.name : 'Bấm vào đây để chọn tệp .docx hoặc .txt'}
                       </span>
@@ -878,36 +806,11 @@ export const QuestionBankTab = ({ questions, onRefresh }: Props) => {
                     </label>
                   </div>
                 ) : (
-                  <div className="space-y-2">
-                    <div className="flex flex-wrap items-center gap-1.5">
-                      <span className="text-[11px] text-slate-500 font-medium">Gợi ý câu lệnh mẫu:</span>
-                      <button
-                        type="button"
-                        onClick={() =>
-                          setImportText(
-                            'Tạo 5 câu hỏi trắc nghiệm chuyên sâu về điện toán đám mây AWS (bao gồm EC2, S3, Lambda, DynamoDB, VPC). Mỗi câu có 4 phương án A, B, C, D và chỉ rõ đáp án đúng.'
-                          )
-                        }
-                        className="text-[10px] bg-indigo-50 text-indigo-700 border border-indigo-200 px-2 py-0.5 rounded hover:bg-indigo-100 transition cursor-pointer font-medium"
-                      >
-                        5 câu về AWS Cloud
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() =>
-                          setImportText(
-                            'Soạn 5 câu hỏi trắc nghiệm về kiến trúc Microservices và RESTful API. Mỗi câu có 4 lựa chọn A, B, C, D kèm đáp án chính xác.'
-                          )
-                        }
-                        className="text-[10px] bg-slate-100 text-slate-700 border border-slate-200 px-2 py-0.5 rounded hover:bg-slate-200 transition cursor-pointer font-medium"
-                      >
-                        5 câu về Microservices
-                      </button>
-                    </div>
+                  <div>
                     <textarea
                       value={importText}
                       onChange={(e) => setImportText(e.target.value)}
-                      placeholder="Dán nội dung đề thi có sẵn (Câu 1: ... A. ... B. ...) HOẶC nhập prompt yêu cầu Gemini soạn câu hỏi mới (Ví dụ: 'Tạo 5 câu hỏi trắc nghiệm về bảo mật điện toán đám mây và IAM, mỗi câu 4 phương án A-D và ghi rõ đáp án đúng')..."
+                      placeholder="Dán nội dung đề thi vào đây (hỗ trợ Tiếng Việt: Câu 1: ... A. ... Đáp án: A hoặc Tiếng Anh: Question 1: ... A. ... Answer: A)..."
                       rows={6}
                       className="w-full p-2.5 border border-slate-200 rounded-md text-xs outline-none focus:border-slate-400 font-mono"
                     />
@@ -1121,7 +1024,7 @@ export const QuestionBankTab = ({ questions, onRefresh }: Props) => {
                     : 'text-slate-600 hover:text-slate-900'
                 }`}
               >
-                Trắc nghiệm (A-F)
+                📝 Trắc nghiệm (A-F)
               </button>
               <button
                 type="button"
@@ -1132,7 +1035,7 @@ export const QuestionBankTab = ({ questions, onRefresh }: Props) => {
                     : 'text-slate-600 hover:text-indigo-700'
                 }`}
               >
-                Tự luận (Essay)
+                ✍️ Tự luận (Essay)
               </button>
             </div>
           </div>
@@ -1145,7 +1048,7 @@ export const QuestionBankTab = ({ questions, onRefresh }: Props) => {
                   Gợi ý đáp án / Barem chấm điểm (Rubric)
                 </label>
                 <span className="text-[11px] text-indigo-600 font-medium">
-                  Thí sinh sẽ nhập câu trả lời trực tiếp trong phòng thi
+                  ✍️ Thí sinh sẽ nhập câu trả lời trực tiếp trong phòng thi
                 </span>
               </div>
               <textarea
@@ -1366,7 +1269,7 @@ export const QuestionBankTab = ({ questions, onRefresh }: Props) => {
                         : 'bg-blue-50 text-blue-700 border-blue-200'
                     }`}
                   >
-                    {q.type === 'ESSAY' ? 'Tự luận' : 'Trắc nghiệm'}
+                    {q.type === 'ESSAY' ? '✍️ Tự luận' : '📝 Trắc nghiệm'}
                   </span>
                 </div>
 
@@ -1385,7 +1288,7 @@ export const QuestionBankTab = ({ questions, onRefresh }: Props) => {
                 {q.type === 'ESSAY' ? (
                   <div className="p-3 rounded-md border border-slate-200 bg-slate-50/70 text-xs space-y-1">
                     <div className="flex items-center gap-1.5 text-slate-600 font-semibold text-[11px]">
-                      <span>Câu hỏi tự luận</span>
+                      <span>✍️ Câu hỏi tự luận</span>
                       {q.correctAnswer && <span className="text-slate-400">• Barem / Gợi ý đáp án:</span>}
                     </div>
                     {q.correctAnswer ? (

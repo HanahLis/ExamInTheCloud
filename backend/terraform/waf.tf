@@ -1,4 +1,3 @@
-
 # ==============================================================================
 # AWS WAFv2: WEB APPLICATION FIREWALL CHO API GATEWAY REST API
 # ==============================================================================
@@ -7,7 +6,7 @@
 resource "aws_wafv2_web_acl" "api_waf" {
   count       = var.enable_waf ? 1 : 0
   name        = "${var.project_name}-web-acl-${var.environment}"
-  description = "AWS WAFv2 Web ACL protecting CloudExam REST API from DDoS, Rate Limit, OWASP Top 10 and SQLi"
+  description = "Tường lửa AWS WAFv2 bảo vệ CloudExam REST API trước DDoS, Rate Limit, OWASP Top 10 và SQLi"
   scope       = "REGIONAL"
 
   default_action {
@@ -54,13 +53,6 @@ resource "aws_wafv2_web_acl" "api_waf" {
       managed_rule_group_statement {
         name        = "AWSManagedRulesCommonRuleSet"
         vendor_name = "AWS"
-
-        rule_action_override {
-          name = "SizeRestrictions_BODY"
-          action_to_use {
-            count {}
-          }
-        }
       }
     }
 

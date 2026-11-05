@@ -147,13 +147,6 @@ resource "aws_api_gateway_resource" "face_verify" {
   path_part   = "face-verify"
 }
 
-# /auth/face-presign (Cấp S3 Presigned URL tải ảnh webcam điểm danh TTL 60s - Bảng 2.3 [L-05d])
-resource "aws_api_gateway_resource" "face_presign" {
-  rest_api_id = aws_api_gateway_rest_api.main.id
-  parent_id   = aws_api_gateway_resource.auth.id
-  path_part   = "face-presign"
-}
-
 # /exam
 resource "aws_api_gateway_resource" "exam" {
   rest_api_id = aws_api_gateway_rest_api.main.id
@@ -189,13 +182,6 @@ resource "aws_api_gateway_resource" "session_send_report" {
   path_part   = "send-report"
 }
 
-# /sessions/{id}/auto-finalize
-resource "aws_api_gateway_resource" "session_auto_finalize" {
-  rest_api_id = aws_api_gateway_rest_api.main.id
-  parent_id   = aws_api_gateway_resource.session_id.id
-  path_part   = "auto-finalize"
-}
-
 # /exam/save-progress
 resource "aws_api_gateway_resource" "exam_save_progress" {
   rest_api_id = aws_api_gateway_rest_api.main.id
@@ -221,7 +207,6 @@ locals {
     "session_leaderboard"  = aws_api_gateway_resource.session_leaderboard.id
     "auth"                 = aws_api_gateway_resource.auth.id
     "face_verify"          = aws_api_gateway_resource.face_verify.id
-    "face_presign"         = aws_api_gateway_resource.face_presign.id
     "exam"                 = aws_api_gateway_resource.exam.id
     "exam_submit"          = aws_api_gateway_resource.exam_submit.id
     "exam_explain_answers" = aws_api_gateway_resource.exam_explain_answers.id
@@ -303,17 +288,15 @@ locals {
     { key = "cm_del", resource_id = aws_api_gateway_resource.candidate_email.id, http_method = "DELETE" },
     { key = "s_get", resource_id = aws_api_gateway_resource.sessions.id, http_method = "GET" },
     { key = "s_post", resource_id = aws_api_gateway_resource.sessions.id, http_method = "POST" },
-    { key = "sid_get", resource_id = aws_api_gateway_resource.session_id.id, http_method = "GET", auth = "NONE" },
+    { key = "sid_get", resource_id = aws_api_gateway_resource.session_id.id, http_method = "GET" },
     { key = "sid_put", resource_id = aws_api_gateway_resource.session_id.id, http_method = "PUT" },
     { key = "sres_get", resource_id = aws_api_gateway_resource.session_results.id, http_method = "GET" },
-    { key = "s_leaderboard_get", resource_id = aws_api_gateway_resource.session_leaderboard.id, http_method = "GET", auth = "NONE" },
-    { key = "sub_post", resource_id = aws_api_gateway_resource.exam_submit.id, http_method = "POST", auth = "NONE" },
-    { key = "spaper_get", resource_id = aws_api_gateway_resource.session_paper.id, http_method = "GET", auth = "NONE" },
+    { key = "s_leaderboard_get", resource_id = aws_api_gateway_resource.session_leaderboard.id, http_method = "GET" },
+    { key = "sub_post", resource_id = aws_api_gateway_resource.exam_submit.id, http_method = "POST" },
+    { key = "spaper_get", resource_id = aws_api_gateway_resource.session_paper.id, http_method = "GET" },
     { key = "sreport_post", resource_id = aws_api_gateway_resource.session_send_report.id, http_method = "POST" },
-    { key = "s_autofinalize_post", resource_id = aws_api_gateway_resource.session_auto_finalize.id, http_method = "POST" },
-    { key = "saveprog_post", resource_id = aws_api_gateway_resource.exam_save_progress.id, http_method = "POST", auth = "NONE" },
-    { key = "exam_explain_post", resource_id = aws_api_gateway_resource.exam_explain_answers.id, http_method = "POST", auth = "NONE" },
-    { key = "face_presign_post", resource_id = aws_api_gateway_resource.face_presign.id, http_method = "POST", auth = "NONE" }
+    { key = "saveprog_post", resource_id = aws_api_gateway_resource.exam_save_progress.id, http_method = "POST" },
+    { key = "exam_explain_post", resource_id = aws_api_gateway_resource.exam_explain_answers.id, http_method = "POST" }
   ]
 }
 
@@ -323,8 +306,8 @@ resource "aws_api_gateway_method" "core_methods" {
   rest_api_id   = aws_api_gateway_rest_api.main.id
   resource_id   = each.value.resource_id
   http_method   = each.value.http_method
-  authorization = lookup(each.value, "auth", "COGNITO_USER_POOLS")
-  authorizer_id = lookup(each.value, "auth", "COGNITO_USER_POOLS") == "COGNITO_USER_POOLS" ? aws_api_gateway_authorizer.cognito_authorizer.id : null
+  authorization = "COGNITO_USER_POOLS"
+  authorizer_id = aws_api_gateway_authorizer.cognito_authorizer.id
 }
 
 resource "aws_api_gateway_integration" "core_integrations" {
@@ -342,7 +325,8 @@ resource "aws_api_gateway_method" "face_verify_post" {
   rest_api_id   = aws_api_gateway_rest_api.main.id
   resource_id   = aws_api_gateway_resource.face_verify.id
   http_method   = "POST"
-  authorization = "NONE"
+  authorization = "COGNITO_USER_POOLS"
+  authorizer_id = aws_api_gateway_authorizer.cognito_authorizer.id
 }
 
 resource "aws_api_gateway_integration" "face_verify_integration" {
@@ -387,7 +371,6 @@ resource "aws_api_gateway_deployment" "main" {
       aws_api_gateway_resource.sessions.id,
       aws_api_gateway_resource.session_leaderboard.id,
       aws_api_gateway_resource.face_verify.id,
-      aws_api_gateway_resource.face_presign.id,
       aws_api_gateway_resource.exam_submit.id,
       aws_api_gateway_resource.exam_explain_answers.id,
       aws_api_gateway_authorizer.cognito_authorizer.id,

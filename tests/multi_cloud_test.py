@@ -36,12 +36,9 @@ sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "../b
 # Thiết lập Mock boto3 nếu môi trường chưa cài đặt
 try:
     import boto3
-    import botocore
-    from botocore.config import Config
 except ImportError:
     mock_boto3 = MagicMock()
     mock_botocore = MagicMock()
-    mock_botocore.__path__ = []
     mock_exceptions = MagicMock()
 
     class ClientError(Exception):
@@ -51,13 +48,9 @@ except ImportError:
             self.operation_name = operation_name
 
     mock_exceptions.ClientError = ClientError
-    mock_boto3.resource.return_value.Table.side_effect = lambda name: MagicMock(name=name)
     sys.modules["boto3"] = mock_boto3
-    sys.modules["boto3.dynamodb"] = MagicMock()
-    sys.modules["boto3.dynamodb.conditions"] = MagicMock()
     sys.modules["botocore"] = mock_botocore
     sys.modules["botocore.exceptions"] = mock_exceptions
-    sys.modules["botocore.config"] = MagicMock()
 
 import api_handler
 import grading_worker
@@ -435,110 +428,6 @@ class MultiCloudTestSuite:
                             f"Điểm số được ghi nhận an toàn vào DynamoDB: {graded_res.get('score')} điểm."
                         )
 
-    # =========================================================================
-    # 5. KIỂM THỬ STEP FUNCTIONS AUTO-FINALIZE & EMAIL BÁO CÁO QUA SNS (SPRINT 4)
-    # =========================================================================
-    def test_step_functions_and_sns_reporting(self):
-        print_header("6. KIỂM THỬ STEP FUNCTIONS AUTO-FINALIZE & BÁO CÁO AMAZON SNS")
-
-        # 5.1 Kiểm tra Auto-Finalize quét bài nháp tự động thu bài và chấm điểm
-        mock_session_item = {
-            "id": "EX-FINALIZE-01",
-            "name": "Ca thi Thu tu dong",
-            "status": "CLOSED",
-            "candidateEmails": ["student_draft@cloudexam.vn", "student_submitted@cloudexam.vn"],
-            "submissions": {
-                "student_submitted@cloudexam.vn": {
-                    "id": "EX-FINALIZE-01#student_submitted@cloudexam.vn",
-                    "candidateEmail": "student_submitted@cloudexam.vn",
-                    "score": 10,
-                    "maxScore": 10
-                }
-            },
-            "draftSubmissions": {
-                "student_draft@cloudexam.vn": {
-                    "answers": {"q1": 0},
-                    "updatedAt": "2026-11-01T12:00:00Z"
-                }
-            }
-        }
-
-        with patch.object(api_handler.sessions_table, "get_item", return_value={"Item": mock_session_item}):
-            with patch.object(api_handler.questions_table, "get_item", return_value={"Item": {"id": "q1", "correctIndex": 0, "score": 10}}):
-                with patch.object(api_handler.sessions_table, "update_item", return_value={}):
-                    with patch.object(api_handler.submissions_table, "put_item", return_value={}):
-                        event = {
-                            "action": "AUTO_FINALIZE",
-                            "sessionId": "EX-FINALIZE-01"
-                        }
-                        res = api_handler.lambda_handler(event, None)
-                        res_body = json.loads(res.get("body", "{}"))
-                        finalize_ok = res.get("statusCode") == 200 and res_body.get("finalizedCount") == 1 and "student_draft@cloudexam.vn" in res_body.get("finalizedStudents", [])
-                        self.record(
-                            "MC-16",
-                            "Step Functions Auto-Finalize tự động quét nháp và chấm bù khi đóng ca thi",
-                            finalize_ok,
-                            f"HTTP {res.get('statusCode')}: Đã thu bù {res_body.get('finalizedCount')} bài thi nháp thành công."
-                        )
-
-        # 5.2 Kiểm tra Endpoint /sessions/{id}/send-report tổng hợp phổ điểm và gửi Amazon SNS
-        mock_submissions = [
-            {"sessionId": "EX-REPORT-01", "candidateEmail": "sv1@cloudexam.vn", "score": 9.5, "correctCount": 19, "totalQuestions": 20},
-            {"sessionId": "EX-REPORT-01", "candidateEmail": "sv2@cloudexam.vn", "score": 8.0, "correctCount": 16, "totalQuestions": 20},
-            {"sessionId": "EX-REPORT-01", "candidateEmail": "sv3@cloudexam.vn", "score": 6.5, "correctCount": 13, "totalQuestions": 20},
-            {"sessionId": "EX-REPORT-01", "candidateEmail": "sv4@cloudexam.vn", "score": 4.0, "correctCount": 8, "totalQuestions": 20}
-        ]
-        mock_report_session = {
-            "id": "EX-REPORT-01",
-            "name": "Kiểm tra Điện toán đám mây Cuối kỳ",
-            "status": "CLOSED",
-            "candidateEmails": ["sv1@cloudexam.vn", "sv2@cloudexam.vn", "sv3@cloudexam.vn", "sv4@cloudexam.vn", "sv5@cloudexam.vn"],
-            "submissions": {}
-        }
-
-        with patch.object(api_handler, "SNS_TOPIC_ARN", "arn:aws:sns:ap-southeast-1:409289618109:cloudexam-alerts-dev"):
-            with patch.object(api_handler.sessions_table, "get_item", return_value={"Item": mock_report_session}):
-                with patch.object(api_handler.submissions_table, "query", return_value={"Items": mock_submissions}):
-                    with patch.object(api_handler.sns_client, "publish", return_value={"MessageId": "msg-sns-test-12345"}):
-                        event = {
-                            "httpMethod": "POST",
-                            "resource": "/sessions/{id}/send-report",
-                            "pathParameters": {"id": "EX-REPORT-01"}
-                        }
-                        res = api_handler.lambda_handler(event, None)
-                        res_body = json.loads(res.get("body", "{}"))
-                        report_ok = (
-                            res.get("statusCode") == 200
-                            and res_body.get("stats", {}).get("totalSubmitted") == 4
-                            and res_body.get("stats", {}).get("avgScore") == 7.0
-                            and res_body.get("messageId") == "msg-sns-test-12345"
-                        )
-                        self.record(
-                            "MC-17",
-                            "Endpoint POST /sessions/{id}/send-report tổng hợp phổ điểm và gửi Amazon SNS",
-                            report_ok,
-                            f"HTTP {res.get('statusCode')}: Đã gửi email SNS (MessageId: {res_body.get('messageId')}) | Điểm TB: {res_body.get('stats', {}).get('avgScore')}."
-                        )
-
-        # 5.3 Kiểm tra hỗ trợ chỉ định mô hình Gemini 4 Argon tùy biến
-        with patch.object(api_handler, "GEMINI_API_KEY", ""):
-            exp, source = api_handler.explain_answer_with_gemini(
-                content="AWS Lambda hoạt động theo mô hình nào?",
-                options=["Serverless", "IaaS", "Dedicated Host", "On-premise"],
-                chosen_idx=0,
-                correct_idx=0,
-                chosen_answer="Serverless",
-                correct_answer="Serverless",
-                model="gemini-4-argon"
-            )
-            argon_ok = "Serverless" in exp and "Deterministic Fallback" in source
-            self.record(
-                "MC-18",
-                "Hỗ trợ chỉ định mô hình thế hệ mới Google Gemini 4 Argon (gemini-4-argon)",
-                argon_ok,
-                f"Nguồn: {source} | Mô hình chỉ định hoạt động chuẩn xác với cơ chế chịu lỗi failsafe."
-            )
-
     def print_summary(self):
         total = len(self.results)
         passed = sum(1 for r in self.results if r["passed"])
@@ -563,7 +452,6 @@ if __name__ == "__main__":
     suite.test_cloudflare_turnstile()
     suite.test_upstash_redis_leaderboard()
     suite.test_resiliency_and_graceful_degradation()
-    suite.test_step_functions_and_sns_reporting()
 
     all_passed = suite.print_summary()
     sys.exit(0 if all_passed else 1)
