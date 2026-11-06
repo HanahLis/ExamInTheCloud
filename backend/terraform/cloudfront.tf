@@ -67,8 +67,16 @@ resource "aws_cloudfront_distribution" "spa_distribution" {
   default_root_object = "index.html"
   price_class         = "PriceClass_100" # Phục vụ châu Á / Bắc Mỹ / Châu Âu tối ưu chi phí ($0)
 
-  # Tích hợp tên miền tùy chỉnh (cloudexam.id.vn và www.cloudexam.id.vn)
-  aliases = var.custom_domain_name != "" ? [var.custom_domain_name, "www.${var.custom_domain_name}"] : []
+  # Tích hợp tên miền tùy chỉnh và các subdomain theo quốc gia
+  aliases = var.custom_domain_name != "" ? [
+    var.custom_domain_name,
+    "www.${var.custom_domain_name}",
+    "vn.${var.custom_domain_name}",
+    "us.${var.custom_domain_name}",
+    "lao.${var.custom_domain_name}",
+    "de.${var.custom_domain_name}",
+    "*.${var.custom_domain_name}"
+  ] : []
 
   origin {
     domain_name              = aws_s3_bucket.frontend_hosting.bucket_regional_domain_name
@@ -197,7 +205,7 @@ resource "terraform_data" "frontend_build_deploy" {
   ]
 
   provisioner "local-exec" {
-    command = "python ${path.module}/../../scripts/seed_cloud_data.py && python ${path.module}/../../scripts/deploy_frontend.py"
+    command = "(python3 ${path.module}/../../scripts/seed_cloud_data.py || python ${path.module}/../../scripts/seed_cloud_data.py) && (python3 ${path.module}/../../scripts/deploy_frontend.py || python ${path.module}/../../scripts/deploy_frontend.py)"
   }
 
   depends_on = [

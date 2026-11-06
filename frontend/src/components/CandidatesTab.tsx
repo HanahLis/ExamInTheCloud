@@ -124,7 +124,7 @@ export const CandidatesTab = ({
               {t('cand_title')} ({candidates.length})
             </h3>
             <p className="text-xs text-slate-500">
-              {t('cand_card_subtitle')}
+              {t('cand_desc')}
             </p>
           </div>
         </div>
@@ -149,7 +149,7 @@ export const CandidatesTab = ({
             <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d={showAddForm ? "M6 18L18 6M6 6l12 12" : "M12 4v16m8-8H4"} />
             </svg>
-            <span>{showAddForm ? t('close') : t('cand_add_btn')}</span>
+            <span>{showAddForm ? t('cand_close_form') : t('cand_add_btn')}</span>
           </button>
         </div>
       </div>
@@ -159,8 +159,8 @@ export const CandidatesTab = ({
         <div className="bg-gradient-to-br from-indigo-50/40 via-purple-50/20 to-sky-50/30 p-6 rounded-3xl border border-indigo-100 shadow-sm space-y-4">
           <div className="flex justify-between items-center">
             <div>
-              <h4 className="text-sm font-bold text-slate-900 tracking-tight">{t('cand_create_modal_title')}</h4>
-              <p className="text-xs text-slate-500">Thông tin thí sinh sẽ được dùng để điểm danh và nhận diện khi làm bài thi</p>
+              <h4 className="text-sm font-bold text-slate-900 tracking-tight">{t('cand_add_title')}</h4>
+              <p className="text-xs text-slate-500">{t('cand_add_desc')}</p>
             </div>
             <button
               onClick={() => setShowAddForm(false)}
@@ -175,7 +175,7 @@ export const CandidatesTab = ({
               <label className="block text-xs font-semibold text-slate-700 mb-1">{t('cand_table_code')} *</label>
               <input
                 type="text"
-                placeholder="Ví dụ: 24020001"
+                placeholder={t('cand_eg_code')}
                 value={studentCode}
                 onChange={(e) => {
                   const val = e.target.value;
@@ -193,7 +193,7 @@ export const CandidatesTab = ({
               <label className="block text-xs font-semibold text-slate-700 mb-1">{t('cand_table_name')} *</label>
               <input
                 type="text"
-                placeholder="Ví dụ: Nguyễn Văn A"
+                placeholder={t('cand_eg_name')}
                 value={name}
                 onChange={(e) => setName(e.target.value)}
                 className="w-full px-3 py-2 bg-white border border-slate-200 rounded-xl outline-none focus:border-indigo-400 focus:ring-2 focus:ring-indigo-100 text-xs transition"
@@ -205,7 +205,7 @@ export const CandidatesTab = ({
               <label className="block text-xs font-semibold text-slate-700 mb-1">{t('cand_table_email')} *</label>
               <input
                 type="email"
-                placeholder="Ví dụ: 24020001@vnu.edu.vn"
+                placeholder={t('cand_eg_email')}
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
                 className="w-full px-3 py-2 bg-white border border-slate-200 rounded-xl outline-none focus:border-indigo-400 focus:ring-2 focus:ring-indigo-100 text-xs transition"
@@ -217,7 +217,7 @@ export const CandidatesTab = ({
               <label className="block text-xs font-semibold text-slate-700 mb-1">{t('cand_table_unit')}</label>
               <input
                 type="text"
-                placeholder="Ví dụ: K69 - CNTT (UET)"
+                placeholder={t('cand_eg_unit')}
                 value={className}
                 onChange={(e) => setClassName(e.target.value)}
                 className="w-full px-3 py-2 bg-white border border-slate-200 rounded-xl outline-none focus:border-indigo-400 focus:ring-2 focus:ring-indigo-100 text-xs transition"
@@ -226,7 +226,7 @@ export const CandidatesTab = ({
 
             <div className="md:col-span-2">
               <label className="block text-xs font-semibold text-slate-700 mb-1">
-                {t('cand_table_avatar')} (Ảnh chân dung khuôn mặt đối sánh sinh trắc học) *
+                {t('cand_table_avatar')} {t('cand_avatar_hint')} *
               </label>
               <div className="flex items-center gap-4 p-3 bg-white border border-slate-200 rounded-2xl">
                 <input
@@ -244,7 +244,7 @@ export const CandidatesTab = ({
                       alt="Preview"
                       className="w-10 h-10 rounded-full object-cover border-2 border-indigo-200 shadow-xs"
                     />
-                    <span className="text-[11px] text-emerald-600 font-semibold">Đã tải ảnh</span>
+                    <span className="text-[11px] text-emerald-600 font-semibold">{t('cand_image_uploaded')}</span>
                   </div>
                 )}
               </div>
@@ -256,7 +256,7 @@ export const CandidatesTab = ({
                 onClick={() => setShowAddForm(false)}
                 className="px-4 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 font-medium rounded-xl text-xs transition cursor-pointer"
               >
-                Hủy bỏ
+                {t('cand_cancel')}
               </button>
               <button
                 type="submit"
@@ -266,10 +266,10 @@ export const CandidatesTab = ({
                 {submitting ? (
                   <span className="flex items-center gap-2">
                     <span className="w-3.5 h-3.5 border-2 border-white/30 border-t-white rounded-full animate-spin"></span>
-                    <span>Đang lưu...</span>
+                    <span>{t('cand_saving')}</span>
                   </span>
                 ) : (
-                  'Lưu Thí Sinh'
+                  t('cand_save_btn')
                 )}
               </button>
             </div>
@@ -287,7 +287,7 @@ export const CandidatesTab = ({
             </svg>
             <input
               type="text"
-              placeholder="Tìm kiếm theo Tên, MSSV, Email, Lớp học..."
+              placeholder={t('cand_search_placeholder')}
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
               className="w-full pl-9 pr-3 py-2 bg-slate-50/70 border border-slate-200/80 rounded-xl text-xs outline-none focus:bg-white focus:border-indigo-400 focus:ring-2 focus:ring-indigo-100 transition"
@@ -295,14 +295,14 @@ export const CandidatesTab = ({
           </div>
 
           <span className="text-xs text-slate-400 font-medium">
-            Hiển thị {filteredCandidates.length}/{candidates.length} thí sinh
+            {t('cand_display_count')} {filteredCandidates.length}/{candidates.length} {t('cand_candidates_label')}
           </span>
         </div>
 
         {loading && (
           <div className="py-8 text-center text-xs text-slate-400">
             <span className="inline-block w-4 h-4 border-2 border-slate-300 border-t-indigo-600 rounded-full animate-spin mr-2 align-middle"></span>
-            Đang tải dữ liệu thí sinh...
+            {t('cand_loading')}
           </div>
         )}
 
@@ -313,8 +313,8 @@ export const CandidatesTab = ({
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197M13 7a4 4 0 11-8 0 4 4 0 018 0z" />
               </svg>
             </div>
-            <p className="text-xs font-semibold text-slate-600">Không tìm thấy thí sinh nào</p>
-            <p className="text-[11px] text-slate-400">Thử thay đổi từ khóa tìm kiếm hoặc nhấn Thêm Thí Sinh</p>
+            <p className="text-xs font-semibold text-slate-600">{t('cand_not_found')}</p>
+            <p className="text-[11px] text-slate-400">{t('cand_not_found_hint')}</p>
           </div>
         )}
 
@@ -374,7 +374,7 @@ export const CandidatesTab = ({
                   target="_blank"
                   rel="noreferrer"
                   className="w-8 h-8 rounded-xl bg-slate-100/70 hover:bg-indigo-50 text-slate-500 hover:text-indigo-600 flex items-center justify-center transition cursor-pointer"
-                  title="Xem ảnh hồ sơ đầy đủ"
+                  title={t('cand_view_photo')}
                 >
                   <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
@@ -386,7 +386,7 @@ export const CandidatesTab = ({
                   onClick={() => handleRemove(c.email, c.name)}
                   disabled={deletingEmail === c.email}
                   className="w-8 h-8 rounded-xl bg-slate-100/70 hover:bg-rose-50 text-slate-400 hover:text-rose-600 flex items-center justify-center transition cursor-pointer disabled:opacity-30"
-                  title="Xóa thí sinh"
+                  title={t('cand_delete_title')}
                 >
                   <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />

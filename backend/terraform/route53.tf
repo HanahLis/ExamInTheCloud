@@ -55,10 +55,11 @@ resource "aws_route53_record" "www_cname" {
 
 # 5. DNS Records cho các Subdomain theo Khu vực (vn, us, lao, de, *) -> CloudFront CDN
 resource "aws_route53_record" "regional_subdomains_a" {
-  for_each = var.custom_domain_name != "" ? toset(["vn", "us", "lao", "de", "*"]) : []
-  zone_id  = aws_route53_zone.primary[0].zone_id
-  name     = "${each.key}.${var.custom_domain_name}"
-  type     = "A"
+  for_each        = var.custom_domain_name != "" ? toset(["vn", "us", "lao", "de", "*"]) : []
+  zone_id         = aws_route53_zone.primary[0].zone_id
+  name            = "${each.key}.${var.custom_domain_name}"
+  type            = "A"
+  allow_overwrite = true
 
   alias {
     name                   = aws_cloudfront_distribution.spa_distribution.domain_name
@@ -68,10 +69,11 @@ resource "aws_route53_record" "regional_subdomains_a" {
 }
 
 resource "aws_route53_record" "regional_subdomains_aaaa" {
-  for_each = var.custom_domain_name != "" ? toset(["vn", "us", "lao", "de", "*"]) : []
-  zone_id  = aws_route53_zone.primary[0].zone_id
-  name     = "${each.key}.${var.custom_domain_name}"
-  type     = "AAAA"
+  for_each        = var.custom_domain_name != "" ? toset(["vn", "us", "lao", "de", "*"]) : []
+  zone_id         = aws_route53_zone.primary[0].zone_id
+  name            = "${each.key}.${var.custom_domain_name}"
+  type            = "AAAA"
+  allow_overwrite = true
 
   alias {
     name                   = aws_cloudfront_distribution.spa_distribution.domain_name

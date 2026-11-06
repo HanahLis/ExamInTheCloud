@@ -629,11 +629,11 @@ export default function App() {
                 <div className="flex items-center gap-2">
                   <h1 className="text-sm font-bold text-slate-900 tracking-tight">{t('app_title')}</h1>
                   <span className="text-[10px] font-semibold px-2 py-0.5 rounded-full bg-sky-50 text-sky-700 border border-sky-100">
-                    Cổng Thí Sinh
+                    {t('student_portal')}
                   </span>
                 </div>
                 <p className="text-[11px] text-slate-500">
-                  {user.name} • MSSV: <span className="font-mono font-semibold text-slate-700">{user.studentCode || 'N/A'}</span>
+                  {user.name} • {t('cand_table_code')}: <span className="font-mono font-semibold text-slate-700">{user.studentCode || 'N/A'}</span>
                 </p>
               </div>
             </div>
@@ -659,13 +659,13 @@ export default function App() {
             <div className="relative z-10 space-y-1.5">
               <span className="inline-flex items-center gap-1.5 text-[11px] font-semibold text-indigo-700 bg-white/90 px-3 py-1 rounded-full border border-indigo-100">
                 <span className="w-1.5 h-1.5 rounded-full bg-emerald-500"></span>
-                Chào mừng bạn, {user.name}
+                {t('welcome_student')}, {user.name}
               </span>
               <h2 className="text-lg md:text-xl font-bold text-slate-900 tracking-tight">
-                Danh sách các ca thi được chỉ định
+                {t('assigned_sessions_title')}
               </h2>
               <p className="text-xs text-slate-600 max-w-xl">
-                Vui lòng chuẩn bị webcam, không gian yên tĩnh và kiểm tra đường truyền mạng trước khi bắt đầu bài thi.
+                {t('student_exam_notice')}
               </p>
             </div>
           </div>
@@ -688,7 +688,7 @@ export default function App() {
                   </svg>
                 </div>
                 <p className="text-xs font-medium text-slate-500">{t('sess_empty')}</p>
-                <p className="text-[11px] text-slate-400">Bạn chưa có lịch thi nào được chỉ định tại thời điểm này.</p>
+                <p className="text-[11px] text-slate-400">{t('no_assigned_exams')}</p>
               </div>
             ) : (
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4 pt-1">
@@ -719,7 +719,7 @@ export default function App() {
                                 : 'bg-slate-100 text-slate-500 border-slate-200'
                             }`}
                           >
-                            {isRunning ? 'Đang diễn ra' : isUpcoming ? 'Sắp diễn ra' : 'Đã kết thúc'}
+                            {isRunning ? t('sess_status_running') : isUpcoming ? t('sess_status_scheduled') : t('sess_status_closed')}
                           </span>
                         </div>
 
@@ -733,14 +733,14 @@ export default function App() {
                               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
                             </svg>
                             <span>
-                              {new Date(s.startTime).toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' })} - {new Date(s.endTime).toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' })} ({new Date(s.startTime).toLocaleDateString('vi-VN')})
+                              {new Date(s.startTime).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })} - {new Date(s.endTime).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })} ({new Date(s.startTime).toLocaleDateString()})
                             </span>
                           </div>
                           <div className="flex items-center gap-1.5">
                             <svg className="w-3.5 h-3.5 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2" />
                             </svg>
-                            <span>{s.questionIds?.length || 0} câu hỏi trắc nghiệm / tự luận</span>
+                            <span>{s.questionIds?.length || 0} {t('questions_multiple_essay')}</span>
                           </div>
                         </div>
                       </div>
@@ -759,7 +759,7 @@ export default function App() {
                         <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M11 16l-4-4m0 0l4-4m-4 4h14m-5 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h7a3 3 0 013 3v1" />
                         </svg>
-                        <span>{isRunning ? 'Vào phòng thi ngay' : isUpcoming ? 'Xem trước phòng thi' : 'Ca thi đã kết thúc'}</span>
+                        <span>{isRunning ? t('enter_room_now') : isUpcoming ? t('preview_room') : t('session_closed')}</span>
                       </button>
                     </div>
                   );
@@ -792,7 +792,7 @@ export default function App() {
               <div className="flex items-center gap-2">
                 <h1 className="text-sm font-bold text-slate-900 tracking-tight">{t('app_title')}</h1>
                 <span className="text-[10px] font-semibold px-2 py-0.5 rounded-full bg-indigo-50 text-indigo-700 border border-indigo-100">
-                  {user.groups.includes('Organizer') ? (t('app_subtitle_organizer') || 'Giảng viên') : 'Quản trị viên'}
+                  {user.groups.includes('Organizer') ? (t('app_subtitle_organizer') || 'Giảng viên') : (t('admin') || 'Quản trị viên')}
                 </span>
               </div>
               <p className="text-[11px] text-slate-500">

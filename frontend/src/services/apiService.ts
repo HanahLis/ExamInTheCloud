@@ -904,13 +904,44 @@ export const deleteQuestion = async (id: string): Promise<any> => {
 // 4. CANDIDATES APIS (/candidates - DynamoDB)
 // ============================================================================
 
+const LOCAL_CUSTOM_CANDIDATES_KEY = 'cloudexam_custom_candidates';
+
+export const getLocalCandidates = (): Candidate[] => {
+  try {
+    const raw = localStorage.getItem(LOCAL_CUSTOM_CANDIDATES_KEY);
+    return raw ? JSON.parse(raw) : [];
+  } catch {
+    return [];
+  }
+};
+
+export const saveLocalCandidate = (c: Candidate) => {
+  try {
+    const list = getLocalCandidates().filter((item) => item.email.toLowerCase() !== c.email.toLowerCase());
+    list.unshift(c);
+    localStorage.setItem(LOCAL_CUSTOM_CANDIDATES_KEY, JSON.stringify(list));
+  } catch (e) {
+    console.warn('Lỗi lưu local candidate:', e);
+  }
+};
+
+export const removeLocalCandidate = (email: string) => {
+  try {
+    const list = getLocalCandidates().filter((c) => c.email.toLowerCase() !== email.toLowerCase());
+    localStorage.setItem(LOCAL_CUSTOM_CANDIDATES_KEY, JSON.stringify(list));
+  } catch (e) {
+    console.warn('Lỗi xóa local candidate:', e);
+  }
+};
+
 export const getCandidates = async (): Promise<Candidate[]> => {
+  let cloudItems: Candidate[] = [];
   try {
     const res = await api.get('/candidates');
     const data = res.data;
     const list = Array.isArray(data) ? data : data.items ?? [];
 
-    return list.map((c: any) => {
+    cloudItems = list.map((c: any) => {
       let faceImageUrl = c.faceImageUrl || '';
       if (faceImageUrl.startsWith('faces/')) {
         faceImageUrl = `${S3_BASE}/${faceImageUrl}`;
@@ -926,20 +957,35 @@ export const getCandidates = async (): Promise<Candidate[]> => {
     });
   } catch (err) {
     console.warn('Lỗi tải thí sinh từ API Gateway DynamoDB, sử dụng DEFAULT_CANDIDATES:', err);
-    return [...DEFAULT_CANDIDATES];
+    cloudItems = [...DEFAULT_CANDIDATES];
   }
+
+  // Kết hợp an toàn các thí sinh lưu cục bộ (Local-first)
+  const localCandidates = getLocalCandidates();
+  const seenEmails = new Set(cloudItems.map((c) => c.email.toLowerCase()));
+  for (const lc of localCandidates) {
+    if (!seenEmails.has(lc.email.toLowerCase())) {
+      cloudItems.push(lc);
+      seenEmails.add(lc.email.toLowerCase());
+    }
+  }
+
+  return cloudItems;
 };
 
 export const createCandidate = async (data: CandidateInput): Promise<Candidate> => {
+  saveLocalCandidate(data);
   try {
     const res = await api.post('/candidates', data);
     return res.data;
-  } catch {
+  } catch (err) {
+    console.warn('Lỗi tạo thí sinh trên Cloud API Gateway, đã lưu an toàn vào CSDL cục bộ:', err);
     return data;
   }
 };
 
 export const deleteCandidate = async (email: string): Promise<any> => {
+  removeLocalCandidate(email);
   try {
     const res = await api.delete(`/candidates/${email}`);
     return res.data;

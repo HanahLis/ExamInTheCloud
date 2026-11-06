@@ -228,7 +228,7 @@ export const ExamSessionTab = ({
               {t('sess_list_title')} ({sessions.length})
             </h3>
             <p className="text-xs text-slate-500">
-              Lập lịch, cấu hình đề thi, phân quyền danh sách thí sinh và giám sát thời gian thực
+              {t('sess_desc')}
             </p>
           </div>
         </div>
@@ -253,7 +253,7 @@ export const ExamSessionTab = ({
             <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d={showCreateForm ? "M6 18L18 6M6 6l12 12" : "M12 4v16m8-8H4"} />
             </svg>
-            <span>{showCreateForm ? 'Đóng biểu mẫu' : t('sess_create_new')}</span>
+            <span>{showCreateForm ? t('sess_close_form') : t('sess_create_new')}</span>
           </button>
         </div>
       </div>
@@ -263,8 +263,8 @@ export const ExamSessionTab = ({
         <div className="bg-gradient-to-br from-indigo-50/40 via-purple-50/20 to-sky-50/30 p-6 rounded-3xl border border-indigo-100 shadow-sm space-y-4">
           <div className="flex justify-between items-center">
             <div>
-              <h4 className="text-sm font-bold text-slate-900 tracking-tight">Tạo Ca Thi Mới</h4>
-              <p className="text-xs text-slate-500">Cấu hình tên ca thi, thời gian mở - đóng và chọn câu hỏi từ ngân hàng</p>
+              <h4 className="text-sm font-bold text-slate-900 tracking-tight">{t('sess_create_title')}</h4>
+              <p className="text-xs text-slate-500">{t('sess_create_desc')}</p>
             </div>
             <button
               onClick={() => setShowCreateForm(false)}
@@ -313,23 +313,23 @@ export const ExamSessionTab = ({
                 <label className="text-xs font-semibold text-slate-800 flex items-center gap-1.5">
                   <span>{t('sess_select_questions')}</span>
                   <span className="text-indigo-600 font-bold bg-indigo-50 px-2 py-0.5 rounded-full border border-indigo-100">
-                    {selectedQuestions.length}/{questions.length} {t('sess_questions_unit')} đã chọn
+                    {selectedQuestions.length}/{questions.length} {t('sess_questions_unit')} {t('sess_selected')}
                   </span>
                 </label>
 
                 <div className="flex flex-wrap items-center gap-2">
                   {groupedQuestions.length > 1 && (
                     <div className="flex items-center gap-1.5">
-                      <span className="text-[11px] text-slate-500 font-medium">Lọc:</span>
+                      <span className="text-[11px] text-slate-500 font-medium">{t('sess_filter_label')}:</span>
                       <select
                         value={selectedBankFilter}
                         onChange={(e) => setSelectedBankFilter(e.target.value)}
                         className="text-xs py-1 px-2 border border-slate-200 rounded-lg bg-white text-slate-700 outline-none focus:border-indigo-400"
                       >
-                        <option value="ALL">Tất cả ngân hàng ({questions.length} câu)</option>
+                        <option value="ALL">{t('sess_all_banks')} ({questions.length} {t('sess_questions_unit')})</option>
                         {groupedQuestions.map((g) => (
                           <option key={g.bankId} value={g.bankId}>
-                            {g.bankName} ({g.questions.length} câu)
+                            {g.bankName} ({g.questions.length} {t('sess_questions_unit')})
                           </option>
                         ))}
                       </select>
@@ -368,11 +368,11 @@ export const ExamSessionTab = ({
                           <span className="font-bold text-xs text-slate-800 truncate">{g.bankName}</span>
                           {g.subject && (
                             <span className="text-[11px] text-slate-500 hidden sm:inline truncate">
-                              • Môn: {g.subject}
+                              • {t('sess_subject_label')}: {g.subject}
                             </span>
                           )}
                           <span className="text-[10px] font-semibold text-indigo-700 bg-indigo-50 px-2 py-0.5 rounded-full border border-indigo-100">
-                            {gSelectedCount}/{g.questions.length} câu
+                            {gSelectedCount}/{g.questions.length} {t('sess_questions_unit')}
                           </span>
                         </div>
 
@@ -388,7 +388,7 @@ export const ExamSessionTab = ({
                           }}
                           className="text-[11px] font-semibold text-slate-700 hover:text-indigo-600 cursor-pointer bg-white px-2.5 py-1 rounded-lg border border-slate-200 hover:bg-slate-50 transition"
                         >
-                          {isAllInGroupSelected ? 'Bỏ chọn ngân hàng này' : 'Chọn cả ngân hàng'}
+                          {isAllInGroupSelected ? t('sess_deselect_bank') : t('sess_select_bank')}
                         </button>
                       </div>
 
@@ -406,7 +406,7 @@ export const ExamSessionTab = ({
                             />
                             <span className="flex-1 min-w-0 leading-relaxed">
                               <span className="font-bold text-slate-900 mr-1.5 shrink-0">
-                                Câu {idx + 1}:
+                                {t('sess_question_number')} {idx + 1}:
                               </span>
                               <span className="text-slate-800">{q.content}</span>
                               <span className="text-slate-400 text-[11px] ml-1.5 whitespace-nowrap">
@@ -428,7 +428,7 @@ export const ExamSessionTab = ({
                 <label className="text-xs font-semibold text-slate-800 flex items-center gap-1.5">
                   <span>{t('sess_select_candidates')}</span>
                   <span className="text-sky-600 font-bold bg-sky-50 px-2 py-0.5 rounded-full border border-sky-100">
-                    {selectedCandidates.length}/{candidates.length} thí sinh
+                    {selectedCandidates.length}/{candidates.length} {t('cand_candidates_label')}
                   </span>
                 </label>
                 <button
@@ -475,7 +475,7 @@ export const ExamSessionTab = ({
                 onClick={() => setShowCreateForm(false)}
                 className="px-4 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 font-medium rounded-xl text-xs transition cursor-pointer"
               >
-                Hủy bỏ
+                {t('sess_cancel')}
               </button>
               <button
                 onClick={handleCreateSession}
@@ -494,7 +494,7 @@ export const ExamSessionTab = ({
         {loading && (
           <div className="py-8 text-center text-xs text-slate-400">
             <span className="inline-block w-4 h-4 border-2 border-slate-300 border-t-indigo-600 rounded-full animate-spin mr-2 align-middle"></span>
-            Đang tải danh sách ca thi...
+            {t('sess_loading')}
           </div>
         )}
 
@@ -506,7 +506,7 @@ export const ExamSessionTab = ({
               </svg>
             </div>
             <p className="text-xs font-semibold text-slate-600">{t('sess_empty_list')}</p>
-            <p className="text-[11px] text-slate-400">Nhấn "Tạo ca thi mới" ở trên để khởi tạo phòng thi đầu tiên.</p>
+            <p className="text-[11px] text-slate-400">{t('sess_empty_hint')}</p>
           </div>
         )}
 
@@ -531,7 +531,7 @@ export const ExamSessionTab = ({
                   </div>
 
                   <div className="flex items-center gap-2">
-                    <span className="text-[10px] text-slate-400 font-medium">Trạng thái:</span>
+                    <span className="text-[10px] text-slate-400 font-medium">{t('sess_status_label')}:</span>
                     <span className={`text-[11px] font-semibold px-2.5 py-1 rounded-full border ${statusStyle}`}>
                       {t(statusLabelKey)}
                     </span>
@@ -602,7 +602,7 @@ export const ExamSessionTab = ({
                             type="button"
                             onClick={() => onUpdateCandidates(s.id, [...(s.candidateEmails || []), c.email])}
                             className="inline-flex items-center px-2 py-0.5 bg-white border border-dashed border-slate-300 text-indigo-600 hover:border-indigo-400 hover:bg-indigo-50/40 rounded-lg text-[11px] font-medium transition cursor-pointer"
-                            title="Thêm thí sinh vào ca thi"
+                            title={t('sess_add_candidate_to_session')}
                           >
                             + {c.name}
                           </button>
@@ -686,7 +686,7 @@ export const ExamSessionTab = ({
                         alert(`${t('sess_copied_link')}\n${examUrl}`);
                       }}
                       className="px-3 py-1.5 bg-slate-100 hover:bg-slate-200 text-slate-700 border border-slate-200 text-xs font-medium rounded-xl transition cursor-pointer flex items-center gap-1"
-                      title="Sao chép liên kết phòng thi"
+                      title={t('sess_copy_link_title')}
                     >
                       <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z" />
