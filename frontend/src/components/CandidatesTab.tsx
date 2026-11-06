@@ -242,7 +242,7 @@ export const CandidatesTab = ({
                     <img
                       src={facePreview}
                       alt="Preview"
-                      className="w-10 h-10 rounded-full object-cover border-2 border-indigo-200 shadow-xs"
+                      className="w-12 h-16 rounded-xl object-cover border-2 border-indigo-200 shadow-xs"
                     />
                     <span className="text-[11px] text-emerald-600 font-semibold">{t('cand_image_uploaded')}</span>
                   </div>
@@ -330,7 +330,7 @@ export const CandidatesTab = ({
                   <img
                     src={c.faceImageUrl}
                     alt={c.name}
-                    className="h-11 w-11 rounded-2xl object-cover border border-slate-200/80 bg-slate-100 shadow-2xs group-hover:scale-105 transition"
+                    className="w-12 h-16 rounded-xl object-cover border border-slate-200/80 bg-slate-100 shadow-2xs group-hover:scale-105 transition"
                     onError={(e) => {
                       const img = e.target as HTMLImageElement;
                       const fileBase = c.studentCode === 'GV001' ? 'annv' : c.studentCode;

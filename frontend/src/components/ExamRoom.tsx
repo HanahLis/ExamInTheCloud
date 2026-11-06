@@ -6,6 +6,7 @@ import {
   verifyFace,
   saveExamProgress,
   submitExam,
+  updateSessionCandidates,
   requestFacePresignedUrl,
   requestPresignedUploadUrl,
   uploadBinaryToS3,
@@ -84,6 +85,8 @@ export const ExamRoom = ({ sessionId, currentUserEmail = '', isOrganizer = false
           if (!candidateEmail || !s.candidateEmails.some((e) => e.toLowerCase() === candidateEmail.toLowerCase())) {
             setCandidateEmail(s.candidateEmails[0]);
           }
+        } else if (allCandidates.length > 0 && !candidateEmail) {
+          setCandidateEmail(allCandidates[0].email);
         }
 
         if (paperData && paperData.questions && paperData.questions.length > 0) {
@@ -494,24 +497,34 @@ export const ExamRoom = ({ sessionId, currentUserEmail = '', isOrganizer = false
                   {t('exam_select_preview_cand')}
                 </label>
                 <div className="flex flex-wrap gap-2">
-                  {session.candidateEmails.map((email) => {
-                    const cand = candidates.find((c) => c.email.toLowerCase() === email.toLowerCase());
-                    const isSelected = candidateEmail.toLowerCase() === email.toLowerCase();
-                    return (
-                      <button
-                        key={email}
-                        type="button"
-                        onClick={() => setCandidateEmail(email)}
-                        className={`text-xs px-3 py-1.5 rounded-xl border transition cursor-pointer font-medium ${
-                          isSelected
-                            ? 'bg-indigo-600 text-white border-indigo-600 shadow-xs'
-                            : 'bg-white text-slate-700 border-slate-200 hover:bg-slate-50'
-                        }`}
-                      >
-                        <span>{cand ? cand.name : email}</span>
-                      </button>
-                    );
-                  })}
+                  {(() => {
+                    const sessionEmails = session.candidateEmails || [];
+                    const allEmails = Array.from(new Set([...sessionEmails, ...candidates.map((c) => c.email)]));
+                    return allEmails.map((email) => {
+                      const cand = candidates.find((c) => c.email.toLowerCase() === email.toLowerCase());
+                      const isSelected = candidateEmail.toLowerCase() === email.toLowerCase();
+                      const isAssigned = sessionEmails.some((e) => e.toLowerCase() === email.toLowerCase());
+                      return (
+                        <button
+                          key={email}
+                          type="button"
+                          onClick={() => {
+                            setCandidateEmail(email);
+                            if (!isAssigned) {
+                              updateSessionCandidates(sessionId, [...sessionEmails, email]).catch(() => {});
+                            }
+                          }}
+                          className={`text-xs px-3 py-1.5 rounded-xl border transition cursor-pointer font-medium ${
+                            isSelected
+                              ? 'bg-indigo-600 text-white border-indigo-600 shadow-xs'
+                              : 'bg-white text-slate-700 border-slate-200 hover:bg-slate-50'
+                          }`}
+                        >
+                          <span>{cand ? cand.name : email}</span>
+                        </button>
+                      );
+                    });
+                  })()}
                 </div>
               </div>
             ) : (
@@ -542,7 +555,7 @@ export const ExamRoom = ({ sessionId, currentUserEmail = '', isOrganizer = false
               <div className="text-xs text-slate-700 font-bold">
                 {t('exam_profile_photo')}
               </div>
-              <div className="aspect-4/3 bg-slate-200/80 rounded-2xl overflow-hidden flex items-center justify-center border border-slate-200 shadow-inner">
+              <div className="aspect-[3/4] max-w-[240px] mx-auto bg-slate-200/80 rounded-2xl overflow-hidden flex items-center justify-center border border-slate-200 shadow-inner">
                 {currentCandidateObj?.faceImageUrl ? (
                   <img
                     src={currentCandidateObj.faceImageUrl}
@@ -580,7 +593,7 @@ export const ExamRoom = ({ sessionId, currentUserEmail = '', isOrganizer = false
                 {t('exam_webcam_photo')}
               </div>
 
-              <div className="aspect-4/3 bg-slate-900 rounded-2xl overflow-hidden flex items-center justify-center border border-slate-800 shadow-inner relative">
+              <div className="aspect-[3/4] max-w-[240px] mx-auto bg-slate-900 rounded-2xl overflow-hidden flex items-center justify-center border border-slate-800 shadow-inner relative">
                 <video
                   ref={videoRef}
                   autoPlay

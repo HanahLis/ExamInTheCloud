@@ -77,8 +77,34 @@ export const QuestionBankTab = ({ questions, onRefresh }: Props) => {
   const [importError, setImportError] = useState('');
   const [importSuccessMessage, setImportSuccessMessage] = useState('');
   const [extractedQuestions, setExtractedQuestions] = useState<Question[]>([]);
-  const importApiKey = (import.meta as any).env.VITE_GEMINI_API_KEY || '';
-  const importModel = (import.meta as any).env.VITE_GEMINI_MODEL || 'gemini-3.8-flash';
+  const [importApiKey, setImportApiKey] = useState<string>(() => {
+    return (
+      (typeof window !== 'undefined' ? localStorage.getItem('cloudexam_gemini_key') : '') ||
+      (import.meta as any).env.VITE_GEMINI_API_KEY ||
+      ''
+    );
+  });
+  const [importModel, setImportModel] = useState<string>(() => {
+    return (
+      (typeof window !== 'undefined' ? localStorage.getItem('cloudexam_gemini_model') : '') ||
+      (import.meta as any).env.VITE_GEMINI_MODEL ||
+      'gemini-1.5-flash'
+    );
+  });
+
+  const handleApiKeyChange = (val: string) => {
+    setImportApiKey(val);
+    if (typeof window !== 'undefined') {
+      localStorage.setItem('cloudexam_gemini_key', val.trim());
+    }
+  };
+
+  const handleModelChange = (val: string) => {
+    setImportModel(val);
+    if (typeof window !== 'undefined') {
+      localStorage.setItem('cloudexam_gemini_model', val.trim());
+    }
+  };
   const docFileInputRef = useRef<HTMLInputElement>(null);
 
   const loadBanks = async () => {
@@ -1189,6 +1215,53 @@ export const QuestionBankTab = ({ questions, onRefresh }: Props) => {
                     </label>
                   </div>
                 )}
+              </div>
+
+              {/* Cấu hình kết nối Google Gemini AI (Tùy chọn) */}
+              <div className="bg-slate-50/80 p-3.5 rounded-2xl border border-slate-200/80 space-y-2.5">
+                <div className="flex items-center justify-between">
+                  <span className="text-xs font-bold text-slate-800 flex items-center gap-1.5">
+                    <svg className="w-4 h-4 text-purple-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M13 10V3L4 14h7v7l9-11h-7z" />
+                    </svg>
+                    <span>Cấu hình Google Gemini AI</span>
+                  </span>
+                  <span className={`text-[11px] px-2.5 py-0.5 rounded-full font-semibold border ${
+                    importApiKey
+                      ? 'bg-emerald-50 text-emerald-700 border-emerald-200'
+                      : 'bg-indigo-50 text-indigo-700 border-indigo-200'
+                  }`}>
+                    {importApiKey ? '✓ Đã kết nối API Key' : '⚡ Chế độ Sinh đề Ngữ cảnh Tích hợp'}
+                  </span>
+                </div>
+
+                <div className="grid grid-cols-1 sm:grid-cols-12 gap-2.5">
+                  <div className="sm:col-span-8">
+                    <input
+                      type="password"
+                      value={importApiKey}
+                      onChange={(e) => handleApiKeyChange(e.target.value)}
+                      placeholder="Nhập khóa API Gemini (AIzaSy...) để gọi LLM trực tiếp (Tùy chọn)"
+                      className="w-full p-2 border border-slate-200 rounded-xl text-xs bg-white text-slate-800 outline-none focus:border-indigo-400 font-mono"
+                    />
+                  </div>
+                  <div className="sm:col-span-4">
+                    <select
+                      value={importModel}
+                      onChange={(e) => handleModelChange(e.target.value)}
+                      className="w-full p-2 border border-slate-200 rounded-xl text-xs bg-white text-slate-800 outline-none"
+                    >
+                      <option value="gemini-1.5-flash">gemini-1.5-flash (Chuẩn)</option>
+                      <option value="gemini-2.0-flash">gemini-2.0-flash (Mới nhất)</option>
+                      <option value="gemini-1.5-pro">gemini-1.5-pro (Chuyên sâu)</option>
+                    </select>
+                  </div>
+                </div>
+                <p className="text-[10px] text-slate-500">
+                  {importApiKey
+                    ? 'Đang sử dụng trực tiếp Google Gemini API. Tốc độ sinh đề tức thì không bị giới hạn Gateway timeout.'
+                    : 'Nếu chưa có khóa API Gemini, hệ thống tự động kích hoạt bộ sinh đề thông minh ngữ cảnh tương ứng với môn học, chủ đề và số lượng yêu cầu.'}
+                </p>
               </div>
 
               <div className="flex items-center gap-2">

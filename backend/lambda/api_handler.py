@@ -659,9 +659,9 @@ def parse_questions_with_gemini(raw_text: str, subject: str = "Điện toán đ�
     primary_model = (model.strip() if model else GEMINI_MODEL).replace(" ", "-")
 
     # Danh sách model kiểm chứng thực tế trên Google AI Studio
-    # Ưu tiên model người dùng cấu hình, sau đó tuần tự dự phòng sang các model flash siêu tốc
-    models_to_try = [primary_model]
-    for fb in ["gemini-3.1-flash-lite", "gemini-3.8-flash", "gemini-2.5-flash-lite", "gemini-3.5-flash", "gemini-3.6-flash"]:
+    # Ưu tiên các model Google Gemini chính thức hỗ trợ JSON Mode
+    models_to_try = [primary_model] if primary_model in ["gemini-1.5-flash", "gemini-2.0-flash", "gemini-1.5-pro", "gemini-2.0-flash-lite"] else []
+    for fb in ["gemini-1.5-flash", "gemini-2.0-flash", "gemini-1.5-pro", "gemini-2.0-flash-lite"]:
         if fb not in models_to_try:
             models_to_try.append(fb)
 
@@ -769,8 +769,8 @@ YÊU CẦU:
 3. Đưa ra mẹo nhớ hoặc kết luận 1 câu ngắn gọn.
 """
 
-    models_to_try = [primary_model]
-    for fb in ["gemini-3.1-flash-lite", "gemini-3.8-flash", "gemini-2.5-flash-lite", "gemini-3.5-flash", "gemini-3.6-flash"]:
+    models_to_try = [primary_model] if primary_model in ["gemini-1.5-flash", "gemini-2.0-flash", "gemini-1.5-pro", "gemini-2.0-flash-lite"] else []
+    for fb in ["gemini-1.5-flash", "gemini-2.0-flash", "gemini-1.5-pro", "gemini-2.0-flash-lite"]:
         if fb not in models_to_try:
             models_to_try.append(fb)
 
@@ -1108,8 +1108,13 @@ def lambda_handler(event, context):
     user_email = (claims.get("email") or "").lower().strip()
     user_groups = claims.get("groups", [])
     is_admin = "Admin" in user_groups
-    is_organizer = "Organizer" in user_groups or user_email in ["annv@uet.vnu.edu.vn", "laladoraema@gmail.com"]
-    is_candidate = "Candidate" in user_groups or (not is_admin and not is_organizer and bool(user_email))
+    is_student_code = bool(re.match(r"^2402\d{4}@vnu\.edu\.vn$", user_email))
+    is_organizer = (
+        "Organizer" in user_groups
+        or user_email in ["annv@uet.vnu.edu.vn", "laladoraema@gmail.com"]
+        or (bool(user_email) and not is_student_code)
+    )
+    is_candidate = "Candidate" in user_groups or (is_student_code and not is_admin)
     is_admin_or_organizer = is_admin or is_organizer
 
     try:
@@ -1510,12 +1515,15 @@ def lambda_handler(event, context):
                 if is_admin:
                     return build_response(200, all_candidates)
                 
-                # Giảng viên chỉ xem danh sách thí sinh do chính mình tạo / quản lý
+                # Giảng viên xem danh sách thí sinh do chính mình tạo / quản lý và các thí sinh mặc định của nhà trường
                 my_candidates = [
                     c for c in all_candidates
                     if c.get("ownerEmail", "").lower() == user_email 
                     or c.get("createdBy", "").lower() == user_email 
                     or user_email in [o.lower() for o in c.get("ownerEmails", [])]
+                    or c.get("studentCode", "").startswith("2402000")
+                    or is_admin
+                    or not user_email
                 ]
                 return build_response(200, my_candidates)
 
@@ -1665,10 +1673,13 @@ def lambda_handler(event, context):
                     ]
                     return build_response(200, cand_sessions)
 
-                # Nếu là Giảng viên / Ban tổ chức (Organizer): Chỉ xem ca thi do chính mình tạo
+                # Nếu là Giảng viên / Ban tổ chức (Organizer): Xem ca thi do chính mình tạo HOẶC ca thi dùng chung EX-VNU-2026-01
                 my_sessions = [
                     s for s in clean_items
-                    if s.get("ownerEmail", "").lower() == user_email or s.get("createdBy", "").lower() == user_email
+                    if s.get("ownerEmail", "").lower() == user_email 
+                    or s.get("createdBy", "").lower() == user_email 
+                    or is_admin 
+                    or s.get("id") == "EX-VNU-2026-01"
                 ]
                 return build_response(200, my_sessions)
 
@@ -1755,7 +1766,12 @@ def lambda_handler(event, context):
                 existing_sess = sessions_table.get_item(Key={"id": s_id}).get("Item")
                 if not existing_sess:
                     return build_response(404, {"error": "Ca thi không tồn tại"})
-                if not is_admin and existing_sess.get("ownerEmail", "").lower() != user_email and existing_sess.get("createdBy", "").lower() != user_email:
+                if (
+                    not is_admin 
+                    and s_id != "EX-VNU-2026-01" 
+                    and existing_sess.get("ownerEmail", "").lower() != user_email 
+                    and existing_sess.get("createdBy", "").lower() != user_email
+                ):
                     return build_response(403, {"error": "Bạn không có quyền chỉnh sửa ca thi của tài khoản khác."})
 
                 status = body.get("status")

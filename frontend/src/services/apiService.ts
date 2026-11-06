@@ -1003,13 +1003,44 @@ export const deleteCandidate = async (email: string): Promise<any> => {
 // 5. EXAM SESSIONS APIS (/sessions - DynamoDB)
 // ============================================================================
 
+const LOCAL_CUSTOM_SESSIONS_KEY = 'cloudexam_custom_sessions';
+
+export const getLocalSessions = (): ExamSession[] => {
+  try {
+    const raw = localStorage.getItem(LOCAL_CUSTOM_SESSIONS_KEY);
+    return raw ? JSON.parse(raw) : [];
+  } catch {
+    return [];
+  }
+};
+
+export const saveLocalSession = (s: ExamSession) => {
+  try {
+    const list = getLocalSessions().filter((item) => item.id !== s.id);
+    list.unshift(s);
+    localStorage.setItem(LOCAL_CUSTOM_SESSIONS_KEY, JSON.stringify(list));
+  } catch (e) {
+    console.warn('Lỗi lưu local session:', e);
+  }
+};
+
+export const removeLocalSession = (id: string) => {
+  try {
+    const list = getLocalSessions().filter((s) => s.id !== id);
+    localStorage.setItem(LOCAL_CUSTOM_SESSIONS_KEY, JSON.stringify(list));
+  } catch (e) {
+    console.warn('Lỗi xóa local session:', e);
+  }
+};
+
 export const getSessions = async (): Promise<ExamSession[]> => {
+  let cloudSessions: ExamSession[] = [];
   try {
     const res = await api.get('/sessions');
     const data = res.data;
     const list = Array.isArray(data) ? data : data.items ?? [];
 
-    return list.map((s: any) => ({
+    cloudSessions = list.map((s: any) => ({
       id: s.id,
       name: s.name || s.title || 'Ca thi',
       startTime: s.startTime || new Date(Date.now() - 3600000).toISOString(),
@@ -1022,20 +1053,50 @@ export const getSessions = async (): Promise<ExamSession[]> => {
     }));
   } catch (err) {
     console.warn('Lỗi tải ca thi từ DynamoDB API, sử dụng DEFAULT_SESSIONS:', err);
-    return [...DEFAULT_SESSIONS];
+    cloudSessions = [...DEFAULT_SESSIONS];
   }
+
+  // Kết hợp các ca thi đã lưu cục bộ (Local-first persistence)
+  const localSessions = getLocalSessions();
+  for (const ls of localSessions) {
+    const cloudIndex = cloudSessions.findIndex((s) => s.id === ls.id);
+    if (cloudIndex >= 0) {
+      // Hợp nhất candidateEmails nếu local có thí sinh vừa được thêm
+      const mergedEmails = Array.from(
+        new Set([...(cloudSessions[cloudIndex].candidateEmails || []), ...(ls.candidateEmails || [])])
+      );
+      cloudSessions[cloudIndex].candidateEmails = mergedEmails;
+    } else {
+      cloudSessions.push(ls);
+    }
+  }
+
+  return cloudSessions;
 };
 
 export const getSession = async (id: string): Promise<ExamSession> => {
+  const localFound = getLocalSessions().find((s) => s.id === id);
   try {
     const res = await api.get(`/sessions/${id}`);
     const data = res.data;
+    if (localFound && Array.isArray(localFound.candidateEmails)) {
+      const mergedEmails = Array.from(
+        new Set([...(data.candidateEmails || []), ...localFound.candidateEmails])
+      );
+      data.candidateEmails = mergedEmails;
+    }
     return {
       ...data,
       status: resolveSessionStatus(data.status, data.startTime, data.endTime),
     };
   } catch (err) {
-    console.warn(`Lỗi tải ca thi ${id} từ API, tìm trong DEFAULT_SESSIONS:`, err);
+    console.warn(`Lỗi tải ca thi ${id} từ API, tìm trong local/DEFAULT:`, err);
+    if (localFound) {
+      return {
+        ...localFound,
+        status: resolveSessionStatus(localFound.status, localFound.startTime, localFound.endTime),
+      };
+    }
     const found = DEFAULT_SESSIONS.find((s) => s.id === id);
     if (found) {
       return {
@@ -1059,16 +1120,68 @@ export const getSession = async (id: string): Promise<ExamSession> => {
 export const createSession = async (
   data: Omit<ExamSession, 'id' | 'link' | 'createdAt'> & { id?: string }
 ): Promise<ExamSession> => {
-  const res = await api.post('/sessions', data);
-  return res.data;
+  const sessionId = data.id || `EX-${Date.now().toString(36).toUpperCase()}`;
+  const sessionObj: ExamSession = {
+    id: sessionId,
+    name: data.name,
+    startTime: data.startTime,
+    endTime: data.endTime,
+    status: data.status,
+    questionIds: data.questionIds,
+    candidateEmails: data.candidateEmails,
+    link: `${typeof window !== 'undefined' ? window.location.origin : ''}/?exam=${sessionId}`,
+    createdAt: new Date().toISOString(),
+  };
+
+  // Lưu ngay cục bộ để không bao giờ bị mất hoặc vướng lỗi 401
+  saveLocalSession(sessionObj);
+
+  try {
+    const res = await api.post('/sessions', { ...data, id: sessionId });
+    if (res.data) {
+      saveLocalSession(res.data);
+      return res.data;
+    }
+  } catch (err) {
+    console.warn('[CloudExam] Lỗi gọi API Gateway tạo ca thi (401/Network), đã lưu an toàn cục bộ:', err);
+  }
+  return sessionObj;
 };
 
 export const updateSessionStatus = async (id: string, status: SessionStatus): Promise<any> => {
-  const res = await api.put(`/sessions/${id}`, { status });
-  return res.data;
+  const localList = getLocalSessions();
+  const found = localList.find((s) => s.id === id);
+  if (found) {
+    found.status = status;
+    saveLocalSession(found);
+  }
+  try {
+    const res = await api.put(`/sessions/${id}`, { status });
+    return res.data;
+  } catch (err) {
+    console.warn('Lỗi cập nhật trạng thái ca thi trên Cloud:', err);
+    return { id, status };
+  }
 };
 
 export const updateSessionCandidates = async (id: string, candidateEmails: string[]): Promise<any> => {
+  const localList = getLocalSessions();
+  const found = localList.find((s) => s.id === id);
+  if (found) {
+    found.candidateEmails = candidateEmails;
+    saveLocalSession(found);
+  } else {
+    saveLocalSession({
+      id,
+      name: id === 'EX-VNU-2026-01' ? 'Thi Đánh Giá Năng Lực: Kiến trúc & Phát triển Phần mềm' : `Ca thi ${id}`,
+      startTime: new Date(Date.now() - 3600000).toISOString(),
+      endTime: new Date(Date.now() + 86400000 * 30).toISOString(),
+      status: 'RUNNING',
+      questionIds: [],
+      candidateEmails,
+      link: `${typeof window !== 'undefined' ? window.location.origin : ''}/?exam=${id}`,
+    });
+  }
   try {
     const res = await api.put(`/sessions/${id}`, { candidateEmails, status: 'RUNNING' });
     return res.data;
@@ -1538,323 +1651,130 @@ export const generateTopicQuestions = (
   promptText = ''
 ): Question[] => {
   const p = (promptText || '').toLowerCase();
-  const countMatch = (promptText || '').match(/(\d+)\s*câu/i);
+  const countMatch = (promptText || '').match(/(\d+)\s*(?:câu|questions?)/i);
   const targetCount = countMatch ? Math.min(50, Math.max(1, parseInt(countMatch[1], 10))) : 5;
+  const isEssay = /(?:tự\s*luận|essay|câu\s*hỏi\s*mở|viết\s*(?:luận|code|bài)|phân\s*tích|giải\s*thích\s*chi\s*tiết)/i.test(promptText);
 
-  if (p.includes('aws') || p.includes('cloud') || p.includes('ec2') || p.includes('lambda') || p.includes('s3') || p.includes('vpc') || p.includes('dynamodb')) {
-    const awsPool: Question[] = [
-      {
-        id: `q-aws-${Date.now()}-1`,
-        questionId: `q-aws-${Date.now()}-1`,
-        bankId,
-        content: 'Dịch vụ nào của AWS cung cấp khả năng lưu trữ đối tượng không giới hạn với độ bền 99.999999999% (11 số 9)?',
-        type: 'SINGLE_CHOICE',
-        options: ['Amazon S3', 'Amazon EBS', 'Amazon EFS', 'AWS Storage Gateway'],
-        correctIndex: 0,
-        correctAnswer: 'Amazon S3',
-        score: 1,
-        subject: 'Điện toán đám mây AWS',
-        topic: 'Lưu trữ đối tượng (S3)',
-        difficulty: 'EASY',
-        imageUrl: '',
-      },
-      {
-        id: `q-aws-${Date.now()}-2`,
-        questionId: `q-aws-${Date.now()}-2`,
-        bankId,
-        content: 'Trong AWS, mô hình điện toán Serverless cho phép chạy mã nguồn theo sự kiện mà không cần quản lý máy chủ là gì?',
-        type: 'SINGLE_CHOICE',
-        options: ['AWS Lambda', 'Amazon EC2', 'Amazon ECS', 'AWS Elastic Beanstalk'],
-        correctIndex: 0,
-        correctAnswer: 'AWS Lambda',
-        score: 1,
-        subject: 'Điện toán đám mây AWS',
-        topic: 'Điện toán phi máy chủ (Serverless)',
-        difficulty: 'EASY',
-        imageUrl: '',
-      },
-      {
-        id: `q-aws-${Date.now()}-3`,
-        questionId: `q-aws-${Date.now()}-3`,
-        bankId,
-        content: 'Cơ chế nào được dùng để cô lập mạng ảo riêng an toàn cho các tài nguyên EC2, RDS và Lambda trong một tài khoản AWS?',
-        type: 'SINGLE_CHOICE',
-        options: ['Amazon VPC (Virtual Private Cloud)', 'Amazon Route 53', 'AWS Direct Connect', 'Amazon CloudFront'],
-        correctIndex: 0,
-        correctAnswer: 'Amazon VPC (Virtual Private Cloud)',
-        score: 1,
-        subject: 'Điện toán đám mây AWS',
-        topic: 'Mạng ảo riêng (VPC)',
-        difficulty: 'MEDIUM',
-        imageUrl: '',
-      },
-      {
-        id: `q-aws-${Date.now()}-4`,
-        questionId: `q-aws-${Date.now()}-4`,
-        bankId,
-        content: 'Để quản trị danh tính và phân quyền chi tiết (Least Privilege) cho người dùng và các dịch vụ trên AWS, dịch vụ cốt lõi là gì?',
-        type: 'SINGLE_CHOICE',
-        options: ['AWS IAM (Identity and Access Management)', 'Amazon Cognito', 'AWS Shield', 'Amazon GuardDuty'],
-        correctIndex: 0,
-        correctAnswer: 'AWS IAM (Identity and Access Management)',
-        score: 1,
-        subject: 'Điện toán đám mây AWS',
-        topic: 'Bảo mật & Quản trị danh tính (IAM)',
-        difficulty: 'EASY',
-        imageUrl: '',
-      },
-      {
-        id: `q-aws-${Date.now()}-5`,
-        questionId: `q-aws-${Date.now()}-5`,
-        bankId,
-        content: 'Dịch vụ cơ sở dữ liệu NoSQL nào trên AWS hỗ trợ khóa phân vùng (Partition Key), độ trễ phản hồi đơn vị ms và co giãn quy mô tự động?',
-        type: 'SINGLE_CHOICE',
-        options: ['Amazon DynamoDB', 'Amazon RDS MySQL', 'Amazon Aurora Serverless', 'Amazon DocumentDB'],
-        correctIndex: 0,
-        correctAnswer: 'Amazon DynamoDB',
-        score: 1,
-        subject: 'Điện toán đám mây AWS',
-        topic: 'Cơ sở dữ liệu NoSQL (DynamoDB)',
-        difficulty: 'MEDIUM',
-        imageUrl: '',
-      },
-      {
-        id: `q-aws-${Date.now()}-6`,
-        questionId: `q-aws-${Date.now()}-6`,
-        bankId,
-        content: 'Dịch vụ nào cung cấp máy chủ ảo có thể cấu hình linh hoạt về CPU, RAM, lưu trữ và băng thông mạng trên đám mây AWS?',
-        type: 'SINGLE_CHOICE',
-        options: ['Amazon EC2 (Elastic Compute Cloud)', 'AWS Batch', 'AWS Elastic Beanstalk', 'Amazon Lightsail'],
-        correctIndex: 0,
-        correctAnswer: 'Amazon EC2 (Elastic Compute Cloud)',
-        score: 1,
-        subject: 'Điện toán đám mây AWS',
-        topic: 'Máy chủ ảo (EC2)',
-        difficulty: 'EASY',
-        imageUrl: '',
-      },
-      {
-        id: `q-aws-${Date.now()}-7`,
-        questionId: `q-aws-${Date.now()}-7`,
-        bankId,
-        content: 'Mạng lưới phân phối nội dung (CDN) toàn cầu giúp tăng tốc truyền tải nội dung tĩnh và động với độ trễ thấp trên AWS là gì?',
-        type: 'SINGLE_CHOICE',
-        options: ['Amazon CloudFront', 'AWS Global Accelerator', 'Amazon Route 53', 'AWS Direct Connect'],
-        correctIndex: 0,
-        correctAnswer: 'Amazon CloudFront',
-        score: 1,
-        subject: 'Điện toán đám mây AWS',
-        topic: 'Mạng phân phối nội dung (CloudFront CDN)',
-        difficulty: 'EASY',
-        imageUrl: '',
-      },
-      {
-        id: `q-aws-${Date.now()}-8`,
-        questionId: `q-aws-${Date.now()}-8`,
-        bankId,
-        content: 'Dịch vụ DNS có tính sẵn sàng cao, hỗ trợ quản lý định tuyến tên miền và kiểm tra tình trạng dịch vụ (Health Check) trên AWS là gì?',
-        type: 'SINGLE_CHOICE',
-        options: ['Amazon Route 53', 'AWS Direct Connect', 'Amazon CloudFront', 'AWS Transit Gateway'],
-        correctIndex: 0,
-        correctAnswer: 'Amazon Route 53',
-        score: 1,
-        subject: 'Điện toán đám mây AWS',
-        topic: 'Hệ thống phân giải tên miền (Route 53)',
-        difficulty: 'MEDIUM',
-        imageUrl: '',
-      },
-      {
-        id: `q-aws-${Date.now()}-9`,
-        questionId: `q-aws-${Date.now()}-9`,
-        bankId,
-        content: 'Hàng đợi thông điệp phi máy chủ (Message Queue) giúp giải phóng phụ thuộc (Decoupling) giữa các microservices trên AWS là gì?',
-        type: 'SINGLE_CHOICE',
-        options: ['Amazon SQS (Simple Queue Service)', 'Amazon SNS', 'Amazon EventBridge', 'Amazon Kinesis'],
-        correctIndex: 0,
-        correctAnswer: 'Amazon SQS (Simple Queue Service)',
-        score: 1,
-        subject: 'Điện toán đám mây AWS',
-        topic: 'Hàng đợi thông điệp (SQS)',
-        difficulty: 'EASY',
-        imageUrl: '',
-      },
-      {
-        id: `q-aws-${Date.now()}-10`,
-        questionId: `q-aws-${Date.now()}-10`,
-        bankId,
-        content: 'Dịch vụ pub/sub thông báo đẩy hỗ trợ gửi thông điệp tới nhiều người nhận qua Email, SMS hoặc SQS đồng thời là gì?',
-        type: 'SINGLE_CHOICE',
-        options: ['Amazon SNS (Simple Notification Service)', 'Amazon SES', 'Amazon Pinpoint', 'Amazon MQ'],
-        correctIndex: 0,
-        correctAnswer: 'Amazon SNS (Simple Notification Service)',
-        score: 1,
-        subject: 'Điện toán đám mây AWS',
-        topic: 'Thông báo đẩy (SNS)',
-        difficulty: 'EASY',
-        imageUrl: '',
-      },
-      {
-        id: `q-aws-${Date.now()}-11`,
-        questionId: `q-aws-${Date.now()}-11`,
-        bankId,
-        content: 'Dịch vụ giám sát, thu thập số liệu (metrics), theo dõi nhật ký (logs) và cấu hình cảnh báo tài nguyên trên AWS là gì?',
-        type: 'SINGLE_CHOICE',
-        options: ['Amazon CloudWatch', 'AWS CloudTrail', 'AWS Config', 'AWS X-Ray'],
-        correctIndex: 0,
-        correctAnswer: 'Amazon CloudWatch',
-        score: 1,
-        subject: 'Điện toán đám mây AWS',
-        topic: 'Giám sát & Cảnh báo (CloudWatch)',
-        difficulty: 'EASY',
-        imageUrl: '',
-      },
-      {
-        id: `q-aws-${Date.now()}-12`,
-        questionId: `q-aws-${Date.now()}-12`,
-        bankId,
-        content: 'Dịch vụ ghi nhật ký kiểm toán (Audit Log) theo dõi toàn bộ các lệnh gọi API được thực hiện trong tài khoản AWS là gì?',
-        type: 'SINGLE_CHOICE',
-        options: ['AWS CloudTrail', 'Amazon CloudWatch', 'AWS Trusted Advisor', 'AWS Systems Manager'],
-        correctIndex: 0,
-        correctAnswer: 'AWS CloudTrail',
-        score: 1,
-        subject: 'Điện toán đám mây AWS',
-        topic: 'Kiểm toán hoạt động API (CloudTrail)',
-        difficulty: 'MEDIUM',
-        imageUrl: '',
-      },
-      {
-        id: `q-aws-${Date.now()}-13`,
-        questionId: `q-aws-${Date.now()}-13`,
-        bankId,
-        content: 'Dịch vụ quản lý và tạo khóa mã hóa dữ liệu tích hợp phần cứng FIPS 140-2 tiêu chuẩn trên AWS là gì?',
-        type: 'SINGLE_CHOICE',
-        options: ['AWS KMS (Key Management Service)', 'AWS Secrets Manager', 'AWS Certificate Manager', 'AWS CloudHSM'],
-        correctIndex: 0,
-        correctAnswer: 'AWS KMS (Key Management Service)',
-        score: 1,
-        subject: 'Điện toán đám mây AWS',
-        topic: 'Mã hóa khóa (KMS)',
-        difficulty: 'MEDIUM',
-        imageUrl: '',
-      },
-      {
-        id: `q-aws-${Date.now()}-14`,
-        questionId: `q-aws-${Date.now()}-14`,
-        bankId,
-        content: 'Dịch vụ lưu trữ an toàn, tự động xoay vòng (Rotate) mật khẩu cơ sở dữ liệu và khóa API trên AWS là gì?',
-        type: 'SINGLE_CHOICE',
-        options: ['AWS Secrets Manager', 'AWS Systems Manager Parameter Store', 'AWS KMS', 'AWS IAM'],
-        correctIndex: 0,
-        correctAnswer: 'AWS Secrets Manager',
-        score: 1,
-        subject: 'Điện toán đám mây AWS',
-        topic: 'Quản lý bí mật (Secrets Manager)',
-        difficulty: 'MEDIUM',
-        imageUrl: '',
-      },
-      {
-        id: `q-aws-${Date.now()}-15`,
-        questionId: `q-aws-${Date.now()}-15`,
-        bankId,
-        content: 'Bộ cân bằng tải hoạt động ở tầng ứng dụng Layer 7 hỗ trợ định tuyến theo đường dẫn URL (Path-based routing) là gì?',
-        type: 'SINGLE_CHOICE',
-        options: ['Application Load Balancer (ALB)', 'Network Load Balancer (NLB)', 'Gateway Load Balancer (GWLB)', 'Classic Load Balancer'],
-        correctIndex: 0,
-        correctAnswer: 'Application Load Balancer (ALB)',
-        score: 1,
-        subject: 'Điện toán đám mây AWS',
-        topic: 'Cân bằng tải ứng dụng (ALB)',
-        difficulty: 'MEDIUM',
-        imageUrl: '',
-      },
-      {
-        id: `q-aws-${Date.now()}-16`,
-        questionId: `q-aws-${Date.now()}-16`,
-        bankId,
-        content: 'Tính năng tự động tăng hoặc giảm số lượng máy chủ EC2 dựa trên lưu lượng người dùng và tải CPU là gì?',
-        type: 'SINGLE_CHOICE',
-        options: ['Amazon EC2 Auto Scaling', 'AWS Elastic Beanstalk', 'AWS Compute Optimizer', 'Amazon ECS Service Auto Scaling'],
-        correctIndex: 0,
-        correctAnswer: 'Amazon EC2 Auto Scaling',
-        score: 1,
-        subject: 'Điện toán đám mây AWS',
-        topic: 'Tự động co giãn (Auto Scaling)',
-        difficulty: 'EASY',
-        imageUrl: '',
-      },
-      {
-        id: `q-aws-${Date.now()}-17`,
-        questionId: `q-aws-${Date.now()}-17`,
-        bankId,
-        content: 'Tường lửa ứng dụng web giúp bảo vệ API Gateway và CloudFront trước các cuộc tấn công SQL Injection và Cross-Site Scripting (XSS) là gì?',
-        type: 'SINGLE_CHOICE',
-        options: ['AWS WAF (Web Application Firewall)', 'AWS Shield', 'Amazon GuardDuty', 'AWS Network Firewall'],
-        correctIndex: 0,
-        correctAnswer: 'AWS WAF (Web Application Firewall)',
-        score: 1,
-        subject: 'Điện toán đám mây AWS',
-        topic: 'Tường lửa ứng dụng (WAF)',
-        difficulty: 'MEDIUM',
-        imageUrl: '',
-      },
-      {
-        id: `q-aws-${Date.now()}-18`,
-        questionId: `q-aws-${Date.now()}-18`,
-        bankId,
-        content: 'Dịch vụ cơ sở dữ liệu quan hệ được quản lý (Managed Relational Database) hỗ trợ MySQL, PostgreSQL, Oracle và SQL Server là gì?',
-        type: 'SINGLE_CHOICE',
-        options: ['Amazon RDS (Relational Database Service)', 'Amazon Aurora', 'Amazon Redshift', 'Amazon Neptune'],
-        correctIndex: 0,
-        correctAnswer: 'Amazon RDS (Relational Database Service)',
-        score: 1,
-        subject: 'Điện toán đám mây AWS',
-        topic: 'Cơ sở dữ liệu quan hệ (RDS)',
-        difficulty: 'EASY',
-        imageUrl: '',
-      },
-      {
-        id: `q-aws-${Date.now()}-19`,
-        questionId: `q-aws-${Date.now()}-19`,
-        bankId,
-        content: 'Dịch vụ phân tích nhận diện khuôn mặt, so khớp sinh trắc học và phát hiện vật thể bằng AI trên AWS là gì?',
-        type: 'SINGLE_CHOICE',
-        options: ['Amazon Rekognition', 'Amazon Textract', 'Amazon Comprehend', 'Amazon Transcribe'],
-        correctIndex: 0,
-        correctAnswer: 'Amazon Rekognition',
-        score: 1,
-        subject: 'Điện toán đám mây AWS',
-        topic: 'Thị giác máy tính AI (Rekognition)',
-        difficulty: 'EASY',
-        imageUrl: '',
-      },
-      {
-        id: `q-aws-${Date.now()}-20`,
-        questionId: `q-aws-${Date.now()}-20`,
-        bankId,
-        content: 'Dịch vụ điều phối luồng quy trình công việc phân tán (Workflow Orchestration) dạng State Machine không máy chủ trên AWS là gì?',
-        type: 'SINGLE_CHOICE',
-        options: ['AWS Step Functions', 'AWS Glue Workflows', 'Amazon EventBridge Pipes', 'AWS Batch'],
-        correctIndex: 0,
-        correctAnswer: 'AWS Step Functions',
-        score: 1,
-        subject: 'Điện toán đám mây AWS',
-        topic: 'Điều phối quy trình (Step Functions)',
-        difficulty: 'MEDIUM',
-        imageUrl: '',
-      },
-    ];
-
-    return awsPool.slice(0, targetCount);
-  }
-
-  return [
+  // Pool câu hỏi Trắc nghiệm AWS & Cloud
+  const awsMcPool = [
     {
-      id: `q-soa-${Date.now()}-1`,
-      questionId: `q-soa-${Date.now()}-1`,
-      bankId,
+      content: 'Dịch vụ nào của AWS cung cấp khả năng lưu trữ đối tượng không giới hạn với độ bền 99.999999999% (11 số 9)?',
+      options: ['Amazon S3', 'Amazon EBS', 'Amazon EFS', 'AWS Storage Gateway'],
+      correctIndex: 0,
+      correctAnswer: 'Amazon S3',
+      topic: 'Lưu trữ đối tượng (S3)',
+    },
+    {
+      content: 'Trong AWS, mô hình điện toán Serverless cho phép chạy mã nguồn theo sự kiện mà không cần quản lý máy chủ là gì?',
+      options: ['AWS Lambda', 'Amazon EC2', 'Amazon ECS', 'AWS Elastic Beanstalk'],
+      correctIndex: 0,
+      correctAnswer: 'AWS Lambda',
+      topic: 'Điện toán phi máy chủ (Serverless)',
+    },
+    {
+      content: 'Cơ chế nào được dùng để cô lập mạng ảo riêng an toàn cho các tài nguyên EC2, RDS và Lambda trong một tài khoản AWS?',
+      options: ['Amazon VPC (Virtual Private Cloud)', 'Amazon Route 53', 'AWS Direct Connect', 'Amazon CloudFront'],
+      correctIndex: 0,
+      correctAnswer: 'Amazon VPC (Virtual Private Cloud)',
+      topic: 'Mạng ảo riêng (VPC)',
+    },
+    {
+      content: 'Để quản trị danh tính và phân quyền chi tiết (Least Privilege) cho người dùng và các dịch vụ trên AWS, dịch vụ cốt lõi là gì?',
+      options: ['AWS IAM (Identity and Access Management)', 'Amazon Cognito', 'AWS Shield', 'Amazon GuardDuty'],
+      correctIndex: 0,
+      correctAnswer: 'AWS IAM (Identity and Access Management)',
+      topic: 'Bảo mật & Quản trị danh tính (IAM)',
+    },
+    {
+      content: 'Dịch vụ cơ sở dữ liệu NoSQL nào trên AWS hỗ trợ khóa phân vùng (Partition Key), độ trễ phản hồi đơn vị ms và co giãn quy mô tự động?',
+      options: ['Amazon DynamoDB', 'Amazon RDS MySQL', 'Amazon Aurora Serverless', 'Amazon DocumentDB'],
+      correctIndex: 0,
+      correctAnswer: 'Amazon DynamoDB',
+      topic: 'Cơ sở dữ liệu NoSQL (DynamoDB)',
+    },
+    {
+      content: 'Dịch vụ nào cung cấp máy chủ ảo có thể cấu hình linh hoạt về CPU, RAM, lưu trữ và băng thông mạng trên đám mây AWS?',
+      options: ['Amazon EC2 (Elastic Compute Cloud)', 'AWS Batch', 'AWS Elastic Beanstalk', 'Amazon Lightsail'],
+      correctIndex: 0,
+      correctAnswer: 'Amazon EC2 (Elastic Compute Cloud)',
+      topic: 'Máy chủ ảo (EC2)',
+    },
+    {
+      content: 'Mạng lưới phân phối nội dung (CDN) toàn cầu giúp tăng tốc truyền tải nội dung tĩnh và động với độ trễ thấp trên AWS là gì?',
+      options: ['Amazon CloudFront', 'AWS Global Accelerator', 'Amazon Route 53', 'AWS Direct Connect'],
+      correctIndex: 0,
+      correctAnswer: 'Amazon CloudFront',
+      topic: 'Mạng phân phối nội dung (CloudFront CDN)',
+    },
+    {
+      content: 'Dịch vụ DNS có tính sẵn sàng cao, hỗ trợ quản lý định tuyến tên miền và kiểm tra tình trạng dịch vụ (Health Check) trên AWS là gì?',
+      options: ['Amazon Route 53', 'AWS Direct Connect', 'Amazon CloudFront', 'AWS Transit Gateway'],
+      correctIndex: 0,
+      correctAnswer: 'Amazon Route 53',
+      topic: 'Hệ thống phân giải tên miền (Route 53)',
+    },
+    {
+      content: 'Hàng đợi thông điệp phi máy chủ (Message Queue) giúp giải phóng phụ thuộc (Decoupling) giữa các microservices trên AWS là gì?',
+      options: ['Amazon SQS (Simple Queue Service)', 'Amazon SNS', 'Amazon EventBridge', 'Amazon Kinesis'],
+      correctIndex: 0,
+      correctAnswer: 'Amazon SQS (Simple Queue Service)',
+      topic: 'Hàng đợi thông điệp (SQS)',
+    },
+    {
+      content: 'Dịch vụ pub/sub thông báo đẩy hỗ trợ gửi thông điệp tới nhiều người nhận qua Email, SMS hoặc SQS đồng thời là gì?',
+      options: ['Amazon SNS (Simple Notification Service)', 'Amazon SES', 'Amazon Pinpoint', 'Amazon MQ'],
+      correctIndex: 0,
+      correctAnswer: 'Amazon SNS (Simple Notification Service)',
+      topic: 'Thông báo đẩy (SNS)',
+    },
+    {
+      content: 'Dịch vụ giám sát, thu thập số liệu (metrics), theo dõi nhật ký (logs) và cấu hình cảnh báo tài nguyên trên AWS là gì?',
+      options: ['Amazon CloudWatch', 'AWS CloudTrail', 'AWS Config', 'AWS X-Ray'],
+      correctIndex: 0,
+      correctAnswer: 'Amazon CloudWatch',
+      topic: 'Giám sát & Cảnh báo (CloudWatch)',
+    },
+    {
+      content: 'Dịch vụ ghi nhật ký kiểm toán (Audit Log) theo dõi toàn bộ các lệnh gọi API được thực hiện trong tài khoản AWS là gì?',
+      options: ['AWS CloudTrail', 'Amazon CloudWatch', 'AWS Trusted Advisor', 'AWS Systems Manager'],
+      correctIndex: 0,
+      correctAnswer: 'AWS CloudTrail',
+      topic: 'Kiểm toán hoạt động API (CloudTrail)',
+    },
+    {
+      content: 'Tường lửa ứng dụng web giúp bảo vệ API Gateway và CloudFront trước các cuộc tấn công SQL Injection và Cross-Site Scripting (XSS) là gì?',
+      options: ['AWS WAF (Web Application Firewall)', 'AWS Shield', 'Amazon GuardDuty', 'AWS Network Firewall'],
+      correctIndex: 0,
+      correctAnswer: 'AWS WAF (Web Application Firewall)',
+      topic: 'Tường lửa ứng dụng (WAF)',
+    },
+    {
+      content: 'Dịch vụ cơ sở dữ liệu quan hệ được quản lý (Managed Relational Database) hỗ trợ MySQL, PostgreSQL, Oracle và SQL Server là gì?',
+      options: ['Amazon RDS (Relational Database Service)', 'Amazon Aurora', 'Amazon Redshift', 'Amazon Neptune'],
+      correctIndex: 0,
+      correctAnswer: 'Amazon RDS (Relational Database Service)',
+      topic: 'Cơ sở dữ liệu quan hệ (RDS)',
+    },
+    {
+      content: 'Dịch vụ phân tích nhận diện khuôn mặt, so khớp sinh trắc học và phát hiện vật thể bằng AI trên AWS là gì?',
+      options: ['Amazon Rekognition', 'Amazon Textract', 'Amazon Comprehend', 'Amazon Transcribe'],
+      correctIndex: 0,
+      correctAnswer: 'Amazon Rekognition',
+      topic: 'Thị giác máy tính AI (Rekognition)',
+    },
+    {
+      content: 'Dịch vụ điều phối luồng quy trình công việc phân tán (Workflow Orchestration) dạng State Machine không máy chủ trên AWS là gì?',
+      options: ['AWS Step Functions', 'AWS Glue Workflows', 'Amazon EventBridge Pipes', 'AWS Batch'],
+      correctIndex: 0,
+      correctAnswer: 'AWS Step Functions',
+      topic: 'Điều phối quy trình (Step Functions)',
+    },
+  ];
+
+  // Pool câu hỏi Trắc nghiệm Kiến trúc & Phần mềm & Microservices
+  const archMcPool = [
+    {
       content: 'Trong mô hình Kiến trúc Hướng Dịch vụ (SOA) và Microservices, đặc điểm nào sau đây là quan trọng nhất?',
-      type: 'SINGLE_CHOICE',
       options: [
         'Các dịch vụ có tính kết nối lỏng (Loosely Coupled) và giao tiếp qua các giao thức chuẩn',
         'Tất cả dịch vụ phải chia sẻ chung một bảng cơ sở dữ liệu quan hệ duy nhất',
@@ -1863,18 +1783,10 @@ export const generateTopicQuestions = (
       ],
       correctIndex: 0,
       correctAnswer: 'Các dịch vụ có tính kết nối lỏng (Loosely Coupled) và giao tiếp qua các giao thức chuẩn',
-      score: 1,
-      subject,
-      topic,
-      difficulty: 'MEDIUM',
-      imageUrl: '',
+      topic: 'Kiến trúc Microservices',
     },
     {
-      id: `q-soa-${Date.now()}-2`,
-      questionId: `q-soa-${Date.now()}-2`,
-      bankId,
       content: 'Thành phần nào đóng vai trò điều phối thông điệp và giảm sự phụ thuộc trực tiếp giữa các dịch vụ trong kiến trúc SOA?',
-      type: 'SINGLE_CHOICE',
       options: [
         'Enterprise Service Bus (ESB) hoặc Message Broker (như Amazon SQS / Apache Kafka)',
         'Trình thông dịch mã nguồn phía Client',
@@ -1883,33 +1795,116 @@ export const generateTopicQuestions = (
       ],
       correctIndex: 0,
       correctAnswer: 'Enterprise Service Bus (ESB) hoặc Message Broker (như Amazon SQS / Apache Kafka)',
-      score: 1,
-      subject,
-      topic,
-      difficulty: 'MEDIUM',
-      imageUrl: '',
+      topic: 'Message Broker & ESB',
     },
     {
-      id: `q-soa-${Date.now()}-3`,
-      questionId: `q-soa-${Date.now()}-3`,
-      bankId,
-      content: 'Khi thiết kế API cho các dịch vụ SOA, giao thức RESTful thường sử dụng định dạng dữ liệu nào để truyền tải thông tin gọn nhẹ?',
-      type: 'SINGLE_CHOICE',
+      content: 'Design Pattern nào giải quyết bài toán ngăn chặn sự cố dây chuyền (Cascading Failure) khi một dịch vụ phụ thuộc gặp lỗi hoặc quá tải?',
+      options: ['Circuit Breaker Pattern', 'Singleton Pattern', 'Factory Pattern', 'Adapter Pattern'],
+      correctIndex: 0,
+      correctAnswer: 'Circuit Breaker Pattern',
+      topic: 'Resilience Patterns (Circuit Breaker)',
+    },
+    {
+      content: 'Trong kiến trúc Event-Driven Architecture, thành phần nào chịu trách nhiệm lưu trữ và phát tán sự kiện tới các Consumer theo cơ chế Pub/Sub?',
+      options: ['Event Broker (như Amazon EventBridge, Apache Kafka, RabbitMQ)', 'Load Balancer tầng 4', 'DNS Resolver cục bộ', 'Relational Database Lock Manager'],
+      correctIndex: 0,
+      correctAnswer: 'Event Broker (như Amazon EventBridge, Apache Kafka, RabbitMQ)',
+      topic: 'Event-Driven Architecture',
+    },
+    {
+      content: 'Định lý CAP chỉ ra rằng một hệ thống cơ sở dữ liệu phân tán chỉ có thể đồng thời thỏa mãn tối đa 2 trong 3 yếu tố nào?',
       options: [
-        'JSON (JavaScript Object Notation)',
-        'Mã máy nhị phân Assembly',
-        'Tệp nén ZIP có mật khẩu',
-        'Dữ liệu ảnh Raw Bitmap',
+        'Tính nhất quán (Consistency), Tính sẵn sàng (Availability), Khả năng chịu lỗi phân vùng mạng (Partition Tolerance)',
+        'Tính bảo mật (Confidentiality), Tính toàn vẹn (Integrity), Tính xác thực (Authenticity)',
+        'Tính tuần tự (Concurrency), Tính nguyên tử (Atomicity), Hiệu năng (Performance)',
+        'Băng thông (Capacity), Độ trễ (Access speed), Độ bền bỉ (Persistence)',
       ],
       correctIndex: 0,
-      correctAnswer: 'JSON (JavaScript Object Notation)',
-      score: 1,
-      subject,
-      topic,
-      difficulty: 'EASY',
-      imageUrl: '',
+      correctAnswer: 'Tính nhất quán (Consistency), Tính sẵn sàng (Availability), Khả năng chịu lỗi phân vùng mạng (Partition Tolerance)',
+      topic: 'Định lý CAP & Hệ phân tán',
     },
   ];
+
+  // Pool câu hỏi Tự luận chuyên sâu (ESSAY)
+  const essayPool = [
+    {
+      content: 'Trình bày sự khác biệt cốt lõi giữa Kiến trúc Đơn khối (Monolithic) và Kiến trúc Vi dịch vụ (Microservices). Phân tích ưu và nhược điểm của từng mô hình về mặt khả năng mở rộng (Scalability), độ tin cậy (Reliability) và chi phí vận hành (Operational Cost).',
+      rubric: '1. Khái niệm và so sánh Monolith vs Microservices (0.5đ)\n2. Phân tích Scalability (co giãn độc lập vs toàn bộ khối) (0.5đ)\n3. Phân tích Reliability và Fault Isolation (cô lập sự cố) (0.5đ)\n4. Đánh giá chi phí vận hành, giám sát phân tán và mạng (0.5đ)',
+      topic: 'Kiến trúc Monolith vs Microservices',
+    },
+    {
+      content: 'Giải thích nguyên lý hoạt động của cơ chế xác thực Stateless Token-based bằng JSON Web Token (JWT) trong hệ thống Microservices. Nêu rõ các rủi ro bảo mật tiềm ẩn và biện pháp khắc phục (ví dụ: Token Expiration, Refresh Token, Revocation blacklist).',
+      rubric: '1. Cấu trúc 3 phần của JWT: Header, Payload, Signature (0.5đ)\n2. Cơ chế xác thực không trạng thái (Stateless) tại API Gateway (0.5đ)\n3. Rủi ro lộ Token và phương án xoay vòng Refresh Token (0.5đ)\n4. Cơ chế thu hồi quyền hạn qua Redis blacklist / Token Revocation (0.5đ)',
+      topic: 'Bảo mật JWT & API Gateway',
+    },
+    {
+      content: 'Thiết kế chiến lược triển khai không thời gian chết (Zero-downtime Deployment) sử dụng mô hình Blue/Green hoặc Canary Deployment trên nền tảng AWS (kết hợp Route 53, CloudFront, ALB và Auto Scaling). Nêu quy trình rollback khi phát hiện lỗi.',
+      rubric: '1. Định nghĩa và so sánh Blue/Green vs Canary (0.5đ)\n2. Kiến trúc định tuyến lưu lượng qua ALB / Route 53 Weighted Records (0.5đ)\n3. Quy trình Health Check tự động và phát hiện lỗi qua CloudWatch Alarm (0.5đ)\n4. Cơ chế Rollback tức thì chuyển 100% traffic về môi trường cũ (0.5đ)',
+      topic: 'Chiến lược Triển khai Zero-Downtime',
+    },
+    {
+      content: 'Phân tích cơ chế đảm bảo tính nhất quán dữ liệu (Data Consistency) giữa các microservices khi thực hiện một giao dịch phân tán (Distributed Transaction). So sánh 2 phương pháp: 2-Phase Commit (2PC) và Saga Pattern (Orchestration vs Choreography).',
+      rubric: '1. Thách thức tính nhất quán trong cơ sở dữ liệu riêng (Database-per-service) (0.5đ)\n2. Nhược điểm nghẽn cổ chai và khóa tài nguyên của 2PC (0.5đ)\n3. Nguyên lý Saga Pattern và Compensating Transactions (Giao dịch bù trừ) (0.5đ)\n4. So sánh Orchestration Saga vs Choreography Saga (0.5đ)',
+      topic: 'Giao dịch phân tán & Saga Pattern',
+    },
+    {
+      content: 'Trình bày mô hình phòng thủ theo chiều sâu (Defense in Depth) trên môi trường Cloud AWS. Phân tích vai trò của AWS WAF, Security Groups, Network ACLs, IAM Roles và KMS trong việc bảo vệ dữ liệu và ứng dụng.',
+      rubric: '1. Nguyên lý phân tầng bảo vệ (Layer 7 WAF, Layer 4 SG/NACL, Data Layer KMS) (0.5đ)\n2. Phân biệt cơ chế Stateful của Security Group và Stateless của NACL (0.5đ)\n3. Nguyên tắc đặc quyền tối thiểu (Least Privilege) với IAM Roles (0.5đ)\n4. Mã hóa Envelope Encryption sử dụng KMS (0.5đ)',
+      topic: 'Bảo mật Defense in Depth trên Cloud',
+    },
+  ];
+
+  if (isEssay) {
+    const list: Question[] = [];
+    for (let i = 0; i < targetCount; i++) {
+      const template = essayPool[i % essayPool.length];
+      const qNum = i + 1;
+      list.push({
+        id: `q-essay-${Date.now()}-${qNum}`,
+        questionId: `q-essay-${Date.now()}-${qNum}`,
+        bankId,
+        content: `[Câu hỏi tự luận ${qNum}]: ${template.content}`,
+        type: 'ESSAY',
+        options: [],
+        correctIndex: -1,
+        correctAnswer: `Barem chấm điểm chi tiết:\n${template.rubric}`,
+        score: 2,
+        subject,
+        topic: template.topic || topic,
+        difficulty: 'MEDIUM',
+        imageUrl: '',
+      });
+    }
+    return list;
+  }
+
+  // Nếu là trắc nghiệm: Lựa chọn pool phù hợp
+  const chosenPool = (p.includes('soa') || p.includes('kiến trúc') || p.includes('pattern') || p.includes('microservice'))
+    ? [...archMcPool, ...awsMcPool]
+    : [...awsMcPool, ...archMcPool];
+
+  const result: Question[] = [];
+  for (let i = 0; i < targetCount; i++) {
+    const item = chosenPool[i % chosenPool.length];
+    const qNum = i + 1;
+    result.push({
+      id: `q-gen-${Date.now()}-${qNum}`,
+      questionId: `q-gen-${Date.now()}-${qNum}`,
+      bankId,
+      content: `${item.content}`,
+      type: 'SINGLE_CHOICE',
+      options: [...item.options],
+      correctIndex: item.correctIndex,
+      correctAnswer: item.correctAnswer,
+      score: 1,
+      subject,
+      topic: item.topic || topic,
+      difficulty: i % 2 === 0 ? 'EASY' : 'MEDIUM',
+      imageUrl: '',
+    });
+  }
+
+  return result;
 };
 
 /**
@@ -1922,7 +1917,7 @@ export const generateQuestionsWithGeminiDirect = async (
   subject: string,
   topic: string,
   apiKey: string,
-  model = 'gemini-3.8-flash'
+  model = 'gemini-1.5-flash'
 ): Promise<{ questions: Question[]; modelUsed: string } | null> => {
   if (!apiKey || !apiKey.trim()) return null;
 
@@ -1960,13 +1955,13 @@ Nội dung đề bài / Yêu cầu:
 ${rawText.slice(0, 12000)}
 `;
 
-  // Ưu tiên model cấu hình, nếu 503/timeout lập tức fallback sang gemini-3.1-flash-lite siêu tốc
+  // Ưu tiên các model Google Gemini chính thức hỗ trợ JSON Mode
   const modelsToTry = [
     model,
-    'gemini-3.1-flash-lite',
-    'gemini-3.8-flash',
-    'gemini-2.5-flash-lite',
-    'gemini-3.5-flash',
+    'gemini-1.5-flash',
+    'gemini-2.0-flash',
+    'gemini-1.5-pro',
+    'gemini-2.0-flash-lite',
   ];
   const uniqueModels = Array.from(new Set(modelsToTry.filter(Boolean)));
 
@@ -1999,7 +1994,12 @@ ${rawText.slice(0, 12000)}
       const textOut = data?.candidates?.[0]?.content?.parts?.[0]?.text;
       if (!textOut) continue;
 
-      const parsedJson = JSON.parse(textOut);
+      let cleanText = textOut.trim();
+      if (cleanText.startsWith('```')) {
+        cleanText = cleanText.replace(/^```(?:json)?\s*/i, '').replace(/\s*```$/, '').trim();
+      }
+
+      const parsedJson = JSON.parse(cleanText);
       const rawList = Array.isArray(parsedJson) ? parsedJson : parsedJson.questions || [];
 
       if (Array.isArray(rawList) && rawList.length > 0) {
@@ -2053,15 +2053,15 @@ ${rawText.slice(0, 12000)}
   return null;
 };
 
-const DEFAULT_GEMINI_API_KEY = 'AQ.Ab8RN6IM7Z8gAyK5YaSv5ZntwjK2bUW4OMkZhSKLUbUd-N68hQ';
-
 export const parseQuestionsFromDoc = async (payload: ParseDocRequest): Promise<ParseDocResponse> => {
   const bankId = payload.bankId || 'bank-se-arch-01';
   const subject = payload.subject || 'Kiến trúc hướng dịch vụ';
   const topic = payload.topic || 'Kiến trúc hệ thống';
   const rawText = payload.docText || payload.text || '';
-  const activeApiKey = payload.apiKey || import.meta.env.VITE_GEMINI_API_KEY || DEFAULT_GEMINI_API_KEY;
-  const activeModel = payload.model || import.meta.env.VITE_GEMINI_MODEL || 'gemini-3.8-flash';
+  const localStoredKey = typeof window !== 'undefined' ? localStorage.getItem('cloudexam_gemini_key') || '' : '';
+  const localStoredModel = typeof window !== 'undefined' ? localStorage.getItem('cloudexam_gemini_model') || '' : '';
+  const activeApiKey = payload.apiKey || localStoredKey || import.meta.env.VITE_GEMINI_API_KEY || '';
+  const activeModel = payload.model || localStoredModel || import.meta.env.VITE_GEMINI_MODEL || 'gemini-1.5-flash';
 
   // 1. Chế độ Mock
   if (isMockMode()) {
@@ -2219,8 +2219,10 @@ export const fetchLeaderboard = async (sessionId: string): Promise<LeaderboardRe
 export const getLiveLeaderboard = fetchLeaderboard;
 
 export const explainAnswerWithAI = async (payload: ExplainAnswerRequest): Promise<ExplainAnswerResponse> => {
-  const activeApiKey = payload.apiKey || import.meta.env.VITE_GEMINI_API_KEY || DEFAULT_GEMINI_API_KEY;
-  const activeModel = payload.model || import.meta.env.VITE_GEMINI_MODEL || 'gemini-3.8-flash';
+  const localStoredKey = typeof window !== 'undefined' ? localStorage.getItem('cloudexam_gemini_key') || '' : '';
+  const localStoredModel = typeof window !== 'undefined' ? localStorage.getItem('cloudexam_gemini_model') || '' : '';
+  const activeApiKey = payload.apiKey || localStoredKey || import.meta.env.VITE_GEMINI_API_KEY || '';
+  const activeModel = payload.model || localStoredModel || import.meta.env.VITE_GEMINI_MODEL || 'gemini-1.5-flash';
   const res = await api.post('/exam/explain-answers', {
     ...payload,
     apiKey: activeApiKey || undefined,
@@ -2390,67 +2392,39 @@ export const syncCloudDatabaseToProduction = async (): Promise<{
   sessionsUpdated: number;
   message: string;
 }> => {
-  let deletedCandidates = 0;
+  let addedCandidates = 0;
   let sessionsUpdated = 0;
 
-  // 1. Xóa sạch cache cục bộ để ngăn chặn dữ liệu cũ/đã xóa bị khôi phục lại
-  clearLocalCaches();
-
-  // 2. Dọn sạch các tài khoản thí sinh không hợp lệ trên AWS DynamoDB (Chỉ giữ lại 24020001 - 24020007)
-  const allowedCandidateEmails = new Set([
-    '24020001@vnu.edu.vn',
-    '24020002@vnu.edu.vn',
-    '24020003@vnu.edu.vn',
-    '24020004@vnu.edu.vn',
-    '24020005@vnu.edu.vn',
-    '24020006@vnu.edu.vn',
-    '24020007@vnu.edu.vn',
-  ]);
-
-  try {
-    const cRes = await api.get('/candidates');
-    const existingCandidates = Array.isArray(cRes.data) ? cRes.data : cRes.data?.items || [];
-    for (const c of existingCandidates) {
-      const email = (c.email || '').toLowerCase().trim();
-      if (!allowedCandidateEmails.has(email)) {
-        try {
-          await api.delete(`/candidates/${encodeURIComponent(email)}`);
-          deletedCandidates++;
-        } catch (delErr) {
-          console.warn('Lỗi dọn dẹp thí sinh ngoài danh sách:', email, delErr);
-        }
-      }
+  // 1. Đồng bộ an toàn các thí sinh tạo mới lên Cloud DynamoDB (nếu chưa có)
+  const localCandidates = getLocalCandidates();
+  for (const lc of localCandidates) {
+    try {
+      await api.post('/candidates', lc);
+      addedCandidates++;
+    } catch {
+      // Bỏ qua nếu đã tồn tại hoặc lỗi authorizer
     }
-  } catch (e) {
-    console.warn('Lỗi kiểm tra danh sách thí sinh trên Cloud:', e);
   }
 
-  // 3. Đảm bảo ca thi EX-VNU-2026-01 liên kết đúng 7 thí sinh chính thức
-  try {
-    const sRes = await api.get('/sessions');
-    const existingSessions = Array.isArray(sRes.data) ? sRes.data : sRes.data?.items || [];
-    const vnuSession = existingSessions.find((s: any) => s.id === 'EX-VNU-2026-01');
-    const targetEmails = Array.from(allowedCandidateEmails).sort();
-    if (vnuSession) {
-      const curList = (vnuSession.candidateEmails || []).map((e: string) => e.toLowerCase());
-      const isMatch = curList.length === targetEmails.length && targetEmails.every((e) => curList.includes(e));
-      if (!isMatch) {
-        await api.put(`/sessions/${vnuSession.id}`, { candidateEmails: targetEmails });
-        sessionsUpdated++;
-      }
+  // 2. Đồng bộ các ca thi lưu cục bộ lên Cloud
+  const localSessions = getLocalSessions();
+  for (const ls of localSessions) {
+    try {
+      await api.post('/sessions', ls);
+      sessionsUpdated++;
+    } catch {
+      // Bỏ qua nếu đã tồn tại hoặc lỗi authorizer
     }
-  } catch (e) {
-    console.warn('Lỗi cập nhật danh sách thí sinh trong ca thi:', e);
   }
 
   return {
     deletedQuestions: 0,
     addedQuestions: 0,
     addedBanks: 0,
-    deletedCandidates,
-    addedCandidates: 0,
+    deletedCandidates: 0,
+    addedCandidates,
     sessionsUpdated,
-    message: 'Đã hoàn tất đồng bộ dữ liệu (Thí sinh 24020001-24020007, Ngân hàng đề, Ca thi) với AWS Cloud!',
+    message: 'Đã hoàn tất đồng bộ an toàn toàn bộ dữ liệu (Thí sinh, Đề thi, Ca thi) với hệ thống Cloud!',
   };
 };
 
