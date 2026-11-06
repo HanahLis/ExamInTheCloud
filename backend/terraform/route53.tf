@@ -53,3 +53,30 @@ resource "aws_route53_record" "www_cname" {
   records = [aws_cloudfront_distribution.spa_distribution.domain_name]
 }
 
+# 5. DNS Records cho các Subdomain theo Khu vực (vn, us, lao, de, *) -> CloudFront CDN
+resource "aws_route53_record" "regional_subdomains_a" {
+  for_each = var.custom_domain_name != "" ? toset(["vn", "us", "lao", "de", "*"]) : []
+  zone_id  = aws_route53_zone.primary[0].zone_id
+  name     = "${each.key}.${var.custom_domain_name}"
+  type     = "A"
+
+  alias {
+    name                   = aws_cloudfront_distribution.spa_distribution.domain_name
+    zone_id                = aws_cloudfront_distribution.spa_distribution.hosted_zone_id
+    evaluate_target_health = false
+  }
+}
+
+resource "aws_route53_record" "regional_subdomains_aaaa" {
+  for_each = var.custom_domain_name != "" ? toset(["vn", "us", "lao", "de", "*"]) : []
+  zone_id  = aws_route53_zone.primary[0].zone_id
+  name     = "${each.key}.${var.custom_domain_name}"
+  type     = "AAAA"
+
+  alias {
+    name                   = aws_cloudfront_distribution.spa_distribution.domain_name
+    zone_id                = aws_cloudfront_distribution.spa_distribution.hosted_zone_id
+    evaluate_target_health = false
+  }
+}
+

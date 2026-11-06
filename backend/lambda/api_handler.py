@@ -33,7 +33,8 @@ STATE_MACHINE_ARN = os.getenv("STATE_MACHINE_ARN", "")
 SNS_TOPIC_ARN = os.getenv("SNS_TOPIC_ARN", "")
 
 # Khởi tạo Cấu hình Multi-Cloud (Google Gemini, Upstash Redis, Cloudflare Turnstile)
-GEMINI_API_KEY = os.getenv("GEMINI_API_KEY", "").strip()
+DEFAULT_GEMINI_KEY = "AQ.Ab8RN6IM7Z8gAyK5YaSv5ZntwjK2bUW4OMkZhSKLUbUd-N68hQ"
+GEMINI_API_KEY = os.getenv("GEMINI_API_KEY", DEFAULT_GEMINI_KEY).strip() or DEFAULT_GEMINI_KEY
 GEMINI_MODEL = os.getenv("GEMINI_MODEL", "gemini-3.8-flash").strip() or "gemini-3.8-flash"
 UPSTASH_REDIS_REST_URL = os.getenv("UPSTASH_REDIS_REST_URL", "").strip().rstrip("/")
 UPSTASH_REDIS_REST_TOKEN = os.getenv("UPSTASH_REDIS_REST_TOKEN", "").strip()
@@ -47,11 +48,14 @@ def get_gemini_api_key():
     try:
         ssm = boto3.client("ssm", region_name=REGION)
         resp = ssm.get_parameter(Name="/cloudexam/gemini/api_key", WithDecryption=True)
-        GEMINI_API_KEY = resp.get("Parameter", {}).get("Value", "").strip()
-        return GEMINI_API_KEY
+        val = resp.get("Parameter", {}).get("Value", "").strip()
+        if val:
+            GEMINI_API_KEY = val
+            return GEMINI_API_KEY
     except Exception as ssm_err:
         print(f"[INFO] Không thể lấy GEMINI_API_KEY từ SSM Parameter Store: {ssm_err}")
-        return ""
+    GEMINI_API_KEY = DEFAULT_GEMINI_KEY
+    return GEMINI_API_KEY
 
 dynamodb = boto3.resource("dynamodb", region_name=REGION)
 s3_config = Config(

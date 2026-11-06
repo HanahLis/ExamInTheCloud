@@ -8,6 +8,7 @@ export const AVAILABLE_THEMES: Record<string, AppTheme> = {
   vn: vnTheme,
   la: laTheme,
   de: deTheme,
+  us: defaultTheme,
   default: defaultTheme,
 };
 

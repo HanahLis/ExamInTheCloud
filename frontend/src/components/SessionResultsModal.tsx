@@ -129,7 +129,7 @@ export default function SessionResultsModal({ isOpen, onClose, sessionId }: Resu
                 </span>
                 {!loading && (
                   <span className="text-xs text-slate-500">
-                    • {results.length} bài thi đã hoàn thành
+                    • {results.length} {t('results_completed_badge')}
                   </span>
                 )}
               </div>
@@ -165,15 +165,15 @@ export default function SessionResultsModal({ isOpen, onClose, sessionId }: Resu
         {!loading && !error && results.length > 0 && (
           <div className="grid grid-cols-3 gap-3 p-5 pb-0">
             <div className="p-3.5 bg-indigo-50/60 rounded-2xl border border-indigo-100/80 text-center space-y-1">
-              <span className="text-[11px] font-semibold text-slate-500 uppercase tracking-wider block">Điểm trung bình</span>
+              <span className="text-[11px] font-semibold text-slate-500 uppercase tracking-wider block">{t('results_kpi_avg')}</span>
               <p className="text-xl font-bold text-indigo-700">{stats.avg} <span className="text-xs font-normal text-slate-400">/ 10</span></p>
             </div>
             <div className="p-3.5 bg-emerald-50/60 rounded-2xl border border-emerald-100/80 text-center space-y-1">
-              <span className="text-[11px] font-semibold text-slate-500 uppercase tracking-wider block">Tỉ lệ đạt yêu cầu</span>
+              <span className="text-[11px] font-semibold text-slate-500 uppercase tracking-wider block">{t('results_kpi_pass')}</span>
               <p className="text-xl font-bold text-emerald-700">{stats.passRate}%</p>
             </div>
             <div className="p-3.5 bg-sky-50/60 rounded-2xl border border-sky-100/80 text-center space-y-1">
-              <span className="text-[11px] font-semibold text-slate-500 uppercase tracking-wider block">Điểm cao nhất</span>
+              <span className="text-[11px] font-semibold text-slate-500 uppercase tracking-wider block">{t('results_kpi_highest')}</span>
               <p className="text-xl font-bold text-sky-700">{stats.highest}</p>
             </div>
           </div>

@@ -84,9 +84,18 @@ def check_and_attach():
                 cfg = config_resp["DistributionConfig"]
                 etag = config_resp["ETag"]
 
+                regional_aliases = [
+                    DOMAIN_NAME,
+                    f"www.{DOMAIN_NAME}",
+                    f"vn.{DOMAIN_NAME}",
+                    f"us.{DOMAIN_NAME}",
+                    f"lao.{DOMAIN_NAME}",
+                    f"de.{DOMAIN_NAME}",
+                    f"*.{DOMAIN_NAME}"
+                ]
                 cfg["Aliases"] = {
-                    "Quantity": 2,
-                    "Items": [DOMAIN_NAME, f"www.{DOMAIN_NAME}"]
+                    "Quantity": len(regional_aliases),
+                    "Items": regional_aliases
                 }
                 cfg["ViewerCertificate"] = {
                     "ACMCertificateArn": CERT_ARN,

@@ -131,7 +131,7 @@ export const ExamSessionTab = ({
           bankId: bId,
           bankName:
             bankInfo?.name ||
-            (bId === 'unassigned' ? 'Câu hỏi chung (Chưa phân ngân hàng)' : `Ngân hàng đề: ${bId}`),
+            (bId === 'unassigned' ? `${t('sess_general_questions')} (${t('sess_no_bank')})` : `${t('sess_bank_label')}: ${bId}`),
           subject: bankInfo?.subject,
           questions: qList,
         });

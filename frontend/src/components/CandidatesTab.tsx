@@ -124,7 +124,7 @@ export const CandidatesTab = ({
               {t('cand_title')} ({candidates.length})
             </h3>
             <p className="text-xs text-slate-500">
-              Quản lý danh sách thí sinh, lớp học và ảnh hồ sơ xác thực sinh trắc học
+              {t('cand_card_subtitle')}
             </p>
           </div>
         </div>
@@ -149,7 +149,7 @@ export const CandidatesTab = ({
             <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d={showAddForm ? "M6 18L18 6M6 6l12 12" : "M12 4v16m8-8H4"} />
             </svg>
-            <span>{showAddForm ? 'Đóng biểu mẫu' : t('cand_add_btn')}</span>
+            <span>{showAddForm ? t('close') : t('cand_add_btn')}</span>
           </button>
         </div>
       </div>
@@ -159,7 +159,7 @@ export const CandidatesTab = ({
         <div className="bg-gradient-to-br from-indigo-50/40 via-purple-50/20 to-sky-50/30 p-6 rounded-3xl border border-indigo-100 shadow-sm space-y-4">
           <div className="flex justify-between items-center">
             <div>
-              <h4 className="text-sm font-bold text-slate-900 tracking-tight">Thêm Thí Sinh / Học Viên Mới</h4>
+              <h4 className="text-sm font-bold text-slate-900 tracking-tight">{t('cand_create_modal_title')}</h4>
               <p className="text-xs text-slate-500">Thông tin thí sinh sẽ được dùng để điểm danh và nhận diện khi làm bài thi</p>
             </div>
             <button

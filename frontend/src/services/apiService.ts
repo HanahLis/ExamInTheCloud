@@ -2002,12 +2002,14 @@ ${rawText.slice(0, 12000)}
   return null;
 };
 
+const DEFAULT_GEMINI_API_KEY = 'AQ.Ab8RN6IM7Z8gAyK5YaSv5ZntwjK2bUW4OMkZhSKLUbUd-N68hQ';
+
 export const parseQuestionsFromDoc = async (payload: ParseDocRequest): Promise<ParseDocResponse> => {
   const bankId = payload.bankId || 'bank-se-arch-01';
   const subject = payload.subject || 'Kiến trúc hướng dịch vụ';
   const topic = payload.topic || 'Kiến trúc hệ thống';
   const rawText = payload.docText || payload.text || '';
-  const activeApiKey = payload.apiKey || import.meta.env.VITE_GEMINI_API_KEY || '';
+  const activeApiKey = payload.apiKey || import.meta.env.VITE_GEMINI_API_KEY || DEFAULT_GEMINI_API_KEY;
   const activeModel = payload.model || import.meta.env.VITE_GEMINI_MODEL || 'gemini-3.8-flash';
 
   // 1. Chế độ Mock
@@ -2166,7 +2168,7 @@ export const fetchLeaderboard = async (sessionId: string): Promise<LeaderboardRe
 export const getLiveLeaderboard = fetchLeaderboard;
 
 export const explainAnswerWithAI = async (payload: ExplainAnswerRequest): Promise<ExplainAnswerResponse> => {
-  const activeApiKey = payload.apiKey || import.meta.env.VITE_GEMINI_API_KEY || '';
+  const activeApiKey = payload.apiKey || import.meta.env.VITE_GEMINI_API_KEY || DEFAULT_GEMINI_API_KEY;
   const activeModel = payload.model || import.meta.env.VITE_GEMINI_MODEL || 'gemini-3.8-flash';
   const res = await api.post('/exam/explain-answers', {
     ...payload,

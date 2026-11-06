@@ -1111,7 +1111,7 @@ export const QuestionBankTab = ({ questions, onRefresh }: Props) => {
                         : 'border-transparent text-slate-500 hover:text-slate-800'
                       }`}
                   >
-                    Dán đề thi / Soạn câu hỏi bằng AI Prompt
+                    {t('qb_ai_prompt_mode')}
                   </button>
                   <button
                     type="button"
@@ -1121,7 +1121,7 @@ export const QuestionBankTab = ({ questions, onRefresh }: Props) => {
                         : 'border-transparent text-slate-500 hover:text-slate-800'
                       }`}
                   >
-                    Tải tệp Word (.docx) / Văn bản (.txt)
+                    {t('qb_upload_file_mode')}
                   </button>
                 </div>
 

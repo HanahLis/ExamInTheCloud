@@ -32,6 +32,7 @@ import { useTheme } from './themes/themeContext';
 import { useTranslation, type Language } from './locales/i18nContext';
 import {
   detectCountryFromLocation,
+  switchCountryDomain,
   COUNTRY_DOMAINS,
 } from './services/domainService';
 
@@ -55,6 +56,7 @@ export const CountryLanguageBar = () => {
     const domainCfg = COUNTRY_DOMAINS[c];
     if (domainCfg) {
       setLang(domainCfg.defaultLang);
+      switchCountryDomain(c);
     }
   };
 
@@ -71,9 +73,9 @@ export const CountryLanguageBar = () => {
           className="text-[11px] bg-transparent border-0 font-medium text-slate-700 cursor-pointer outline-none focus:ring-0"
         >
           <option value="vn">{t('country_vn')}</option>
+          <option value="us">{t('country_us')}</option>
           <option value="la">{t('country_la')}</option>
           <option value="de">{t('country_de')}</option>
-          <option value="default">{t('country_intl')}</option>
         </select>
       </div>
 
@@ -387,13 +389,13 @@ export default function App() {
             <div className="space-y-4">
               <span className="inline-flex items-center gap-1.5 text-[11px] font-semibold text-indigo-700 bg-white/80 px-3 py-1 rounded-full border border-indigo-100 shadow-2xs">
                 <span className="w-1.5 h-1.5 rounded-full bg-indigo-500"></span>
-                Nền Tảng Khảo Thí Trực Tuyến
+                {t('login_hero_badge')}
               </span>
               <h2 className="text-xl md:text-2xl font-bold text-slate-900 tracking-tight leading-snug">
-                Đánh giá năng lực chuẩn xác & công bằng
+                {t('login_hero_title')}
               </h2>
               <p className="text-xs text-slate-600 leading-relaxed">
-                Hệ thống thi trực tuyến thế hệ mới tích hợp điểm danh sinh trắc học, giám sát thi tự động và chấm điểm tức thì.
+                {t('login_hero_desc')}
               </p>
 
               <div className="space-y-2.5 pt-2">
@@ -401,25 +403,25 @@ export default function App() {
                   <div className="w-5 h-5 rounded-full bg-emerald-100 text-emerald-700 flex items-center justify-center shrink-0 mt-0.5">
                     ✓
                   </div>
-                  <span>Xác thực danh tính khuôn mặt thí sinh với độ chính xác cao</span>
+                  <span>{t('login_feature_face')}</span>
                 </div>
                 <div className="flex items-start gap-2.5 text-xs text-slate-700">
                   <div className="w-5 h-5 rounded-full bg-indigo-100 text-indigo-700 flex items-center justify-center shrink-0 mt-0.5">
                     ✓
                   </div>
-                  <span>Bóc tách đề thi Word & phân tích sư phạm bằng AI</span>
+                  <span>{t('login_feature_ai')}</span>
                 </div>
                 <div className="flex items-start gap-2.5 text-xs text-slate-700">
                   <div className="w-5 h-5 rounded-full bg-purple-100 text-purple-700 flex items-center justify-center shrink-0 mt-0.5">
                     ✓
                   </div>
-                  <span>Hỗ trợ đa ngôn ngữ và hạ tầng đám mây phân tán</span>
+                  <span>{t('login_feature_cloud')}</span>
                 </div>
               </div>
             </div>
 
             <div className="pt-6 border-t border-indigo-100/70 text-[11px] text-slate-500 flex items-center justify-between">
-              <span>Đại học Quốc gia Hà Nội (VNU - UET)</span>
+              <span>{t('login_university')}</span>
               <span className="font-mono text-slate-400">v2.4.0</span>
             </div>
           </div>
@@ -429,14 +431,14 @@ export default function App() {
             <div>
               <h3 className="text-lg font-bold text-slate-900 tracking-tight">{t('login_title')}</h3>
               <p className="text-xs text-slate-500 mt-1">
-                Sử dụng tài khoản VNU hoặc tài khoản được cấp để truy cập hệ thống
+                {t('login_hint')}
               </p>
             </div>
 
             {/* Quick Demo Chips */}
             <div className="p-3 bg-slate-50/80 rounded-2xl border border-slate-200/70 space-y-2">
               <span className="text-[11px] font-semibold text-slate-600 uppercase tracking-wider block">
-                Tài khoản trải nghiệm nhanh (Click để tự động điền):
+                {t('login_quick_label')}
               </span>
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
                 <button
@@ -507,7 +509,7 @@ export default function App() {
                 </label>
                 <input
                   type="password"
-                  placeholder="Nhập mật khẩu (Mặc định: 12345678)"
+                  placeholder={t('login_password_placeholder')}
                   value={loginPassword}
                   onChange={(e) => setLoginPassword(e.target.value)}
                   className="w-full pl-3 pr-3 py-2.5 bg-slate-50/50 border border-slate-200 rounded-xl text-xs outline-none focus:bg-white focus:border-indigo-400 focus:ring-2 focus:ring-indigo-200/40 transition"
@@ -546,7 +548,7 @@ export default function App() {
 
         {/* Footer bản quyền */}
         <footer className="text-center text-xs text-slate-400 py-2">
-          &copy; 2026 CloudExam • Phát triển trên nền tảng Điện Toán Đám Mây Đa Vùng • UET VNU
+          &copy; 2026 CloudExam • {t('footer_cloud_platform')}
         </footer>
       </div>
     );
