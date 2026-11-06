@@ -7,10 +7,10 @@ export const laTheme: AppTheme = {
   countryName: 'Lào',
   flag: '',
   colors: {
-    primary: '#0f172a',
-    primaryHover: '#1e293b',
-    accent: '#334155',
-    badgeBg: '#f8fafc',
-    badgeText: '#0f172a',
+    primary: '#059669', // Soft Emerald
+    primaryHover: '#047857',
+    accent: '#10b981',
+    badgeBg: '#ecfdf5',
+    badgeText: '#047857',
   },
 };

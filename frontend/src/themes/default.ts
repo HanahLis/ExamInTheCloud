@@ -18,10 +18,10 @@ export const defaultTheme: AppTheme = {
   countryName: 'Quốc tế',
   flag: '',
   colors: {
-    primary: '#1e293b', // Slate 800 - thanh lịch, nhã nhặn
-    primaryHover: '#0f172a',
-    accent: '#475569',
-    badgeBg: '#f1f5f9',
-    badgeText: '#334155',
+    primary: '#4f46e5', // Soft Royal Indigo
+    primaryHover: '#4338ca',
+    accent: '#8b5cf6',
+    badgeBg: '#eef2ff',
+    badgeText: '#4338ca',
   },
 };

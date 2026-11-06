@@ -386,8 +386,11 @@ def rule_based_parse_questions(raw_text: str, subject: str = "Điện toán đá
 
     if not questions:
         lower_text = raw_text.lower()
+        count_match = re.search(r'(\d+)\s*(?:câu|questions?)', raw_text, re.IGNORECASE)
+        target_count = min(50, max(1, int(count_match.group(1)))) if count_match else 5
+
         if any(kw in lower_text for kw in ["aws", "cloud", "ec2", "s3", "lambda", "vpc", "dynamodb", "iam"]):
-            return [
+            aws_pool = [
                 {
                     "content": "Dịch vụ nào của AWS cung cấp khả năng lưu trữ đối tượng không giới hạn với độ bền 99.999999999% (11 số 9)?",
                     "options": ["Amazon S3", "Amazon EBS", "Amazon EFS", "AWS Storage Gateway"],
@@ -437,8 +440,159 @@ def rule_based_parse_questions(raw_text: str, subject: str = "Điện toán đá
                     "difficulty": "MEDIUM",
                     "subject": "Điện toán đám mây AWS",
                     "topic": "Cơ sở dữ liệu NoSQL (DynamoDB)"
+                },
+                {
+                    "content": "Dịch vụ nào cung cấp máy chủ ảo có thể cấu hình linh hoạt về CPU, RAM, lưu trữ và băng thông mạng trên đám mây AWS?",
+                    "options": ["Amazon EC2 (Elastic Compute Cloud)", "AWS Batch", "AWS Elastic Beanstalk", "Amazon Lightsail"],
+                    "correctIndex": 0,
+                    "correctAnswer": "Amazon EC2 (Elastic Compute Cloud)",
+                    "score": 1,
+                    "difficulty": "EASY",
+                    "subject": "Điện toán đám mây AWS",
+                    "topic": "Máy chủ ảo (EC2)"
+                },
+                {
+                    "content": "Mạng lưới phân phối nội dung (CDN) toàn cầu giúp tăng tốc truyền tải nội dung tĩnh và động với độ trễ thấp trên AWS là gì?",
+                    "options": ["Amazon CloudFront", "AWS Global Accelerator", "Amazon Route 53", "AWS Direct Connect"],
+                    "correctIndex": 0,
+                    "correctAnswer": "Amazon CloudFront",
+                    "score": 1,
+                    "difficulty": "EASY",
+                    "subject": "Điện toán đám mây AWS",
+                    "topic": "Mạng phân phối nội dung (CloudFront CDN)"
+                },
+                {
+                    "content": "Dịch vụ DNS có tính sẵn sàng cao, hỗ trợ quản lý định tuyến tên miền và kiểm tra tình trạng dịch vụ (Health Check) trên AWS là gì?",
+                    "options": ["Amazon Route 53", "AWS Direct Connect", "Amazon CloudFront", "AWS Transit Gateway"],
+                    "correctIndex": 0,
+                    "correctAnswer": "Amazon Route 53",
+                    "score": 1,
+                    "difficulty": "MEDIUM",
+                    "subject": "Điện toán đám mây AWS",
+                    "topic": "Hệ thống phân giải tên miền (Route 53)"
+                },
+                {
+                    "content": "Hàng đợi thông điệp phi máy chủ (Message Queue) giúp giải phóng phụ thuộc (Decoupling) giữa các microservices trên AWS là gì?",
+                    "options": ["Amazon SQS (Simple Queue Service)", "Amazon SNS", "Amazon EventBridge", "Amazon Kinesis"],
+                    "correctIndex": 0,
+                    "correctAnswer": "Amazon SQS (Simple Queue Service)",
+                    "score": 1,
+                    "difficulty": "EASY",
+                    "subject": "Điện toán đám mây AWS",
+                    "topic": "Hàng đợi thông điệp (SQS)"
+                },
+                {
+                    "content": "Dịch vụ pub/sub thông báo đẩy hỗ trợ gửi thông điệp tới nhiều người nhận qua Email, SMS hoặc SQS đồng thời là gì?",
+                    "options": ["Amazon SNS (Simple Notification Service)", "Amazon SES", "Amazon Pinpoint", "Amazon MQ"],
+                    "correctIndex": 0,
+                    "correctAnswer": "Amazon SNS (Simple Notification Service)",
+                    "score": 1,
+                    "difficulty": "EASY",
+                    "subject": "Điện toán đám mây AWS",
+                    "topic": "Thông báo đẩy (SNS)"
+                },
+                {
+                    "content": "Dịch vụ giám sát, thu thập số liệu (metrics), theo dõi nhật ký (logs) và cấu hình cảnh báo tài nguyên trên AWS là gì?",
+                    "options": ["Amazon CloudWatch", "AWS CloudTrail", "AWS Config", "AWS X-Ray"],
+                    "correctIndex": 0,
+                    "correctAnswer": "Amazon CloudWatch",
+                    "score": 1,
+                    "difficulty": "EASY",
+                    "subject": "Điện toán đám mây AWS",
+                    "topic": "Giám sát & Cảnh báo (CloudWatch)"
+                },
+                {
+                    "content": "Dịch vụ ghi nhật ký kiểm toán (Audit Log) theo dõi toàn bộ các lệnh gọi API được thực hiện trong tài khoản AWS là gì?",
+                    "options": ["AWS CloudTrail", "Amazon CloudWatch", "AWS Trusted Advisor", "AWS Systems Manager"],
+                    "correctIndex": 0,
+                    "correctAnswer": "AWS CloudTrail",
+                    "score": 1,
+                    "difficulty": "MEDIUM",
+                    "subject": "Điện toán đám mây AWS",
+                    "topic": "Kiểm toán hoạt động API (CloudTrail)"
+                },
+                {
+                    "content": "Dịch vụ quản lý và tạo khóa mã hóa dữ liệu tích hợp phần cứng FIPS 140-2 tiêu chuẩn trên AWS là gì?",
+                    "options": ["AWS KMS (Key Management Service)", "AWS Secrets Manager", "AWS Certificate Manager", "AWS CloudHSM"],
+                    "correctIndex": 0,
+                    "correctAnswer": "AWS KMS (Key Management Service)",
+                    "score": 1,
+                    "difficulty": "MEDIUM",
+                    "subject": "Điện toán đám mây AWS",
+                    "topic": "Mã hóa khóa (KMS)"
+                },
+                {
+                    "content": "Dịch vụ lưu trữ an toàn, tự động xoay vòng (Rotate) mật khẩu cơ sở dữ liệu và khóa API trên AWS là gì?",
+                    "options": ["AWS Secrets Manager", "AWS Systems Manager Parameter Store", "AWS KMS", "AWS IAM"],
+                    "correctIndex": 0,
+                    "correctAnswer": "AWS Secrets Manager",
+                    "score": 1,
+                    "difficulty": "MEDIUM",
+                    "subject": "Điện toán đám mây AWS",
+                    "topic": "Quản lý bí mật (Secrets Manager)"
+                },
+                {
+                    "content": "Bộ cân bằng tải hoạt động ở tầng ứng dụng Layer 7 hỗ trợ định tuyến theo đường dẫn URL (Path-based routing) là gì?",
+                    "options": ["Application Load Balancer (ALB)", "Network Load Balancer (NLB)", "Gateway Load Balancer (GWLB)", "Classic Load Balancer"],
+                    "correctIndex": 0,
+                    "correctAnswer": "Application Load Balancer (ALB)",
+                    "score": 1,
+                    "difficulty": "MEDIUM",
+                    "subject": "Điện toán đám mây AWS",
+                    "topic": "Cân bằng tải ứng dụng (ALB)"
+                },
+                {
+                    "content": "Tính năng tự động tăng hoặc giảm số lượng máy chủ EC2 dựa trên lưu lượng người dùng và tải CPU là gì?",
+                    "options": ["Amazon EC2 Auto Scaling", "AWS Elastic Beanstalk", "AWS Compute Optimizer", "Amazon ECS Service Auto Scaling"],
+                    "correctIndex": 0,
+                    "correctAnswer": "Amazon EC2 Auto Scaling",
+                    "score": 1,
+                    "difficulty": "EASY",
+                    "subject": "Điện toán đám mây AWS",
+                    "topic": "Tự động co giãn (Auto Scaling)"
+                },
+                {
+                    "content": "Tường lửa ứng dụng web giúp bảo vệ API Gateway và CloudFront trước các cuộc tấn công SQL Injection và Cross-Site Scripting (XSS) là gì?",
+                    "options": ["AWS WAF (Web Application Firewall)", "AWS Shield", "Amazon GuardDuty", "AWS Network Firewall"],
+                    "correctIndex": 0,
+                    "correctAnswer": "AWS WAF (Web Application Firewall)",
+                    "score": 1,
+                    "difficulty": "MEDIUM",
+                    "subject": "Điện toán đám mây AWS",
+                    "topic": "Tường lửa ứng dụng (WAF)"
+                },
+                {
+                    "content": "Dịch vụ cơ sở dữ liệu quan hệ được quản lý (Managed Relational Database) hỗ trợ MySQL, PostgreSQL, Oracle và SQL Server là gì?",
+                    "options": ["Amazon RDS (Relational Database Service)", "Amazon Aurora", "Amazon Redshift", "Amazon Neptune"],
+                    "correctIndex": 0,
+                    "correctAnswer": "Amazon RDS (Relational Database Service)",
+                    "score": 1,
+                    "difficulty": "EASY",
+                    "subject": "Điện toán đám mây AWS",
+                    "topic": "Cơ sở dữ liệu quan hệ (RDS)"
+                },
+                {
+                    "content": "Dịch vụ phân tích nhận diện khuôn mặt, so khớp sinh trắc học và phát hiện vật thể bằng AI trên AWS là gì?",
+                    "options": ["Amazon Rekognition", "Amazon Textract", "Amazon Comprehend", "Amazon Transcribe"],
+                    "correctIndex": 0,
+                    "correctAnswer": "Amazon Rekognition",
+                    "score": 1,
+                    "difficulty": "EASY",
+                    "subject": "Điện toán đám mây AWS",
+                    "topic": "Thị giác máy tính AI (Rekognition)"
+                },
+                {
+                    "content": "Dịch vụ điều phối luồng quy trình công việc phân tán (Workflow Orchestration) dạng State Machine không máy chủ trên AWS là gì?",
+                    "options": ["AWS Step Functions", "AWS Glue Workflows", "Amazon EventBridge Pipes", "AWS Batch"],
+                    "correctIndex": 0,
+                    "correctAnswer": "AWS Step Functions",
+                    "score": 1,
+                    "difficulty": "MEDIUM",
+                    "subject": "Điện toán đám mây AWS",
+                    "topic": "Điều phối quy trình (Step Functions)"
                 }
             ]
+            return aws_pool[:target_count]
         elif any(kw in lower_text for kw in ["microservice", "soa", "rest", "api"]):
             return [
                 {

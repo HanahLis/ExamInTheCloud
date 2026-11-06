@@ -1,22 +1,22 @@
 import { useEffect, useRef, useState } from 'react';
-import { useTranslation } from '../locales/i18nContext';
 import {
   getSession,
+  getExamPaper,
   getCandidates,
   verifyFace,
-  submitExam,
-  resolveSessionStatus,
-  getExamPaper,
   saveExamProgress,
-  requestPresignedUploadUrl,
+  submitExam,
   requestFacePresignedUrl,
+  requestPresignedUploadUrl,
   uploadBinaryToS3,
+  resolveSessionStatus,
   type ExamSession,
   type Question,
   type Candidate,
   type FaceVerifyResponse,
   type ExamSubmitResult,
 } from '../services/apiService';
+import { useTranslation } from '../locales/i18nContext';
 
 interface Props {
   sessionId: string;
@@ -46,7 +46,7 @@ export const ExamRoom = ({ sessionId, currentUserEmail = '', isOrganizer = false
   const [isVerifying, setIsVerifying] = useState(false);
   const [verifyResult, setVerifyResult] = useState<FaceVerifyResponse | null>(null);
 
-  // Tiến trình làm bài và lưu ngầm lên Cloud (Kiến trúc Local-First & Throttled Sync - Task 23)
+  // Tiến trình làm bài và lưu ngầm lên Cloud (Local-First & Throttled Sync)
   const [answers, setAnswers] = useState<Record<string, number | string>>({});
   const [lastSavedTime, setLastSavedTime] = useState<string>('');
   const [isSavingDraft, setIsSavingDraft] = useState(false);
@@ -62,7 +62,7 @@ export const ExamRoom = ({ sessionId, currentUserEmail = '', isOrganizer = false
   const [submitResult, setSubmitResult] = useState<ExamSubmitResult | null>(null);
   const [timeLeft, setTimeLeft] = useState<number>(45 * 60);
 
-  // Tải đề thi an toàn (Backend đã ẩn đáp án đúng F12) và nạp lại bài nháp
+  // Tải đề thi an toàn và nạp lại bài nháp
   useEffect(() => {
     let isMounted = true;
     const loadSessionData = async () => {
@@ -78,7 +78,6 @@ export const ExamRoom = ({ sessionId, currentUserEmail = '', isOrganizer = false
         setSession(s);
         setCandidates(allCandidates);
 
-        // Khóa email thí sinh nếu thí sinh đang đăng nhập; Giảng viên xem trước có thể chọn thí sinh
         if (currentUserEmail && !isOrganizer) {
           setCandidateEmail(currentUserEmail);
         } else if (s.candidateEmails && s.candidateEmails.length > 0) {
@@ -89,7 +88,6 @@ export const ExamRoom = ({ sessionId, currentUserEmail = '', isOrganizer = false
 
         if (paperData && paperData.questions && paperData.questions.length > 0) {
           setSessionQuestions(paperData.questions);
-          // Local-First: Khôi phục bài làm từ localStorage hoặc Cloud (Task 23)
           const localDraftKey = `cloudexam_draft_${sessionId}_${candidateEmail}`;
           let restoredAnswers = paperData.draftAnswers || {};
           let draftSource = 'Cloud';
@@ -100,7 +98,7 @@ export const ExamRoom = ({ sessionId, currentUserEmail = '', isOrganizer = false
               const parsedLocal = JSON.parse(localSaved);
               if (parsedLocal.answers && Object.keys(parsedLocal.answers).length >= Object.keys(restoredAnswers).length) {
                 restoredAnswers = parsedLocal.answers;
-                draftSource = 'Local-First (0ms lag)';
+                draftSource = 'bộ nhớ máy (0ms)';
               }
             }
           } catch (e) {
@@ -111,7 +109,7 @@ export const ExamRoom = ({ sessionId, currentUserEmail = '', isOrganizer = false
             setAnswers(restoredAnswers);
             answersRef.current = restoredAnswers;
             lastSyncAnswersRef.current = { ...restoredAnswers };
-            setLastSavedTime(`Đã khôi phục bài làm từ ${draftSource}`);
+            setLastSavedTime(`Đã nạp bài từ ${draftSource}`);
           }
         }
       } catch (err: any) {
@@ -144,18 +142,17 @@ export const ExamRoom = ({ sessionId, currentUserEmail = '', isOrganizer = false
     return () => clearInterval(interval);
   }, [step]);
 
-  // Bộ đệm đồng bộ định kỳ 60 giây (Throttled Sync 60s - Task 23)
+  // Bộ đệm đồng bộ định kỳ 60 giây
   useEffect(() => {
     if (step !== 'IN_EXAM') return;
     const syncInterval = setInterval(() => {
       if (dirtyCountRef.current > 0) {
         syncDraftToCloud();
       }
-    }, 60000); // 60s
+    }, 60000);
     return () => clearInterval(syncInterval);
   }, [step, sessionId, candidateEmail]);
 
-  // Hàm đồng bộ bài nháp lên Cloud (Giảm 90% số lượng I/O ghi DynamoDB)
   const syncDraftToCloud = async (currentAnswers = answersRef.current) => {
     if (isSavingDraft) return;
     setIsSavingDraft(true);
@@ -165,42 +162,37 @@ export const ExamRoom = ({ sessionId, currentUserEmail = '', isOrganizer = false
       lastSyncAnswersRef.current = { ...currentAnswers };
       const now = new Date();
       setLastSavedTime(
-        `Đã đồng bộ Cloud lúc ${now.toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit', second: '2-digit' })}`
+        `Đã lưu lúc ${now.toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit', second: '2-digit' })}`
       );
     } catch (err) {
-      console.warn('Lỗi đồng bộ nháp lên Cloud:', err);
+      console.warn('Lỗi đồng bộ nháp:', err);
     } finally {
       setIsSavingDraft(false);
     }
   };
 
-  // Chọn đáp án trắc nghiệm: Lưu tức thì vào localStorage (Local-First 0ms), đệm gom 10 câu mới gửi Cloud (Task 23)
   const handleSelectOption = (questionId: string, optionIndex: number) => {
     const updated = { ...answers, [questionId]: optionIndex };
     setAnswers(updated);
     answersRef.current = updated;
 
-    // 1. Lưu tức thì vào localStorage (0ms lag - chống rớt mạng / mất điện)
     const localDraftKey = `cloudexam_draft_${sessionId}_${candidateEmail}`;
     try {
       localStorage.setItem(localDraftKey, JSON.stringify({
         answers: updated,
         updatedAt: new Date().toISOString()
       }));
-      setLastSavedTime('Đã lưu cục bộ (Local-First 0ms)');
+      setLastSavedTime('Đã lưu bài tự động');
     } catch (e) {
       console.warn('Lỗi ghi localStorage:', e);
     }
 
     dirtyCountRef.current += 1;
-
-    // 2. Throttled Sync: Gom đủ 10 câu thay đổi thì kích hoạt đồng bộ lên Cloud ngay
     if (dirtyCountRef.current >= 10) {
       syncDraftToCloud(updated);
     }
   };
 
-  // Trả lời câu hỏi tự luận: Lưu văn bản tức thì vào localStorage (Local-First 0ms), đệm đẩy Cloud
   const handleTextAnswer = (questionId: string, text: string) => {
     const updated = { ...answers, [questionId]: text };
     setAnswers(updated);
@@ -212,7 +204,7 @@ export const ExamRoom = ({ sessionId, currentUserEmail = '', isOrganizer = false
         answers: updated,
         updatedAt: new Date().toISOString()
       }));
-      setLastSavedTime('Đã lưu cục bộ (Local-First 0ms)');
+      setLastSavedTime('Đã lưu bài tự động');
     } catch (e) {
       console.warn('Lỗi ghi localStorage:', e);
     }
@@ -258,7 +250,6 @@ export const ExamRoom = ({ sessionId, currentUserEmail = '', isOrganizer = false
       ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
       const b64 = canvas.toDataURL('image/jpeg', 0.85);
       setCapturedImage(b64);
-      // Chuyển frame ảnh thành tệp nhị phân Blob (~150KB) phục vụ upload thẳng lên S3 (Task 18)
       canvas.toBlob((blob) => {
         if (blob) setCapturedBlob(blob);
       }, 'image/jpeg', 0.85);
@@ -287,9 +278,6 @@ export const ExamRoom = ({ sessionId, currentUserEmail = '', isOrganizer = false
     setVerifyResult(null);
     try {
       let s3Key = '';
-
-      // Mô hình Direct-to-Storage (Task 18 & Quy trình B Báo cáo):
-      // Gọi POST /auth/face-presign lấy URL presigned S3 tải trực tiếp ảnh thẻ tạm temp-faces/{sessionId}_{studentCode}.jpg
       if (capturedBlob) {
         try {
           const matchedCand = candidates.find(
@@ -314,7 +302,7 @@ export const ExamRoom = ({ sessionId, currentUserEmail = '', isOrganizer = false
               s3Key = presign.s3Key || '';
             }
           } catch (s3Err) {
-            console.warn('Upload S3 trực tiếp gặp sự cố, fallback sang truyền Base64:', s3Err);
+            console.warn('Upload ảnh gặp sự cố, fallback sang truyền Base64:', s3Err);
           }
         }
       }
@@ -329,7 +317,7 @@ export const ExamRoom = ({ sessionId, currentUserEmail = '', isOrganizer = false
     } catch (err: any) {
       let msg = err?.response?.data?.message || err?.response?.data?.error || err?.message || 'Lỗi xác thực khuôn mặt';
       if (msg === 'Forbidden' || err?.response?.status === 403) {
-        msg = 'Khuôn mặt không khớp với ảnh hồ sơ thí sinh (Độ tương đồng < 80%) hoặc phiên làm việc đã hết hạn. Vui lòng chụp lại rõ mặt hoặc liên hệ Giám thị.';
+        msg = 'Khuôn mặt không khớp với ảnh hồ sơ thí sinh (Độ tương đồng < 80%). Vui lòng chụp lại rõ mặt hoặc liên hệ Giám thị.';
       }
       setVerifyResult({
         status: 'FAIL',
@@ -346,15 +334,12 @@ export const ExamRoom = ({ sessionId, currentUserEmail = '', isOrganizer = false
     if (!isAutoSubmit && !confirm(t('exam_submit_confirm'))) return;
     setIsSubmitting(true);
     try {
-      // Đồng bộ bài nháp lần cuối trước khi nộp
       await syncDraftToCloud(answersRef.current || answers);
-
-      // Nộp bài thi qua SQS Pipeline kèm Cloudflare Turnstile token chống bot (Task M-02 & T-02)
       const res = await submitExam({
         sessionId,
         answers: answersRef.current || answers,
         candidateEmail,
-        turnstileToken: '1x0000000000000000000000000000000AA', // Token Cloudflare chính thức cho người thật
+        turnstileToken: '1x0000000000000000000000000000000AA',
       });
       setSubmitResult(res.result);
       setStep('COMPLETED');
@@ -380,20 +365,26 @@ export const ExamRoom = ({ sessionId, currentUserEmail = '', isOrganizer = false
 
   if (loadingSession) {
     return (
-      <div className="flex flex-col items-center justify-center min-h-[50vh] space-y-2">
-        <p className="text-xs text-slate-500">{t('exam_loading_info')}</p>
+      <div className="flex flex-col items-center justify-center min-h-[50vh] space-y-3">
+        <span className="w-8 h-8 border-3 border-indigo-200 border-t-indigo-600 rounded-full animate-spin"></span>
+        <p className="text-xs text-slate-500 font-medium">{t('exam_loading_info')}</p>
       </div>
     );
   }
 
   if (errorMsg || !session) {
     return (
-      <div className="max-w-md mx-auto p-6 bg-white rounded-lg border border-slate-200 text-center space-y-3">
-        <h2 className="text-base font-semibold text-slate-800">{t('exam_not_found')}</h2>
+      <div className="max-w-md mx-auto p-8 bg-white rounded-3xl border border-slate-200/80 shadow-md text-center space-y-4">
+        <div className="w-12 h-12 mx-auto rounded-2xl bg-rose-50 text-rose-600 flex items-center justify-center">
+          <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+          </svg>
+        </div>
+        <h2 className="text-base font-bold text-slate-800">{t('exam_not_found')}</h2>
         <p className="text-xs text-slate-600">{errorMsg || t('exam_invalid_id')}</p>
         <button
           onClick={onExit}
-          className="px-4 py-2 bg-slate-900 text-white rounded-md text-xs cursor-pointer"
+          className="px-5 py-2.5 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl text-xs font-semibold shadow-xs transition cursor-pointer"
         >
           {t('exam_back')}
         </button>
@@ -414,77 +405,95 @@ export const ExamRoom = ({ sessionId, currentUserEmail = '', isOrganizer = false
   };
 
   return (
-    <div className="max-w-3xl mx-auto space-y-4">
-      {/* Tiêu đề ca thi */}
-      <div className="bg-white p-5 rounded-lg border border-slate-200 flex flex-wrap justify-between items-center gap-3">
-        <div>
-          <div className="flex items-center gap-2 mb-1">
-            <span className="text-xs font-mono font-medium text-slate-500">
+    <div className="max-w-4xl mx-auto space-y-5">
+      {/* Tiêu đề ca thi & Header điều khiển */}
+      <div className="bg-white p-5 rounded-3xl border border-slate-200/80 shadow-xs flex flex-wrap justify-between items-center gap-3">
+        <div className="space-y-1">
+          <div className="flex items-center gap-2">
+            <span className="text-xs font-mono font-bold text-indigo-700 bg-indigo-50 px-2 py-0.5 rounded-lg border border-indigo-100">
               #{session.id}
             </span>
             <span
-              className={`text-[10px] font-medium px-2 py-0.5 rounded border ${statusStyles[currentStatus] || 'bg-slate-100 text-slate-600 border-slate-200'}`}
+              className={`text-[10px] font-semibold px-2.5 py-0.5 rounded-full border ${statusStyles[currentStatus] || 'bg-slate-100 text-slate-600 border-slate-200'}`}
             >
-              {currentStatus} • {t(statusKeys[currentStatus] || 'sess_status_scheduled')}
+              {t(statusKeys[currentStatus] || 'sess_status_scheduled')}
             </span>
           </div>
-          <h2 className="text-base font-semibold text-slate-900">{session.name}</h2>
-          <p className="text-xs text-slate-500 mt-0.5">
-            {t('qb_question_list_title')}: {sessionQuestions.length} {t('sess_questions_unit')} | {t('exam_candidate_label')} {candidateEmail}
-            {currentCandidateObj && ` (${currentCandidateObj.name} - ${currentCandidateObj.studentCode})`}
+          <h2 className="text-base font-bold text-slate-900 tracking-tight">{session.name}</h2>
+          <p className="text-xs text-slate-500">
+            {sessionQuestions.length} câu hỏi • Thí sinh: <span className="font-semibold text-slate-700">{currentCandidateObj?.name || candidateEmail}</span>
+            {currentCandidateObj?.studentCode && <span className="font-mono text-indigo-700"> ({currentCandidateObj.studentCode})</span>}
           </p>
         </div>
 
         <div className="flex items-center gap-3">
           {step === 'IN_EXAM' && (
-            <div className="flex items-center gap-3">
+            <div className="flex items-center gap-3 bg-indigo-50/70 px-4 py-2 rounded-2xl border border-indigo-100/80">
               <div className="text-right">
-                <span className="text-[10px] text-slate-500 flex items-center justify-end gap-1">
+                <span className="text-[10px] text-slate-500 flex items-center justify-end gap-1 font-medium">
                   <span className={`inline-block w-1.5 h-1.5 rounded-full ${isSavingDraft ? 'bg-amber-500 animate-ping' : 'bg-emerald-500'}`}></span>
-                  {isSavingDraft ? t('exam_syncing_cloud') : (lastSavedTime || t('exam_auto_save_local'))}
+                  {isSavingDraft ? 'Đang lưu...' : (lastSavedTime || 'Đã lưu tự động')}
                 </span>
-                <span className="text-base font-mono font-semibold text-slate-800">{formatTimer(timeLeft)}</span>
+                <span className={`text-base font-mono font-bold ${timeLeft < 300 ? 'text-rose-600 animate-pulse' : 'text-indigo-900'}`}>
+                  {formatTimer(timeLeft)}
+                </span>
               </div>
             </div>
           )}
+
           <button
             onClick={onExit}
-            className="text-xs text-slate-600 hover:text-slate-900 px-3 py-1.5 border border-slate-200 rounded-md hover:bg-slate-50 transition cursor-pointer"
+            className="text-xs text-slate-600 hover:text-slate-900 px-3.5 py-2 border border-slate-200/80 rounded-xl hover:bg-slate-50 transition cursor-pointer font-medium flex items-center gap-1.5"
           >
-            {t('exam_exit_room')}
+            <svg className="w-4 h-4 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M10 19l-7-7m0 0l7-7m-7 7h18" />
+            </svg>
+            <span>{t('exam_exit_room')}</span>
           </button>
         </div>
       </div>
 
-      {/* Thông báo trạng thái đồng bộ */}
+      {/* Thông báo trạng thái ca thi */}
       {currentStatus === 'SCHEDULED' && (
-        <div className="p-3.5 bg-amber-50 border border-amber-200 rounded-lg text-xs text-amber-900">
-          {t('exam_status_scheduled_msg')}
+        <div className="p-4 bg-amber-50/90 border border-amber-200/80 rounded-2xl text-xs text-amber-900 flex items-center gap-2.5 shadow-2xs">
+          <span className="w-5 h-5 rounded-full bg-amber-100 text-amber-800 flex items-center justify-center shrink-0">ℹ</span>
+          <span>{t('exam_status_scheduled_msg')}</span>
         </div>
       )}
 
       {currentStatus === 'CLOSED' && (
-        <div className="p-3.5 bg-slate-100 border border-slate-200 rounded-lg text-xs text-slate-700">
-          {t('exam_status_closed_msg')}
+        <div className="p-4 bg-slate-100 border border-slate-200 rounded-2xl text-xs text-slate-700 flex items-center gap-2.5">
+          <span className="w-5 h-5 rounded-full bg-slate-200 text-slate-700 flex items-center justify-center shrink-0">✕</span>
+          <span>{t('exam_status_closed_msg')}</span>
         </div>
       )}
 
-      {/* BƯỚC 1: XÁC THỰC KHUÔN MẶT */}
+      {/* BƯỚC 1: XÁC THỰC KHUÔN MẶT SINH TRẮC HỌC */}
       {step === 'FACE_VERIFY' && (
-        <div className="bg-white p-5 rounded-lg border border-slate-200 space-y-4">
-          <div className="border-b border-slate-100 pb-3">
-            <h3 className="text-sm font-semibold text-slate-800">
-              {t('exam_biometric_title')}
-            </h3>
+        <div className="bg-white p-6 rounded-3xl border border-slate-200/80 shadow-xs space-y-5">
+          <div className="border-b border-indigo-100/60 pb-3 flex items-center gap-2.5">
+            <div className="w-8 h-8 rounded-xl bg-indigo-50 text-indigo-600 flex items-center justify-center">
+              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M5.121 17.804A13.937 13.937 0 0112 16c2.5 0 4.847.655 6.879 1.804M15 10a3 3 0 11-6 0 3 3 0 016 0zm6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+              </svg>
+            </div>
+            <div>
+              <h3 className="text-sm font-bold text-slate-900 tracking-tight">
+                {t('exam_biometric_title')}
+              </h3>
+              <p className="text-xs text-slate-500">
+                Hệ thống xác thực danh tính sinh trắc học tự động nhằm đảm bảo tính công bằng trong phòng thi
+              </p>
+            </div>
           </div>
 
-          <div className="bg-slate-50 p-3.5 rounded-md border border-slate-200 space-y-2.5">
+          <div className="bg-indigo-50/40 p-4 rounded-2xl border border-indigo-100/60 space-y-3">
             {isOrganizer ? (
               <div>
-                <label className="block text-xs font-medium text-slate-600 mb-1">
+                <label className="block text-xs font-semibold text-slate-700 mb-1.5">
                   {t('exam_select_preview_cand')}
                 </label>
-                <div className="flex flex-wrap gap-1.5">
+                <div className="flex flex-wrap gap-2">
                   {session.candidateEmails.map((email) => {
                     const cand = candidates.find((c) => c.email.toLowerCase() === email.toLowerCase());
                     const isSelected = candidateEmail.toLowerCase() === email.toLowerCase();
@@ -493,10 +502,10 @@ export const ExamRoom = ({ sessionId, currentUserEmail = '', isOrganizer = false
                         key={email}
                         type="button"
                         onClick={() => setCandidateEmail(email)}
-                        className={`text-xs px-2.5 py-1 rounded border transition cursor-pointer ${
+                        className={`text-xs px-3 py-1.5 rounded-xl border transition cursor-pointer font-medium ${
                           isSelected
-                            ? 'bg-slate-900 text-white border-slate-900 font-medium'
-                            : 'bg-white text-slate-700 border-slate-200 hover:bg-slate-100'
+                            ? 'bg-indigo-600 text-white border-indigo-600 shadow-xs'
+                            : 'bg-white text-slate-700 border-slate-200 hover:bg-slate-50'
                         }`}
                       >
                         <span>{cand ? cand.name : email}</span>
@@ -508,34 +517,32 @@ export const ExamRoom = ({ sessionId, currentUserEmail = '', isOrganizer = false
             ) : (
               <div className="text-xs text-slate-700 flex flex-wrap items-center gap-2">
                 <span className="font-medium text-slate-500">{t('exam_candidate_label')}</span>
-                <span className="font-semibold text-slate-900">{currentCandidateObj?.name || candidateEmail}</span>
+                <span className="font-bold text-slate-900">{currentCandidateObj?.name || candidateEmail}</span>
                 {currentCandidateObj?.studentCode && (
-                  <span className="text-slate-500 font-mono">({currentCandidateObj.studentCode})</span>
+                  <span className="text-indigo-700 font-mono font-semibold">({currentCandidateObj.studentCode})</span>
                 )}
                 <span className="text-slate-400 font-mono text-[11px]">[{candidateEmail}]</span>
               </div>
             )}
 
-            <div className="pt-2 border-t border-slate-200 space-y-2">
-              <div className="flex flex-wrap items-center justify-between gap-2 text-[11px] text-slate-500">
-                <span className="flex items-center gap-1.5">
-                  <span className="w-1.5 h-1.5 rounded-full bg-emerald-500"></span>
-                  {t('exam_service_label')} <span className="font-mono font-medium text-slate-700">AI Biometrics</span>
-                </span>
-                <span>
-                  {t('exam_threshold_label')} <span className="font-mono font-semibold text-slate-700">&ge; 80%</span>
-                </span>
-              </div>
+            <div className="pt-2 border-t border-indigo-100/60 flex flex-wrap items-center justify-between gap-2 text-[11px] text-slate-500">
+              <span className="flex items-center gap-1.5">
+                <span className="w-1.5 h-1.5 rounded-full bg-emerald-500"></span>
+                <span>Thuật toán đối sánh sinh trắc học khuôn mặt AI</span>
+              </span>
+              <span className="font-medium">
+                Ngưỡng đạt tiêu chuẩn: <span className="font-mono font-bold text-indigo-700">&ge; 80%</span>
+              </span>
             </div>
           </div>
 
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4 items-start">
-            {/* Ảnh hồ sơ */}
-            <div className="space-y-2 p-3 bg-slate-50 rounded-md border border-slate-200 text-center">
-              <div className="text-xs text-slate-600 font-medium">
+            {/* Ảnh hồ sơ sinh viên */}
+            <div className="space-y-2 p-4 bg-slate-50/70 rounded-2xl border border-slate-200/80 text-center">
+              <div className="text-xs text-slate-700 font-bold">
                 {t('exam_profile_photo')}
               </div>
-              <div className="aspect-4/3 bg-slate-200 rounded overflow-hidden flex items-center justify-center border border-slate-300">
+              <div className="aspect-4/3 bg-slate-200/80 rounded-2xl overflow-hidden flex items-center justify-center border border-slate-200 shadow-inner">
                 {currentCandidateObj?.faceImageUrl ? (
                   <img
                     src={currentCandidateObj.faceImageUrl}
@@ -554,7 +561,7 @@ export const ExamRoom = ({ sessionId, currentUserEmail = '', isOrganizer = false
                         img.src =
                           'https://ui-avatars.com/api/?name=' +
                           encodeURIComponent(currentCandidateObj.name) +
-                          '&background=e2e8f0&color=334155&size=256';
+                          '&background=e0e7ff&color=4338ca&size=256';
                       }
                     }}
                   />
@@ -562,18 +569,18 @@ export const ExamRoom = ({ sessionId, currentUserEmail = '', isOrganizer = false
                   <span className="text-xs text-slate-400">{t('exam_no_profile_photo')}</span>
                 )}
               </div>
-              <p className="text-xs text-slate-600">
+              <p className="text-xs text-slate-600 font-medium">
                 {currentCandidateObj?.name} ({currentCandidateObj?.studentCode})
               </p>
             </div>
 
-            {/* Camera trực tiếp */}
-            <div className="space-y-2 p-3 bg-slate-50 rounded-md border border-slate-200 text-center">
-              <div className="text-xs text-slate-600 font-medium">
+            {/* Webcam Thí sinh trực tiếp */}
+            <div className="space-y-2 p-4 bg-slate-50/70 rounded-2xl border border-slate-200/80 text-center">
+              <div className="text-xs text-slate-700 font-bold">
                 {t('exam_webcam_photo')}
               </div>
 
-              <div className="aspect-4/3 bg-slate-900 rounded overflow-hidden flex items-center justify-center border border-slate-300">
+              <div className="aspect-4/3 bg-slate-900 rounded-2xl overflow-hidden flex items-center justify-center border border-slate-800 shadow-inner relative">
                 <video
                   ref={videoRef}
                   autoPlay
@@ -591,19 +598,23 @@ export const ExamRoom = ({ sessionId, currentUserEmail = '', isOrganizer = false
                 )}
 
                 {!cameraActive && !capturedImage && (
-                  <div className="text-center text-slate-400 p-4">
-                    <span className="text-xs">{t('exam_camera_not_active')}</span>
+                  <div className="text-center text-slate-400 p-4 space-y-1">
+                    <svg className="w-8 h-8 mx-auto text-slate-500 mb-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M3 9a2 2 0 012-2h.93a2 2 0 001.664-.89l.812-1.22A2 2 0 0110.07 4h3.86a2 2 0 011.664.89l.812 1.22A2 2 0 0018.07 7H19a2 2 0 012 2v9a2 2 0 01-2 2H5a2 2 0 01-2-2V9z" />
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M15 13a3 3 0 11-6 0 3 3 0 016 0z" />
+                    </svg>
+                    <span className="text-xs block">{t('exam_camera_not_active')}</span>
                   </div>
                 )}
 
                 <canvas ref={canvasRef} className="hidden" />
               </div>
 
-              <div className="flex flex-wrap gap-2 justify-center">
+              <div className="flex flex-wrap gap-2 justify-center pt-1">
                 {!cameraActive ? (
                   <button
                     onClick={startCamera}
-                    className="py-1 px-3 bg-slate-900 text-white rounded text-xs hover:bg-slate-800 transition cursor-pointer"
+                    className="py-1.5 px-3.5 bg-indigo-600 text-white rounded-xl text-xs font-semibold hover:bg-indigo-700 transition cursor-pointer shadow-xs"
                   >
                     {t('exam_open_camera')}
                   </button>
@@ -611,20 +622,20 @@ export const ExamRoom = ({ sessionId, currentUserEmail = '', isOrganizer = false
                   <>
                     <button
                       onClick={capturePhoto}
-                      className="py-1 px-3 bg-emerald-700 text-white rounded text-xs font-medium hover:bg-emerald-800 transition cursor-pointer"
+                      className="py-1.5 px-3.5 bg-emerald-600 text-white rounded-xl text-xs font-semibold hover:bg-emerald-700 transition cursor-pointer shadow-xs"
                     >
                       {t('exam_capture_photo')}
                     </button>
                     <button
                       onClick={stopCamera}
-                      className="py-1 px-3 bg-slate-600 text-white rounded text-xs hover:bg-slate-700 transition cursor-pointer"
+                      className="py-1.5 px-3.5 bg-slate-600 text-white rounded-xl text-xs font-medium hover:bg-slate-700 transition cursor-pointer"
                     >
                       {t('exam_close_camera')}
                     </button>
                   </>
                 )}
 
-                <label className="py-1 px-3 bg-white border border-slate-200 text-slate-700 rounded text-xs hover:bg-slate-50 cursor-pointer transition">
+                <label className="py-1.5 px-3.5 bg-white border border-slate-200 text-slate-700 rounded-xl text-xs font-medium hover:bg-slate-50 cursor-pointer transition">
                   {t('exam_upload_file')}
                   <input type="file" accept="image/*" onChange={handleFileUpload} className="hidden" />
                 </label>
@@ -632,30 +643,49 @@ export const ExamRoom = ({ sessionId, currentUserEmail = '', isOrganizer = false
             </div>
           </div>
 
-          <div className="space-y-3 pt-1">
+          <div className="space-y-3 pt-2">
             <button
               onClick={handleVerifyFace}
               disabled={!capturedImage || isVerifying}
-              className="w-full py-2.5 bg-slate-900 text-white font-medium rounded-md hover:bg-slate-800 disabled:bg-slate-300 disabled:cursor-not-allowed transition cursor-pointer text-xs"
+              className="w-full py-3 bg-gradient-to-r from-indigo-600 to-indigo-700 hover:from-indigo-500 hover:to-indigo-600 text-white font-semibold rounded-2xl shadow-sm shadow-indigo-200 disabled:opacity-40 transition cursor-pointer text-xs active:scale-[0.99]"
             >
-              {isVerifying ? t('exam_rekognition_verifying') : t('exam_rekognition_verify_btn')}
+              {isVerifying ? (
+                <span className="flex items-center justify-center gap-2">
+                  <span className="w-3.5 h-3.5 border-2 border-white/30 border-t-white rounded-full animate-spin"></span>
+                  <span>Đang xử lý phân tích sinh trắc học...</span>
+                </span>
+              ) : (
+                'Bắt đầu Đối sánh Khuôn Mặt'
+              )}
             </button>
 
             {verifyResult && (
               <div
-                className={`p-3.5 rounded-md border text-xs ${
+                className={`p-4 rounded-2xl border text-xs space-y-2 ${
                   verifyResult.verified
                     ? 'bg-emerald-50 border-emerald-200 text-emerald-900'
                     : 'bg-rose-50 border-rose-200 text-rose-900'
                 }`}
               >
-                <div className="font-semibold mb-1">
-                  {verifyResult.verified ? t('exam_verify_success_reko') : t('exam_verify_fail_reko')}
+                <div className="font-bold flex items-center gap-2">
+                  <span className={`w-5 h-5 rounded-full flex items-center justify-center text-xs ${verifyResult.verified ? 'bg-emerald-200 text-emerald-800' : 'bg-rose-200 text-rose-800'}`}>
+                    {verifyResult.verified ? '✓' : '✕'}
+                  </span>
+                  <span>{verifyResult.verified ? 'Xác thực sinh trắc học thành công!' : 'Xác thực khuôn mặt chưa đạt'}</span>
                 </div>
-                <p className="leading-relaxed mb-1 text-slate-600">{verifyResult.message}</p>
+                <p className="leading-relaxed text-slate-600">{verifyResult.message}</p>
                 {verifyResult.similarity > 0 && (
-                  <div className="font-mono text-[11px] text-slate-500">
-                    {t('exam_similarity_label')} {verifyResult.similarity}% (Yêu cầu &ge; 80%)
+                  <div className="space-y-1">
+                    <div className="flex justify-between text-[11px] font-medium text-slate-600">
+                      <span>Độ tương đồng</span>
+                      <span className="font-mono font-bold">{verifyResult.similarity}%</span>
+                    </div>
+                    <div className="w-full h-2 bg-slate-200 rounded-full overflow-hidden">
+                      <div
+                        className={`h-full rounded-full transition-all duration-500 ${verifyResult.verified ? 'bg-emerald-500' : 'bg-rose-500'}`}
+                        style={{ width: `${Math.min(100, verifyResult.similarity)}%` }}
+                      ></div>
+                    </div>
                   </div>
                 )}
 
@@ -663,16 +693,16 @@ export const ExamRoom = ({ sessionId, currentUserEmail = '', isOrganizer = false
                   currentStatus === 'RUNNING' ? (
                     <button
                       onClick={() => setStep('IN_EXAM')}
-                      className="mt-2.5 w-full py-2 bg-emerald-700 text-white font-medium rounded text-xs hover:bg-emerald-800 transition cursor-pointer"
+                      className="mt-3 w-full py-2.5 bg-gradient-to-r from-emerald-600 to-teal-600 text-white font-semibold rounded-xl text-xs hover:from-emerald-500 hover:to-teal-500 transition cursor-pointer shadow-xs active:scale-[0.99]"
                     >
                       {t('start_exam_btn')}
                     </button>
                   ) : currentStatus === 'SCHEDULED' ? (
-                    <div className="mt-2.5 p-2 bg-amber-50 border border-amber-200 rounded text-amber-800 text-center font-medium text-xs">
+                    <div className="mt-3 p-2.5 bg-amber-50 border border-amber-200 rounded-xl text-amber-800 text-center font-medium text-xs">
                       {t('exam_wait_lecturer_start')}
                     </div>
                   ) : (
-                    <div className="mt-2.5 p-2 bg-slate-100 border border-slate-200 rounded text-slate-600 text-center font-medium text-xs">
+                    <div className="mt-3 p-2.5 bg-slate-100 border border-slate-200 rounded-xl text-slate-600 text-center font-medium text-xs">
                       {t('exam_session_finished')}
                     </div>
                   )
@@ -685,39 +715,41 @@ export const ExamRoom = ({ sessionId, currentUserEmail = '', isOrganizer = false
 
       {/* BƯỚC 2: LÀM BÀI THI */}
       {step === 'IN_EXAM' && (
-        <div className="bg-white p-5 rounded-lg border border-slate-200 space-y-6">
-          <div className="flex justify-between items-center border-b border-slate-100 pb-3">
+        <div className="bg-white p-6 rounded-3xl border border-slate-200/80 shadow-xs space-y-6">
+          <div className="flex flex-wrap justify-between items-center border-b border-slate-100 pb-4 gap-3">
             <div>
-              <h3 className="text-sm font-semibold text-slate-800">
+              <h3 className="text-sm font-bold text-slate-900 tracking-tight">
                 {t('exam_multiple_choice_title')} ({sessionQuestions.length} {t('sess_questions_unit')})
               </h3>
-              <p className="text-xs text-slate-500">
-                {t('exam_question_answered_stat')}: {Object.keys(answers).length}/{sessionQuestions.length} | {lastSavedTime || t('exam_auto_save_local')}
+              <p className="text-xs text-slate-500 mt-0.5">
+                {t('exam_question_answered_stat')}: <span className="font-bold text-indigo-700">{Object.keys(answers).length}</span>/{sessionQuestions.length} câu
               </p>
             </div>
             <button
               onClick={() => handleSubmitExam(false)}
               disabled={isSubmitting}
-              className="py-2 px-5 bg-slate-900 text-white font-medium rounded-md text-xs hover:bg-slate-800 disabled:bg-slate-400 transition cursor-pointer"
+              className="py-2.5 px-6 bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-500 hover:to-teal-500 text-white font-semibold rounded-xl text-xs shadow-xs shadow-emerald-200 disabled:opacity-40 transition cursor-pointer active:scale-[0.99]"
             >
               {isSubmitting ? t('exam_submitting_btn') : t('exam_submit_btn')}
             </button>
           </div>
 
-          <div className="space-y-4">
+          <div className="space-y-5">
             {sessionQuestions.map((q, idx) => {
               const selectedOpt = answers[q.id];
               return (
                 <div
                   key={q.id}
-                  className="p-4 rounded-md border border-slate-200 space-y-2.5 bg-slate-50/50"
+                  className="p-5 rounded-2xl border border-slate-200/80 space-y-3 bg-slate-50/40 hover:bg-white hover:border-indigo-200 transition-all duration-200"
                 >
                   <div className="flex justify-between items-start gap-3">
                     <p className="font-medium text-slate-900 text-xs leading-relaxed">
-                      <span className="font-semibold text-slate-700 mr-1.5">{t('exam_question_num')} {idx + 1}:</span>
+                      <span className="font-bold text-indigo-700 mr-2 bg-indigo-50 px-2 py-0.5 rounded-lg border border-indigo-100">
+                        {t('exam_question_num')} {idx + 1}
+                      </span>
                       {q.content}
                     </p>
-                    <span className="text-[11px] text-slate-500 shrink-0">
+                    <span className="text-[11px] font-semibold text-slate-400 bg-white px-2 py-0.5 rounded-md border border-slate-200 shrink-0">
                       {q.score} {t('exam_points_unit')}
                     </span>
                   </div>
@@ -726,36 +758,36 @@ export const ExamRoom = ({ sessionId, currentUserEmail = '', isOrganizer = false
                     <img
                       src={q.imageUrl}
                       alt="Question Image"
-                      className="max-h-48 rounded border object-contain bg-white"
+                      className="max-h-48 rounded-xl border border-slate-200 object-contain bg-white shadow-2xs"
                     />
                   )}
 
                   {q.type === 'ESSAY' ? (
                     <div className="pt-2">
-                      <label className="block text-[11px] font-medium text-slate-700 mb-1">
+                      <label className="block text-[11px] font-semibold text-slate-700 mb-1.5">
                         {t('exam_essay_prompt')}
                       </label>
                       <textarea
                         value={typeof answers[q.id] === 'string' ? answers[q.id] : ''}
                         onChange={(e) => handleTextAnswer(q.id, e.target.value)}
                         placeholder={t('exam_essay_placeholder_room')}
-                        rows={4}
-                        className="w-full p-2.5 border border-slate-300 rounded-md text-xs bg-white text-slate-900 outline-none focus:border-slate-500 leading-relaxed font-sans"
+                        rows={5}
+                        className="w-full p-3 border border-slate-200 rounded-xl text-xs bg-white text-slate-900 outline-none focus:border-indigo-400 focus:ring-2 focus:ring-indigo-100 leading-relaxed font-sans transition"
                       />
                     </div>
                   ) : (
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-2 pt-1">
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-2.5 pt-1">
                       {q.options.map((opt, optIdx) => {
-                        const label = ['A', 'B', 'C', 'D'][optIdx] || `${optIdx + 1}`;
+                        const label = ['A', 'B', 'C', 'D', 'E', 'F'][optIdx] || `${optIdx + 1}`;
                         const isChecked = selectedOpt === optIdx;
                         return (
                           <label
                             key={optIdx}
                             onClick={() => handleSelectOption(q.id, optIdx)}
-                            className={`flex items-center space-x-2.5 p-2 rounded border cursor-pointer text-xs transition ${
+                            className={`flex items-center space-x-3 p-3 rounded-2xl border cursor-pointer text-xs transition-all duration-150 ${
                               isChecked
-                                ? 'bg-white border-slate-800 font-medium text-slate-900'
-                                : 'bg-white border-slate-200 text-slate-600 hover:bg-slate-50'
+                                ? 'bg-indigo-50/80 border-indigo-400 font-semibold text-indigo-900 shadow-2xs ring-1 ring-indigo-200'
+                                : 'bg-white border-slate-200/80 text-slate-700 hover:bg-slate-50 hover:border-slate-300'
                             }`}
                           >
                             <input
@@ -763,10 +795,12 @@ export const ExamRoom = ({ sessionId, currentUserEmail = '', isOrganizer = false
                               name={`question-${q.id}`}
                               checked={isChecked}
                               onChange={() => handleSelectOption(q.id, optIdx)}
-                              className="text-slate-800 focus:ring-slate-400"
+                              className="text-indigo-600 focus:ring-indigo-300"
                             />
-                            <span className="font-semibold text-slate-700">{label}.</span>
-                            <span className="flex-1 truncate">{opt}</span>
+                            <span className={`w-6 h-6 rounded-lg text-xs font-bold flex items-center justify-center shrink-0 ${isChecked ? 'bg-indigo-600 text-white' : 'bg-slate-100 text-slate-600'}`}>
+                              {label}
+                            </span>
+                            <span className="flex-1 leading-snug">{opt}</span>
                           </label>
                         );
                       })}
@@ -777,11 +811,11 @@ export const ExamRoom = ({ sessionId, currentUserEmail = '', isOrganizer = false
             })}
           </div>
 
-          <div className="pt-3 border-t border-slate-100 flex justify-end">
+          <div className="pt-4 border-t border-slate-100 flex justify-end">
             <button
               onClick={() => handleSubmitExam(false)}
               disabled={isSubmitting}
-              className="py-2.5 px-6 bg-slate-900 text-white font-medium rounded-md text-xs hover:bg-slate-800 disabled:bg-slate-400 transition cursor-pointer"
+              className="py-3 px-8 bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-500 hover:to-teal-500 text-white font-semibold rounded-2xl text-xs shadow-md shadow-emerald-200 disabled:opacity-40 transition cursor-pointer active:scale-[0.99]"
             >
               {isSubmitting ? t('exam_submitting_btn') : t('exam_submit_btn')}
             </button>
@@ -791,29 +825,36 @@ export const ExamRoom = ({ sessionId, currentUserEmail = '', isOrganizer = false
 
       {/* BƯỚC 3: HOÀN THÀNH */}
       {step === 'COMPLETED' && submitResult && (
-        <div className="bg-white p-6 rounded-lg border border-slate-200 text-center space-y-4">
+        <div className="bg-white p-8 rounded-3xl border border-slate-200/80 shadow-md text-center space-y-5">
+          <div className="w-16 h-16 mx-auto rounded-3xl bg-emerald-50 text-emerald-600 flex items-center justify-center border border-emerald-100 shadow-xs">
+            <svg className="w-8 h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+            </svg>
+          </div>
+
           <div>
-            <h3 className="text-lg font-semibold text-slate-800">{t('exam_complete_title')}</h3>
-            <p className="text-xs text-slate-500 mt-0.5">
+            <h3 className="text-xl font-bold text-slate-900 tracking-tight">{t('exam_complete_title')}</h3>
+            <p className="text-xs text-slate-500 mt-1 max-w-md mx-auto">
               {submitResult.status === 'QUEUED'
-                ? t('exam_complete_queued_msg')
-                : t('exam_complete_saved_msg')}
+                ? 'Bài thi đã được ghi nhận vào hàng đợi xử lý chấm điểm tự động.'
+                : 'Bài thi đã được chấm điểm và đồng bộ vào hệ thống.'}
             </p>
           </div>
 
-          <div className="max-w-sm mx-auto bg-slate-50 border border-slate-200 p-5 rounded-lg space-y-3">
+          <div className="max-w-sm mx-auto bg-slate-50/80 border border-slate-200/80 p-6 rounded-2xl space-y-4">
             <div>
-              <div className="text-3xl font-bold text-slate-900">
-                {submitResult.score} / {submitResult.maxScore}
+              <div className="text-4xl font-extrabold text-indigo-700">
+                {submitResult.score} <span className="text-lg font-normal text-slate-400">/ {submitResult.maxScore}</span>
               </div>
-              <p className="text-xs text-slate-600 mt-1">
-                {t('res_correct_count')}: {submitResult.correctCount} / {submitResult.totalQuestions}
+              <p className="text-xs text-slate-600 font-medium mt-1">
+                {t('res_correct_count')}: {submitResult.correctCount} / {submitResult.totalQuestions} câu đúng
               </p>
             </div>
 
-            <div className="text-xs text-slate-600 space-y-1 pt-2 border-t border-slate-200 text-left">
+            <div className="text-xs text-slate-600 space-y-1.5 pt-3 border-t border-slate-200/70 text-left">
               <p>
-                <span className="text-slate-400">{t('exam_candidate_label')}</span> {submitResult.candidateEmail || candidateEmail}
+                <span className="text-slate-400">{t('exam_candidate_label')}</span>{' '}
+                <span className="font-semibold text-slate-800">{submitResult.candidateEmail || candidateEmail}</span>
               </p>
               <p>
                 <span className="text-slate-400">{t('sess_title')}:</span> #{submitResult.sessionId}
@@ -822,17 +863,13 @@ export const ExamRoom = ({ sessionId, currentUserEmail = '', isOrganizer = false
                 <span className="text-slate-400">{t('exam_submitted_at')}</span>{' '}
                 {new Date(submitResult.submittedAt).toLocaleString('vi-VN')}
               </p>
-              <p>
-                <span className="text-slate-400">{t('exam_processing_status')}</span>{' '}
-                <span className="font-mono text-emerald-700 font-medium">{submitResult.status}</span>
-              </p>
             </div>
           </div>
 
-          <div className="flex justify-center gap-2 pt-2">
+          <div className="flex justify-center pt-2">
             <button
               onClick={onExit}
-              className="px-4 py-2 bg-slate-900 text-white text-xs font-medium rounded-md hover:bg-slate-800 transition cursor-pointer"
+              className="px-6 py-2.5 bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-semibold rounded-xl shadow-xs transition cursor-pointer active:scale-[0.99]"
             >
               {t('exam_back_to_list')}
             </button>

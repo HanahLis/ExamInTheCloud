@@ -52,3 +52,4 @@ resource "aws_route53_record" "www_cname" {
   ttl     = 300
   records = [aws_cloudfront_distribution.spa_distribution.domain_name]
 }
+

@@ -7,10 +7,10 @@ export const vnTheme: AppTheme = {
   countryName: 'Việt Nam',
   flag: '',
   colors: {
-    primary: '#0f172a', // Slate 900
-    primaryHover: '#1e293b',
-    accent: '#334155',
-    badgeBg: '#f8fafc',
-    badgeText: '#0f172a',
+    primary: '#0284c7', // Soft Educational Sky Blue
+    primaryHover: '#0369a1',
+    accent: '#0d9488', // Soft Teal
+    badgeBg: '#f0f9ff',
+    badgeText: '#0369a1',
   },
 };
