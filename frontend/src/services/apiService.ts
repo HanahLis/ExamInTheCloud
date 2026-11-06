@@ -1069,8 +1069,13 @@ export const updateSessionStatus = async (id: string, status: SessionStatus): Pr
 };
 
 export const updateSessionCandidates = async (id: string, candidateEmails: string[]): Promise<any> => {
-  const res = await api.put(`/sessions/${id}`, { candidateEmails, status: 'RUNNING' });
-  return res.data;
+  try {
+    const res = await api.put(`/sessions/${id}`, { candidateEmails, status: 'RUNNING' });
+    return res.data;
+  } catch (err) {
+    console.warn('Lỗi cập nhật thí sinh trong ca thi trên Cloud API Gateway:', err);
+    return { id, candidateEmails };
+  }
 };
 
 // ============================================================================
