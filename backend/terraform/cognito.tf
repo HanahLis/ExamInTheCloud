@@ -106,7 +106,7 @@ resource "aws_cognito_user_pool_client" "web_client" {
   allowed_oauth_scopes                 = ["openid", "email", "profile"]
   supported_identity_providers         = ["COGNITO"]
 
-  # Cấu hình Callback URL & Logout URL (Bao gồm cả Localhost và AWS CloudFront CDN)
+  # Cấu hình Callback URL & Logout URL (Bao gồm Localhost, AWS CloudFront CDN và Custom Domain)
   callback_urls = distinct(concat(
     var.frontend_callback_urls,
     [
@@ -116,7 +116,13 @@ resource "aws_cognito_user_pool_client" "web_client" {
       "http://localhost:3000/callback",
       "https://${aws_cloudfront_distribution.spa_distribution.domain_name}",
       "https://${aws_cloudfront_distribution.spa_distribution.domain_name}/callback"
-    ]
+    ],
+    var.custom_domain_name != "" ? [
+      "https://${var.custom_domain_name}",
+      "https://${var.custom_domain_name}/callback",
+      "https://www.${var.custom_domain_name}",
+      "https://www.${var.custom_domain_name}/callback"
+    ] : []
   ))
   logout_urls = distinct(concat(
     var.frontend_logout_urls,
@@ -124,7 +130,11 @@ resource "aws_cognito_user_pool_client" "web_client" {
       "http://localhost:5173",
       "http://localhost:3000",
       "https://${aws_cloudfront_distribution.spa_distribution.domain_name}"
-    ]
+    ],
+    var.custom_domain_name != "" ? [
+      "https://${var.custom_domain_name}",
+      "https://www.${var.custom_domain_name}"
+    ] : []
   ))
 
   # Luồng xác thực trực tiếp
@@ -197,15 +207,15 @@ resource "aws_cognito_user_in_group" "lecturer_an_group" {
   username     = aws_cognito_user.lecturer_an.username
 }
 
-# Tài khoản Thí sinh mẫu: duc.tm24@vnu.edu.vn (MK: 12345678)
+# Tài khoản Thí sinh mẫu: 24020001@vnu.edu.vn (MK: 12345678)
 resource "aws_cognito_user" "candidate_duc" {
   user_pool_id   = aws_cognito_user_pool.main.id
-  username       = "duc.tm24@vnu.edu.vn"
+  username       = "24020001@vnu.edu.vn"
   password       = "12345678"
   message_action = "SUPPRESS"
 
   attributes = {
-    email            = "duc.tm24@vnu.edu.vn"
+    email            = "24020001@vnu.edu.vn"
     email_verified   = "true"
     name             = "Trần Minh Đức"
     student_code     = "24020001"
@@ -219,26 +229,26 @@ resource "aws_cognito_user_in_group" "candidate_duc_group" {
   username     = aws_cognito_user.candidate_duc.username
 }
 
-# Tài khoản Quản trị viên: tranducmanh2006@gmail.com (MK: 12345678)
-resource "aws_cognito_user" "organizer_manh" {
+# Tài khoản Giám thị: laladoraema@gmail.com (MK: 12345678)
+resource "aws_cognito_user" "organizer_laladoraema" {
   user_pool_id   = aws_cognito_user_pool.main.id
-  username       = "tranducmanh2006@gmail.com"
+  username       = "laladoraema@gmail.com"
   password       = "12345678"
   message_action = "SUPPRESS"
 
   attributes = {
-    email            = "tranducmanh2006@gmail.com"
+    email            = "laladoraema@gmail.com"
     email_verified   = "true"
-    name             = "Trần Đức Mạnh"
-    student_code     = "24021561"
+    name             = "Giám thị Laladoraema"
+    student_code     = "GT002"
     "custom:tenant_id" = "vn"
   }
 }
 
-resource "aws_cognito_user_in_group" "organizer_manh_group" {
+resource "aws_cognito_user_in_group" "organizer_laladoraema_group" {
   user_pool_id = aws_cognito_user_pool.main.id
-  group_name   = aws_cognito_user_group.admin.name
-  username     = aws_cognito_user.organizer_manh.username
+  group_name   = aws_cognito_user_group.organizer.name
+  username     = aws_cognito_user.organizer_laladoraema.username
 }
 
 # 5. Cognito Identity Pool (Federated Identities)

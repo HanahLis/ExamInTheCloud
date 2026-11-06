@@ -24,3 +24,6 @@ __pycache__/
 # Node
 node_modules/
 dist/
+
+# Local IDE / Agents
+.agents/

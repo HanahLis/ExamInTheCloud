@@ -49,8 +49,8 @@ def get_content_type_and_cache(filename: str):
 def get_aws_resources(region="ap-southeast-1"):
     """Lấy tên S3 Bucket và CloudFront Distribution ID"""
     s3_bucket = "cloudexam-frontend-dev"
-    dist_id = ""
-    dist_domain = ""
+    dist_id = "E2X1GHBUQ8HDYL"
+    dist_domain = "cloudexam.id.vn"
 
     repo_root = os.path.abspath(os.path.join(os.path.dirname(__file__), ".."))
     env_file = os.path.join(repo_root, "frontend", ".env")
@@ -192,7 +192,7 @@ def build_and_deploy():
     # 4. Hoàn tất và in URL
     print("\n=================================================================")
     print("[SUCCESS] HOAN THANH TRIEN KHAI CLOUDEXAM LEN AWS CLOUDFRONT CDN!")
-    print(f"Website Demo Truc Tuyen: https://{dist_domain}")
+    print(f"Website Demo Truc Tuyen: https://cloudexam.id.vn (CloudFront: https://{dist_domain})")
     print("=================================================================\n")
 
 if __name__ == "__main__":

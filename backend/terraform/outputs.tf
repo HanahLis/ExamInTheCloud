@@ -189,9 +189,19 @@ output "github_oidc_provider_arn" {
 }
 
 # ------------------------------------------------------------------------------
-# 9. CloudFront CDN & Live Website Demo Outputs
+# 9. CloudFront CDN & Custom Domain Outputs (cloudexam.id.vn)
 # ------------------------------------------------------------------------------
 output "cloudexam_website_url" {
   description = "Trang web chính thức CloudExam được host toàn cầu trên AWS CloudFront CDN"
-  value       = "https://${aws_cloudfront_distribution.spa_distribution.domain_name}"
+  value       = var.custom_domain_name != "" ? "https://${var.custom_domain_name}" : "https://${aws_cloudfront_distribution.spa_distribution.domain_name}"
+}
+
+output "custom_domain_name" {
+  description = "Tên miền tùy chỉnh đã gắn vào CloudFront"
+  value       = var.custom_domain_name
+}
+
+output "route53_name_servers" {
+  description = "Danh sách Name Servers của Route 53 (cần trỏ tại Registrar để kích hoạt tên miền)"
+  value       = var.custom_domain_name != "" ? aws_route53_zone.primary[0].name_servers : []
 }

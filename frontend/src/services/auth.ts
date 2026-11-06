@@ -72,10 +72,22 @@ export const DATABASE_ACCOUNTS_MAP: Record<
     email: 'annv@uet.vnu.edu.vn',
     studentCode: 'GV001',
   },
+  'laladoraema@gmail.com': {
+    role: 'Organizer',
+    name: 'Giám thị Laladoraema',
+    email: 'laladoraema@gmail.com',
+    studentCode: 'GT002',
+  },
   'duc.tm24@vnu.edu.vn': {
     role: 'Candidate',
     name: 'Trần Minh Đức',
     email: 'duc.tm24@vnu.edu.vn',
+    studentCode: '24020001',
+  },
+  '24020001@vnu.edu.vn': {
+    role: 'Candidate',
+    name: 'Trần Minh Đức',
+    email: '24020001@vnu.edu.vn',
     studentCode: '24020001',
   },
   'mai.lt24@vnu.edu.vn': {
@@ -84,10 +96,22 @@ export const DATABASE_ACCOUNTS_MAP: Record<
     email: 'mai.lt24@vnu.edu.vn',
     studentCode: '24020002',
   },
+  '24020002@vnu.edu.vn': {
+    role: 'Candidate',
+    name: 'Lê Thị Mai',
+    email: '24020002@vnu.edu.vn',
+    studentCode: '24020002',
+  },
   'long.ph24@vnu.edu.vn': {
     role: 'Candidate',
     name: 'Phạm Hoàng Long',
     email: 'long.ph24@vnu.edu.vn',
+    studentCode: '24020003',
+  },
+  '24020003@vnu.edu.vn': {
+    role: 'Candidate',
+    name: 'Phạm Hoàng Long',
+    email: '24020003@vnu.edu.vn',
     studentCode: '24020003',
   },
   'linh.vt24@vnu.edu.vn': {
@@ -96,10 +120,22 @@ export const DATABASE_ACCOUNTS_MAP: Record<
     email: 'linh.vt24@vnu.edu.vn',
     studentCode: '24020004',
   },
+  '24020004@vnu.edu.vn': {
+    role: 'Candidate',
+    name: 'Vũ Thùy Linh',
+    email: '24020004@vnu.edu.vn',
+    studentCode: '24020004',
+  },
   'huy.dq24@vnu.edu.vn': {
     role: 'Candidate',
     name: 'Đỗ Quang Huy',
     email: 'huy.dq24@vnu.edu.vn',
+    studentCode: '24020005',
+  },
+  '24020005@vnu.edu.vn': {
+    role: 'Candidate',
+    name: 'Đỗ Quang Huy',
+    email: '24020005@vnu.edu.vn',
     studentCode: '24020005',
   },
   'huong.nt24@vnu.edu.vn': {
@@ -108,10 +144,22 @@ export const DATABASE_ACCOUNTS_MAP: Record<
     email: 'huong.nt24@vnu.edu.vn',
     studentCode: '24020006',
   },
+  '24020006@vnu.edu.vn': {
+    role: 'Candidate',
+    name: 'Nguyễn Văn Sáu',
+    email: '24020006@vnu.edu.vn',
+    studentCode: '24020006',
+  },
   'tuan.bv24@vnu.edu.vn': {
     role: 'Candidate',
     name: 'Bùi Văn Tuấn',
     email: 'tuan.bv24@vnu.edu.vn',
+    studentCode: '24020007',
+  },
+  '24020007@vnu.edu.vn': {
+    role: 'Candidate',
+    name: 'Nguyễn Văn Bảy',
+    email: '24020007@vnu.edu.vn',
     studentCode: '24020007',
   },
   'thu.hm24@vnu.edu.vn': {
@@ -141,6 +189,8 @@ export const loginWithDatabaseAccount = (
   name = '',
   studentCode = ''
 ) => {
+  const poolId = import.meta.env.VITE_COGNITO_USER_POOL_ID || 'ap-southeast-1_CloudExam';
+  const region = import.meta.env.VITE_AWS_REGION || 'ap-southeast-1';
   const header = base64EncodeUtf8(JSON.stringify({ alg: 'RS256', typ: 'JWT' }));
   const payload = base64EncodeUtf8(
     JSON.stringify({
@@ -149,8 +199,8 @@ export const loginWithDatabaseAccount = (
       name,
       'cognito:groups': groups,
       'custom:student_code': studentCode,
-      iss: `https://cognito-idp.ap-southeast-1.amazonaws.com/ap-southeast-1_CloudExam`,
-      exp: Math.floor(Date.now() / 1000) + 3600 * 24, // 24 giờ
+      iss: `https://cognito-idp.${region}.amazonaws.com/${poolId}`,
+      exp: Math.floor(Date.now() / 1000) + 3600 * 24 * 7, // 7 ngày
     })
   );
   const token = `${header}.${payload}.cloudexam-verified-token`;
@@ -166,10 +216,25 @@ export const loginWithDatabaseAccount = (
  */
 export const loginWithCognitoPassword = async (email: string, password: string): Promise<void> => {
   const cleanEmail = email.trim().toLowerCase();
+  const cleanPassword = password.trim();
+
+  // 1. Kiểm tra tài khoản trong danh mục Database local / Giảng viên / Thí sinh
+  const fallback = DATABASE_ACCOUNTS_MAP[cleanEmail];
+
+  // Nếu là tài khoản hệ thống demo
+  if (fallback) {
+    if (cleanPassword === '12345678' || cleanPassword === 'CloudExam@2026') {
+      loginWithDatabaseAccount(fallback.email, [fallback.role], fallback.name, fallback.studentCode);
+      return;
+    }
+    // Nếu người dùng cố tình nhập sai mật khẩu cho tài khoản demo:
+    // Tuyệt đối không cho phép đăng nhập lung tung! Báo lỗi rõ ràng!
+    throw new Error('Mật khẩu không chính xác. Mật khẩu mặc định: 12345678');
+  }
 
   // Danh sách mật khẩu tương thích cho tài khoản quản trị viên demo
-  const passwordsToTry = [password];
-  if (password === '12345678') {
+  const passwordsToTry = [cleanPassword];
+  if (cleanPassword === '12345678') {
     passwordsToTry.push('CloudExam@2026');
   }
 
@@ -205,13 +270,8 @@ export const loginWithCognitoPassword = async (email: string, password: string):
       }
 
       if (data.__type === 'UserNotConfirmedException') {
-        const fallback = DATABASE_ACCOUNTS_MAP[cleanEmail];
-        if (fallback) {
-          loginWithDatabaseAccount(fallback.email, [fallback.role], fallback.name, fallback.studentCode);
-          return;
-        }
         throw new Error(
-          'Tài khoản này chưa được xác thực email trên AWS Cognito. Vui lòng bấm "Đăng nhập qua AWS Cognito Hosted UI" để hoàn tất xác thực mã code, hoặc đăng nhập tài khoản Giảng viên: annv@uet.vnu.edu.vn.'
+          'Tài khoản này chưa được xác thực email trên AWS Cognito. Vui lòng bấm "Cổng đăng nhập SSO / Đăng ký tài khoản" để xác thực mã code, hoặc đăng nhập tài khoản Giảng viên: annv@uet.vnu.edu.vn (MK: 12345678).'
         );
       }
 
@@ -223,27 +283,23 @@ export const loginWithCognitoPassword = async (email: string, password: string):
         throw new Error('Tài khoản không tồn tại trong hệ thống.');
       }
 
-      if (data.__type === 'UserNotConfirmedException') {
-        throw new Error('Tài khoản chưa được kích hoạt. Vui lòng liên hệ quản trị viên.');
-      }
-
       lastError = data.message || 'Đăng nhập không thành công.';
     } catch (e: any) {
-      if (e?.message && (e.message.includes('Mật khẩu không chính xác') || e.message.includes('Tài khoản không tồn tại'))) {
+      if (
+        e?.message &&
+        (e.message.includes('Mật khẩu không chính xác') ||
+          e.message.includes('Tài khoản không tồn tại') ||
+          e.message.includes('Tài khoản này chưa được xác thực'))
+      ) {
         throw e;
       }
       lastError = e?.message || 'Không thể kết nối đến máy chủ xác thực.';
     }
   }
 
-  // Chỉ cho phép tài khoản nội bộ đăng nhập dự phòng khi mất kết nối mạng và mật khẩu đúng là 12345678 hoặc CloudExam@2026
-  const fallback = DATABASE_ACCOUNTS_MAP[cleanEmail];
-  if (fallback && (password === '12345678' || password === 'CloudExam@2026')) {
-    loginWithDatabaseAccount(fallback.email, [fallback.role], fallback.name, fallback.studentCode);
-    return;
-  }
-
-  throw new Error(lastError || 'Mật khẩu hoặc email không chính xác.');
+  throw new Error(
+    lastError || 'Mật khẩu hoặc email không chính xác.'
+  );
 };
 
 // Đăng ký tài khoản mới trên AWS Cognito User Pool
@@ -371,23 +427,13 @@ export const isLoggedIn = (): boolean => {
   try {
     const claims = decodeJwt(token);
     if (!claims) {
-      localStorage.clear();
-      return false;
-    }
-    // Tự động phát hiện nếu User Pool trên AWS đã được tạo mới qua Terraform
-    const currentPoolId = import.meta.env.VITE_COGNITO_USER_POOL_ID;
-    if (currentPoolId && claims.iss && !claims.iss.includes(currentPoolId)) {
-      console.warn('[CloudExam Auth] User Pool ID đã thay đổi sau khi Terraform Apply. Tự động làm sạch phiên cũ.');
-      localStorage.clear();
       return false;
     }
     if (claims.exp && claims.exp * 1000 < Date.now()) {
-      localStorage.clear();
       return false;
     }
     return true;
   } catch {
-    localStorage.clear();
     return false;
   }
 };

@@ -10,6 +10,7 @@ import os
 import sys
 import json
 import time
+import subprocess
 from pathlib import Path
 from decimal import Decimal
 
@@ -36,9 +37,26 @@ def get_repo_paths():
     return repo_root, data_dir, sample_faces_dir, tf_dir, frontend_dir
 
 def load_terraform_outputs(tf_dir: Path):
-    """Đọc thông tin hạ tầng thực tế từ terraform.tfstate"""
-    tfstate_file = tf_dir / "terraform.tfstate"
+    """Đọc thông tin hạ tầng thực tế từ terraform output hoặc terraform.tfstate"""
     outputs = {}
+    try:
+        res = subprocess.run(
+            ["terraform", "output", "-json"],
+            cwd=str(tf_dir),
+            capture_output=True,
+            text=True,
+            check=False
+        )
+        if res.returncode == 0 and res.stdout.strip():
+            raw_outputs = json.loads(res.stdout)
+            for k, v in raw_outputs.items():
+                outputs[k] = v.get("value")
+            if outputs:
+                return outputs
+    except Exception:
+        pass
+
+    tfstate_file = tf_dir / "terraform.tfstate"
     if tfstate_file.exists():
         try:
             with open(tfstate_file, "r", encoding="utf-8") as f:
@@ -64,15 +82,15 @@ def seed_cognito_users(cognito_client, user_pool_id: str):
             "student_code": "GV001"
         },
         {
-            "username": "tranducmanh2006@gmail.com",
+            "username": "laladoraema@gmail.com",
             "password": "12345678",
-            "name": "Trần Đức Mạnh",
+            "name": "Giám thị Laladoraema",
             "role": "Organizer",
-            "group": "Admin",
-            "student_code": "24021561"
+            "group": "Organizer",
+            "student_code": "GT002"
         },
         {
-            "username": "duc.tm24@vnu.edu.vn",
+            "username": "24020001@vnu.edu.vn",
             "password": "12345678",
             "name": "Trần Minh Đức",
             "role": "Candidate",
@@ -80,7 +98,7 @@ def seed_cognito_users(cognito_client, user_pool_id: str):
             "student_code": "24020001"
         },
         {
-            "username": "mai.lt24@vnu.edu.vn",
+            "username": "24020002@vnu.edu.vn",
             "password": "12345678",
             "name": "Lê Thị Mai",
             "role": "Candidate",
@@ -88,12 +106,44 @@ def seed_cognito_users(cognito_client, user_pool_id: str):
             "student_code": "24020002"
         },
         {
-            "username": "long.ph24@vnu.edu.vn",
+            "username": "24020003@vnu.edu.vn",
             "password": "12345678",
             "name": "Phạm Hoàng Long",
             "role": "Candidate",
             "group": "Candidate",
             "student_code": "24020003"
+        },
+        {
+            "username": "24020004@vnu.edu.vn",
+            "password": "12345678",
+            "name": "Vũ Thùy Linh",
+            "role": "Candidate",
+            "group": "Candidate",
+            "student_code": "24020004"
+        },
+        {
+            "username": "24020005@vnu.edu.vn",
+            "password": "12345678",
+            "name": "Đỗ Quang Huy",
+            "role": "Candidate",
+            "group": "Candidate",
+            "student_code": "24020005"
+        },
+        {
+            "username": "24020006@vnu.edu.vn",
+            "password": "12345678",
+            "name": "Nguyễn Văn Sáu",
+            "role": "Candidate",
+            "group": "Candidate",
+            "student_code": "24020006"
+        },
+        {
+            "username": "24020007@vnu.edu.vn",
+            "password": "12345678",
+            "name": "Nguyễn VĂN BẢY",
+            "role": "Candidate",
+            "group": "Candidate",
+            "student_code": "24020007"
         }
     ]
 
@@ -110,7 +160,6 @@ def seed_cognito_users(cognito_client, user_pool_id: str):
                     {"Name": "email", "Value": email},
                     {"Name": "email_verified", "Value": "true"},
                     {"Name": "name", "Value": u["name"]},
-                    {"Name": "student_code", "Value": u["student_code"]},
                     {"Name": "custom:tenant_id", "Value": "vn"}
                 ],
                 MessageAction="SUPPRESS"
@@ -203,6 +252,8 @@ def seed_dynamodb_data(dynamodb_resource, bucket_name: str):
             "name": "Ngân hàng đề Kiến trúc AWS Cloud & Microservices",
             "subject": "Điện toán đám mây & Kiến trúc hệ thống",
             "description": "Bộ đề thi chuẩn hóa kiểm tra năng lực thiết kế hệ thống trên AWS và kiến trúc Microservices",
+            "ownerEmail": "annv@uet.vnu.edu.vn",
+            "createdBy": "annv@uet.vnu.edu.vn",
             "createdAt": "2026-10-20T00:00:00Z"
         },
         {
@@ -210,6 +261,8 @@ def seed_dynamodb_data(dynamodb_resource, bucket_name: str):
             "name": "Kiến trúc & Thiết kế Phần mềm Nâng cao",
             "subject": "Kiến trúc Phần mềm",
             "description": "Các mô hình SOA, EDA, CQRS, Event Sourcing và Microservices",
+            "ownerEmail": "annv@uet.vnu.edu.vn",
+            "createdBy": "annv@uet.vnu.edu.vn",
             "createdAt": "2026-10-20T00:00:00Z"
         }
     ]
@@ -426,6 +479,8 @@ def seed_dynamodb_data(dynamodb_resource, bucket_name: str):
     ]
 
     for q in questions:
+        q["ownerEmail"] = "annv@uet.vnu.edu.vn"
+        q["createdBy"] = "annv@uet.vnu.edu.vn"
         try:
             q_table.put_item(Item=q)
             print(f"  + Câu hỏi: {q['id']} - {q['content'][:60]}...")
@@ -436,15 +491,7 @@ def seed_dynamodb_data(dynamodb_resource, bucket_name: str):
     cand_table = dynamodb_resource.Table(f"CloudExam_Candidates_{ENV}")
     candidates = [
         {
-            "email": "annv@uet.vnu.edu.vn",
-            "name": "PGS. TS. Nguyễn Văn An",
-            "className": "Giảng viên - Bộ môn Các Hệ thống Thông tin",
-            "studentCode": "GV001",
-            "faceImageUrl": f"https://{bucket_name}.s3.{REGION}.amazonaws.com/faces/annv.jpg",
-            "createdAt": "2026-10-20T00:00:00Z"
-        },
-        {
-            "email": "duc.tm24@vnu.edu.vn",
+            "email": "24020001@vnu.edu.vn",
             "name": "Trần Minh Đức",
             "className": "QH-2024-I/CQ-CN1",
             "studentCode": "24020001",
@@ -452,7 +499,7 @@ def seed_dynamodb_data(dynamodb_resource, bucket_name: str):
             "createdAt": "2026-10-20T00:00:00Z"
         },
         {
-            "email": "mai.lt24@vnu.edu.vn",
+            "email": "24020002@vnu.edu.vn",
             "name": "Lê Thị Mai",
             "className": "QH-2024-I/CQ-CN1",
             "studentCode": "24020002",
@@ -460,7 +507,7 @@ def seed_dynamodb_data(dynamodb_resource, bucket_name: str):
             "createdAt": "2026-10-20T00:00:00Z"
         },
         {
-            "email": "long.ph24@vnu.edu.vn",
+            "email": "24020003@vnu.edu.vn",
             "name": "Phạm Hoàng Long",
             "className": "QH-2024-I/CQ-CN1",
             "studentCode": "24020003",
@@ -468,7 +515,7 @@ def seed_dynamodb_data(dynamodb_resource, bucket_name: str):
             "createdAt": "2026-10-20T00:00:00Z"
         },
         {
-            "email": "linh.vt24@vnu.edu.vn",
+            "email": "24020004@vnu.edu.vn",
             "name": "Vũ Thùy Linh",
             "className": "QH-2024-I/CQ-CN1",
             "studentCode": "24020004",
@@ -476,7 +523,7 @@ def seed_dynamodb_data(dynamodb_resource, bucket_name: str):
             "createdAt": "2026-10-20T00:00:00Z"
         },
         {
-            "email": "huy.dq24@vnu.edu.vn",
+            "email": "24020005@vnu.edu.vn",
             "name": "Đỗ Quang Huy",
             "className": "QH-2024-I/CQ-CN2",
             "studentCode": "24020005",
@@ -484,64 +531,27 @@ def seed_dynamodb_data(dynamodb_resource, bucket_name: str):
             "createdAt": "2026-10-20T00:00:00Z"
         },
         {
-            "email": "huong.nt24@vnu.edu.vn",
-            "name": "Ngô Thị Hương",
-            "className": "QH-2024-I/CQ-CN2",
+            "email": "24020006@vnu.edu.vn",
+            "name": "Nguyễn Văn Sáu",
+            "className": "k69i-it7",
             "studentCode": "24020006",
             "faceImageUrl": f"https://{bucket_name}.s3.{REGION}.amazonaws.com/faces/24020006.jpg",
             "createdAt": "2026-10-20T00:00:00Z"
         },
         {
-            "email": "tuan.bv24@vnu.edu.vn",
-            "name": "Bùi Văn Tuấn",
-            "className": "QH-2024-I/CQ-CN2",
+            "email": "24020007@vnu.edu.vn",
+            "name": "Nguyễn VĂN BẢY",
+            "className": "K69I-IT6",
             "studentCode": "24020007",
             "faceImageUrl": f"https://{bucket_name}.s3.{REGION}.amazonaws.com/faces/24020007.jpg",
-            "createdAt": "2026-10-20T00:00:00Z"
-        },
-        {
-            "email": "thu.hm24@vnu.edu.vn",
-            "name": "Hoàng Minh Thư",
-            "className": "QH-2024-I/CQ-CN3",
-            "studentCode": "24020008",
-            "faceImageUrl": f"https://{bucket_name}.s3.{REGION}.amazonaws.com/faces/24020008.jpg",
-            "createdAt": "2026-10-20T00:00:00Z"
-        },
-        {
-            "email": "quan.dm24@vnu.edu.vn",
-            "name": "Đặng Minh Quân",
-            "className": "QH-2024-I/CQ-CN3",
-            "studentCode": "24020009",
-            "faceImageUrl": f"https://{bucket_name}.s3.{REGION}.amazonaws.com/faces/24020009.jpg",
-            "createdAt": "2026-10-20T00:00:00Z"
-        },
-        {
-            "email": "chi.nq24@vnu.edu.vn",
-            "name": "Nguyễn Quỳnh Chi",
-            "className": "QH-2024-I/CQ-CN3",
-            "studentCode": "24020010",
-            "faceImageUrl": f"https://{bucket_name}.s3.{REGION}.amazonaws.com/faces/24020010.jpg",
-            "createdAt": "2026-10-20T00:00:00Z"
-        },
-        {
-            "email": "tranducmanh2006@gmail.com",
-            "name": "Trần Đức Mạnh",
-            "className": "QH-2024-I/CQ-CN1",
-            "studentCode": "24021561",
-            "faceImageUrl": f"https://{bucket_name}.s3.{REGION}.amazonaws.com/faces/24021561.jpg",
-            "createdAt": "2026-10-20T00:00:00Z"
-        },
-        {
-            "email": "tran.dm24@vnu.edu.vn",
-            "name": "Trần Đức Mạnh (24021501)",
-            "className": "QH-2024-I/CQ-CN1",
-            "studentCode": "24021501",
-            "faceImageUrl": f"https://{bucket_name}.s3.{REGION}.amazonaws.com/faces/24021501.jpg",
             "createdAt": "2026-10-20T00:00:00Z"
         }
     ]
 
     for c in candidates:
+        c["ownerEmail"] = "annv@uet.vnu.edu.vn"
+        c["createdBy"] = "annv@uet.vnu.edu.vn"
+        c["ownerEmails"] = ["annv@uet.vnu.edu.vn"]
         try:
             cand_table.put_item(Item=c)
             print(f"  + Thí sinh: {c['name']} ({c['studentCode']}) - {c['email']}")
@@ -562,6 +572,8 @@ def seed_dynamodb_data(dynamodb_resource, bucket_name: str):
         "questionIds": q_ids,
         "candidateEmails": cand_emails,
         "durationMinutes": 90,
+        "ownerEmail": "annv@uet.vnu.edu.vn",
+        "createdBy": "annv@uet.vnu.edu.vn",
         "createdAt": "2026-10-20T00:00:00.000Z"
     }
 
@@ -620,8 +632,10 @@ def update_frontend_env_file(frontend_dir: Path, outputs: dict, cognito_client=N
         cf_domain = "dw1cx1i04s8fe.cloudfront.net"
     cf_url = f"https://{cf_domain}"
 
-    # Giữ lại Gemini API Key hiện tại nếu đã có trong .env
-    existing_key = existing_env.get("VITE_GEMINI_API_KEY", "AQ.Ab8RN6IM7Z8gAyK5YaSv5ZntwjK2bUW4OMkZhSKLUbUd-N68hQ")
+    # Giữ lại Gemini API Key hiện tại nếu đã có trong .env (mặc định để trống)
+    existing_key = existing_env.get("VITE_GEMINI_API_KEY", "")
+
+    cognito_domain = outputs.get("cognito_domain") or existing_env.get("VITE_COGNITO_DOMAIN") or f"https://cloudexam-auth-{REGION}.auth.{REGION}.amazoncognito.com"
 
     content = f"""# ==============================================================================
 # CLOUDEXAM FRONTEND ENVIRONMENT CONFIGURATION (.env)
@@ -638,7 +652,7 @@ VITE_AWS_REGION={REGION}
 VITE_API_BASE_URL={api_url}
 
 # Tên miền AWS Cognito Hosted UI
-VITE_COGNITO_DOMAIN=https://cloudexam-auth-onionegg-dev.auth.{REGION}.amazoncognito.com
+VITE_COGNITO_DOMAIN={cognito_domain}
 
 # ID của Cognito User Pool
 VITE_COGNITO_USER_POOL_ID={user_pool_id}
@@ -668,6 +682,13 @@ VITE_GEMINI_MODEL=gemini-3.8-flash
         with open(env_file, "w", encoding="utf-8") as f:
             f.write(content)
         print(f"[OK] Đã cập nhật {env_file} thành công!")
+
+        # Đồng thời cập nhật .env.local cho môi trường dev localhost
+        env_local = frontend_dir / ".env.local"
+        content_local = content.replace(f"VITE_COGNITO_REDIRECT_URI={cf_url}/callback", "VITE_COGNITO_REDIRECT_URI=http://localhost:5173/callback")
+        with open(env_local, "w", encoding="utf-8") as f:
+            f.write(content_local)
+        print(f"[OK] Đã cập nhật {env_local} thành công!")
     except Exception as e:
         print(f"[WARN] Không thể ghi .env: {e}")
 
@@ -731,7 +752,7 @@ def main():
     print("\n=================================================================")
     print("[SUCCESS] ĐÃ NẠP TOÀN BỘ DỮ LIỆU KIỂM THỬ THÀNH CÔNG LÊN AWS CLOUD!")
     print("Tài khoản Giảng viên: annv@uet.vnu.edu.vn (MK: 12345678)")
-    print("Tài khoản Thí sinh:   duc.tm24@vnu.edu.vn (MK: 12345678)")
+    print("Tài khoản Thí sinh:   24020001@vnu.edu.vn - 24020007@vnu.edu.vn (MK: 12345678)")
     print("Ca thi trực tuyến:    EX-VNU-2026-01 (Trạng thái: RUNNING)")
     print("=================================================================\n")
 

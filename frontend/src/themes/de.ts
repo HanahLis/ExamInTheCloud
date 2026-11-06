@@ -7,11 +7,11 @@ export const deTheme: AppTheme = {
   countryName: 'Đức',
   flag: '',
   colors: {
-    primary: '#0f172a',
-    primaryHover: '#1e293b',
-    accent: '#334155',
-    badgeBg: '#f8fafc',
-    badgeText: '#0f172a',
+    primary: '#6366f1', // Soft Iris / Lavender
+    primaryHover: '#4f46e5',
+    accent: '#a855f7',
+    badgeBg: '#eef2ff',
+    badgeText: '#4f46e5',
   },
 };
 

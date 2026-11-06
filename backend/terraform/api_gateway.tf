@@ -294,6 +294,7 @@ locals {
     { key = "q_parsedoc_post", resource_id = aws_api_gateway_resource.questions_parse_doc.id, http_method = "POST" },
     { key = "qb_get", resource_id = aws_api_gateway_resource.question_banks.id, http_method = "GET" },
     { key = "qb_post", resource_id = aws_api_gateway_resource.question_banks.id, http_method = "POST" },
+    { key = "qb_del", resource_id = aws_api_gateway_resource.question_banks.id, http_method = "DELETE" },
     { key = "qid_get", resource_id = aws_api_gateway_resource.question_id.id, http_method = "GET" },
     { key = "qid_put", resource_id = aws_api_gateway_resource.question_id.id, http_method = "PUT" },
     { key = "qid_del", resource_id = aws_api_gateway_resource.question_id.id, http_method = "DELETE" },

@@ -27,6 +27,22 @@ variable "s3_bucket_name" {
 }
 
 # ==============================================================================
+# CẤU HÌNH TÊN MIỀN TÙY CHỈNH & SSL CHO CLOUDFRONT
+# ==============================================================================
+
+variable "custom_domain_name" {
+  description = "Tên miền tùy chỉnh cho CloudFront Distribution (mặc định: cloudexam.id.vn)"
+  type        = string
+  default     = "cloudexam.id.vn"
+}
+
+variable "acm_certificate_arn" {
+  description = "ARN của chứng chỉ SSL/TLS ACM trong us-east-1 cho CloudFront"
+  type        = string
+  default     = "arn:aws:acm:us-east-1:409289618109:certificate/b01bb65b-1206-4100-b13f-c3732a99098f"
+}
+
+# ==============================================================================
 # CẤU HÌNH COGNITO & AUTHENTICATION
 # ==============================================================================
 
