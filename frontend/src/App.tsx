@@ -197,6 +197,20 @@ const DATABASE_ACCOUNTS: SystemAccount[] = [
     studentCode: '24020005',
     unit: 'Sinh viên K69 - Khoa CNTT - UET',
   },
+  {
+    role: 'Candidate',
+    name: 'Nguyễn Văn Sáu',
+    email: '24020006@vnu.edu.vn',
+    studentCode: '24020006',
+    unit: 'Sinh viên K69 - Khoa CNTT - UET',
+  },
+  {
+    role: 'Candidate',
+    name: 'Nguyễn VĂN BẢY',
+    email: '24020007@vnu.edu.vn',
+    studentCode: '24020007',
+    unit: 'Sinh viên K69 - Khoa CNTT - UET',
+  },
 ];
 
 export default function App() {
@@ -311,19 +325,6 @@ export default function App() {
   useEffect(() => {
     if (loggedIn) {
       refreshAll();
-      const u = getCurrentUser();
-      const hasSyncedKey = 'cloudexam_synced_v2_' + u.email;
-      if (!sessionStorage.getItem(hasSyncedKey) && (u.email === 'laladoraema@gmail.com' || u.groups.includes('Organizer'))) {
-        sessionStorage.setItem(hasSyncedKey, '1');
-        syncCloudDatabaseToProduction()
-          .then((res) => {
-            if (res.deletedQuestions > 0 || res.addedQuestions > 0 || res.deletedCandidates > 0) {
-              setSyncNotice(res.message);
-              refreshAll();
-            }
-          })
-          .catch((e) => console.log('Auto-sync check on login:', e));
-      }
     }
   }, [loggedIn, refreshAll]);
 
@@ -331,8 +332,8 @@ export default function App() {
     setSyncing(true);
     setSyncNotice(null);
     try {
-      await syncCloudDatabaseToProduction();
-      setSyncNotice(t('notice_sync_success'));
+      const res = await syncCloudDatabaseToProduction();
+      setSyncNotice(res.message || t('notice_sync_success'));
       await refreshAll();
     } catch (err: any) {
       setSyncNotice(`${t('notice_sync_error')} ${err?.response?.data?.error || err?.message || err}`);

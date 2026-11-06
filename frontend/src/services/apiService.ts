@@ -444,88 +444,53 @@ export const DEFAULT_QUESTIONS: Question[] = [
 
 export const DEFAULT_CANDIDATES: Candidate[] = [
   {
-    studentCode: '24021598',
-    name: 'Phạm Tuấn Phong',
-    email: 'phongpt@vnu.edu.vn',
-    className: 'K66 - Khoa CNTT - UET',
-    faceImageUrl: `${S3_BASE}/faces/24021598.jpg`,
-  },
-  {
-    studentCode: 'GV001',
-    name: 'PGS. TS. Nguyễn Văn An',
-    email: 'annv@uet.vnu.edu.vn',
-    className: 'Giảng viên Khoa Công nghệ Thông tin',
-    faceImageUrl: `${S3_BASE}/faces/annv.jpg`,
-  },
-  {
     studentCode: '24020001',
     name: 'Trần Minh Đức',
-    email: 'duc.tm24@vnu.edu.vn',
+    email: '24020001@vnu.edu.vn',
     className: 'K69 - Khoa CNTT - UET',
     faceImageUrl: `${S3_BASE}/faces/24020001.jpg`,
   },
   {
     studentCode: '24020002',
     name: 'Lê Thị Mai',
-    email: 'mai.lt24@vnu.edu.vn',
+    email: '24020002@vnu.edu.vn',
     className: 'K69 - Khoa CNTT - UET',
     faceImageUrl: `${S3_BASE}/faces/24020002.jpg`,
   },
   {
     studentCode: '24020003',
     name: 'Phạm Hoàng Long',
-    email: 'long.ph24@vnu.edu.vn',
+    email: '24020003@vnu.edu.vn',
     className: 'K69 - Khoa CNTT - UET',
     faceImageUrl: `${S3_BASE}/faces/24020003.jpg`,
   },
   {
     studentCode: '24020004',
     name: 'Vũ Thùy Linh',
-    email: 'linh.vt24@vnu.edu.vn',
+    email: '24020004@vnu.edu.vn',
     className: 'K69 - Khoa CNTT - UET',
     faceImageUrl: `${S3_BASE}/faces/24020004.jpg`,
   },
   {
     studentCode: '24020005',
     name: 'Đỗ Quang Huy',
-    email: 'huy.dq24@vnu.edu.vn',
+    email: '24020005@vnu.edu.vn',
     className: 'K69 - Khoa CNTT - UET',
     faceImageUrl: `${S3_BASE}/faces/24020005.jpg`,
   },
   {
     studentCode: '24020006',
-    name: 'Ngô Thị Hương',
-    email: 'huong.nt24@vnu.edu.vn',
-    className: 'K69 - Khoa CNTT - UET',
+    name: 'Nguyễn Văn Sáu',
+    email: '24020006@vnu.edu.vn',
+    className: 'k69i-it7',
     faceImageUrl: `${S3_BASE}/faces/24020006.jpg`,
   },
   {
     studentCode: '24020007',
-    name: 'Bùi Văn Tuấn',
-    email: 'tuan.bv24@vnu.edu.vn',
-    className: 'K69 - Khoa CNTT - UET',
+    name: 'Nguyễn VĂN BẢY',
+    email: '24020007@vnu.edu.vn',
+    className: 'K69I-IT6',
     faceImageUrl: `${S3_BASE}/faces/24020007.jpg`,
-  },
-  {
-    studentCode: '24020008',
-    name: 'Hoàng Minh Thư',
-    email: 'thu.hm24@vnu.edu.vn',
-    className: 'K69 - Khoa CNTT - UET',
-    faceImageUrl: `${S3_BASE}/faces/24020008.jpg`,
-  },
-  {
-    studentCode: '24020009',
-    name: 'Đặng Minh Quân',
-    email: 'quan.dm24@vnu.edu.vn',
-    className: 'K69 - Khoa CNTT - UET',
-    faceImageUrl: `${S3_BASE}/faces/24020009.jpg`,
-  },
-  {
-    studentCode: '24020010',
-    name: 'Nguyễn Quỳnh Chi',
-    email: 'chi.nq24@vnu.edu.vn',
-    className: 'K69 - Khoa CNTT - UET',
-    faceImageUrl: `${S3_BASE}/faces/24020010.jpg`,
   },
 ];
 
@@ -567,18 +532,13 @@ export const DEFAULT_SESSIONS: ExamSession[] = [
       'q-se-010',
     ],
     candidateEmails: [
-      'phongpt@vnu.edu.vn',
-      'annv@uet.vnu.edu.vn',
-      'duc.tm24@vnu.edu.vn',
-      'mai.lt24@vnu.edu.vn',
-      'long.ph24@vnu.edu.vn',
-      'linh.vt24@vnu.edu.vn',
-      'huy.dq24@vnu.edu.vn',
-      'huong.nt24@vnu.edu.vn',
-      'tuan.bv24@vnu.edu.vn',
-      'thu.hm24@vnu.edu.vn',
-      'quan.dm24@vnu.edu.vn',
-      'chi.nq24@vnu.edu.vn',
+      '24020001@vnu.edu.vn',
+      '24020002@vnu.edu.vn',
+      '24020003@vnu.edu.vn',
+      '24020004@vnu.edu.vn',
+      '24020005@vnu.edu.vn',
+      '24020006@vnu.edu.vn',
+      '24020007@vnu.edu.vn',
     ],
     link: `${typeof window !== 'undefined' ? window.location.origin : ''}/?exam=EX-VNU-2026-01`,
   },
@@ -891,8 +851,8 @@ export const createQuestion = async (data: QuestionInput): Promise<Question> => 
       ? (data.correctAnswer || '')
       : (data.correctAnswer || (data.options ? data.options[Number(data.correctIndex ?? 0)] : '')),
     score: Number(data.score ?? 1),
-    subject: data.subject || 'Kiến trúc hướng dịch vụ',
-    topic: data.topic || 'Kiến trúc hệ thống',
+    subject: data.subject || 'Kiến trúc Phần mềm',
+    topic: data.topic || '',
     difficulty: data.difficulty || 'MEDIUM',
     imageUrl: data.imageUrl || '',
   };
@@ -2211,8 +2171,18 @@ export const sendSessionReport = async (sessionId: string): Promise<{ message: s
 };
 
 // ============================================================================
-// 10. QUY TRÌNH TỰ ĐỘNG ĐỒNG BỘ DỮ LIỆU LÊN AWS DYNAMODB
+// 10. QUY TRÌNH ĐỒNG BỘ DỮ LIỆU CHUẨN XÁC VỚI AWS CLOUD (DYNAMODB & COGNITO)
 // ============================================================================
+
+export const clearLocalCaches = () => {
+  try {
+    localStorage.removeItem(LOCAL_CUSTOM_BANKS_KEY);
+    localStorage.removeItem(LOCAL_CUSTOM_QUESTIONS_KEY);
+    localStorage.removeItem(LOCAL_DELETED_BANKS_KEY);
+  } catch (e) {
+    console.warn('Lỗi xóa local cache:', e);
+  }
+};
 
 export const syncCloudDatabaseToProduction = async (): Promise<{
   deletedQuestions: number;
@@ -2223,87 +2193,67 @@ export const syncCloudDatabaseToProduction = async (): Promise<{
   sessionsUpdated: number;
   message: string;
 }> => {
-  const deletedQuestions = 0;
-  let addedQuestions = 0;
-  let addedBanks = 0;
-  const deletedCandidates = 0;
-  let addedCandidates = 0;
+  let deletedCandidates = 0;
   let sessionsUpdated = 0;
 
-  // 1. Kiểm tra / Khởi tạo ngân hàng câu hỏi
-  try {
-    const bRes = await api.get('/question-banks');
-    const existingBanks = Array.isArray(bRes.data) ? bRes.data : bRes.data?.items || [];
-    const hasArchBank = existingBanks.some((b: any) => (b.id || b.bankId) === 'bank-se-arch-01');
-    if (!hasArchBank) {
-      await api.post('/question-banks', DEFAULT_QUESTION_BANKS[0]);
-      addedBanks++;
-    }
-  } catch (e) {
-    console.warn('Kiểm tra ngân hàng câu hỏi trên DynamoDB:', e);
-  }
+  // 1. Xóa sạch cache cục bộ để ngăn chặn dữ liệu cũ/đã xóa bị khôi phục lại
+  clearLocalCaches();
 
-  // 2. Nạp câu hỏi chuẩn vào DynamoDB
-  try {
-    const qRes = await api.get('/questions');
-    const existingQuestions = Array.isArray(qRes.data) ? qRes.data : qRes.data?.items || [];
-    const existingIds = new Set(existingQuestions.map((q: any) => q.id || q.questionId));
+  // 2. Dọn sạch các tài khoản thí sinh không hợp lệ trên AWS DynamoDB (Chỉ giữ lại 24020001 - 24020007)
+  const allowedCandidateEmails = new Set([
+    '24020001@vnu.edu.vn',
+    '24020002@vnu.edu.vn',
+    '24020003@vnu.edu.vn',
+    '24020004@vnu.edu.vn',
+    '24020005@vnu.edu.vn',
+    '24020006@vnu.edu.vn',
+    '24020007@vnu.edu.vn',
+  ]);
 
-    for (const q of DEFAULT_QUESTIONS) {
-      if (!existingIds.has(q.id)) {
-        try {
-          await api.post('/questions', q);
-          addedQuestions++;
-        } catch (e) {
-          console.warn('Nạp câu hỏi mới lên AWS:', q.id, e);
-        }
-      }
-    }
-  } catch (e) {
-    console.warn('Lỗi kiểm tra câu hỏi trên DynamoDB:', e);
-  }
-
-  // 3. Nạp danh sách thí sinh chuẩn
   try {
     const cRes = await api.get('/candidates');
     const existingCandidates = Array.isArray(cRes.data) ? cRes.data : cRes.data?.items || [];
-    const currentEmails = new Set(existingCandidates.map((c: any) => (c.email || '').toLowerCase()));
-
-    for (const cand of DEFAULT_CANDIDATES) {
-      if (!currentEmails.has(cand.email.toLowerCase())) {
+    for (const c of existingCandidates) {
+      const email = (c.email || '').toLowerCase().trim();
+      if (!allowedCandidateEmails.has(email)) {
         try {
-          await api.post('/candidates', cand);
-          addedCandidates++;
-        } catch (e) {
-          console.warn('Nạp thí sinh mới lên AWS:', cand.email, e);
+          await api.delete(`/candidates/${encodeURIComponent(email)}`);
+          deletedCandidates++;
+        } catch (delErr) {
+          console.warn('Lỗi dọn dẹp thí sinh ngoài danh sách:', email, delErr);
         }
       }
     }
   } catch (e) {
-    console.warn('Lỗi kiểm tra thí sinh trên DynamoDB:', e);
+    console.warn('Lỗi kiểm tra danh sách thí sinh trên Cloud:', e);
   }
 
-  // 4. Cập nhật ca thi chuẩn EX-VNU-2026-01
+  // 3. Đảm bảo ca thi EX-VNU-2026-01 liên kết đúng 7 thí sinh chính thức
   try {
     const sRes = await api.get('/sessions');
     const existingSessions = Array.isArray(sRes.data) ? sRes.data : sRes.data?.items || [];
-    const hasVnuSession = existingSessions.some((s: any) => s.id === 'EX-VNU-2026-01');
-    if (!hasVnuSession) {
-      await api.post('/sessions', DEFAULT_SESSIONS[0]);
-      sessionsUpdated++;
+    const vnuSession = existingSessions.find((s: any) => s.id === 'EX-VNU-2026-01');
+    const targetEmails = Array.from(allowedCandidateEmails).sort();
+    if (vnuSession) {
+      const curList = (vnuSession.candidateEmails || []).map((e: string) => e.toLowerCase());
+      const isMatch = curList.length === targetEmails.length && targetEmails.every((e) => curList.includes(e));
+      if (!isMatch) {
+        await api.put(`/sessions/${vnuSession.id}`, { candidateEmails: targetEmails });
+        sessionsUpdated++;
+      }
     }
   } catch (e) {
-    console.warn('Lỗi kiểm tra ca thi trên DynamoDB:', e);
+    console.warn('Lỗi cập nhật danh sách thí sinh trong ca thi:', e);
   }
 
   return {
-    deletedQuestions,
-    addedQuestions,
-    addedBanks,
+    deletedQuestions: 0,
+    addedQuestions: 0,
+    addedBanks: 0,
     deletedCandidates,
-    addedCandidates,
+    addedCandidates: 0,
     sessionsUpdated,
-    message: 'Đã hoàn tất đồng bộ dữ liệu chuẩn trên hệ thống.',
+    message: 'Đã hoàn tất đồng bộ dữ liệu (Thí sinh 24020001-24020007, Ngân hàng đề, Ca thi) với AWS Cloud!',
   };
 };
 

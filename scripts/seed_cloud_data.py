@@ -128,6 +128,22 @@ def seed_cognito_users(cognito_client, user_pool_id: str):
             "role": "Candidate",
             "group": "Candidate",
             "student_code": "24020005"
+        },
+        {
+            "username": "24020006@vnu.edu.vn",
+            "password": "12345678",
+            "name": "Nguyễn Văn Sáu",
+            "role": "Candidate",
+            "group": "Candidate",
+            "student_code": "24020006"
+        },
+        {
+            "username": "24020007@vnu.edu.vn",
+            "password": "12345678",
+            "name": "Nguyễn VĂN BẢY",
+            "role": "Candidate",
+            "group": "Candidate",
+            "student_code": "24020007"
         }
     ]
 
@@ -144,7 +160,6 @@ def seed_cognito_users(cognito_client, user_pool_id: str):
                     {"Name": "email", "Value": email},
                     {"Name": "email_verified", "Value": "true"},
                     {"Name": "name", "Value": u["name"]},
-                    {"Name": "custom:student_code", "Value": u["student_code"]},
                     {"Name": "custom:tenant_id", "Value": "vn"}
                 ],
                 MessageAction="SUPPRESS"
@@ -514,6 +529,22 @@ def seed_dynamodb_data(dynamodb_resource, bucket_name: str):
             "studentCode": "24020005",
             "faceImageUrl": f"https://{bucket_name}.s3.{REGION}.amazonaws.com/faces/24020005.jpg",
             "createdAt": "2026-10-20T00:00:00Z"
+        },
+        {
+            "email": "24020006@vnu.edu.vn",
+            "name": "Nguyễn Văn Sáu",
+            "className": "k69i-it7",
+            "studentCode": "24020006",
+            "faceImageUrl": f"https://{bucket_name}.s3.{REGION}.amazonaws.com/faces/24020006.jpg",
+            "createdAt": "2026-10-20T00:00:00Z"
+        },
+        {
+            "email": "24020007@vnu.edu.vn",
+            "name": "Nguyễn VĂN BẢY",
+            "className": "K69I-IT6",
+            "studentCode": "24020007",
+            "faceImageUrl": f"https://{bucket_name}.s3.{REGION}.amazonaws.com/faces/24020007.jpg",
+            "createdAt": "2026-10-20T00:00:00Z"
         }
     ]
 
@@ -721,7 +752,7 @@ def main():
     print("\n=================================================================")
     print("[SUCCESS] ĐÃ NẠP TOÀN BỘ DỮ LIỆU KIỂM THỬ THÀNH CÔNG LÊN AWS CLOUD!")
     print("Tài khoản Giảng viên: annv@uet.vnu.edu.vn (MK: 12345678)")
-    print("Tài khoản Thí sinh:   24020001@vnu.edu.vn (MK: 12345678)")
+    print("Tài khoản Thí sinh:   24020001@vnu.edu.vn - 24020007@vnu.edu.vn (MK: 12345678)")
     print("Ca thi trực tuyến:    EX-VNU-2026-01 (Trạng thái: RUNNING)")
     print("=================================================================\n")
 
