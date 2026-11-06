@@ -16,9 +16,6 @@ import {
   updateSessionStatus,
   updateSessionCandidates,
   syncCloudDatabaseToProduction,
-  DEFAULT_QUESTIONS,
-  DEFAULT_CANDIDATES,
-  DEFAULT_SESSIONS,
   type Question,
   type Candidate,
   type ExamSession,
@@ -318,20 +315,20 @@ export default function App() {
       const [qs, cs, ss] = await Promise.all([
         getQuestions().catch((e) => {
           console.error('Lỗi tải câu hỏi:', e);
-          return DEFAULT_QUESTIONS;
+          return null;
         }),
         getCandidates().catch((e) => {
           console.error('Lỗi tải thí sinh:', e);
-          return DEFAULT_CANDIDATES;
+          return null;
         }),
         getSessions().catch((e) => {
           console.error('Lỗi tải ca thi:', e);
-          return DEFAULT_SESSIONS;
+          return null;
         }),
       ]);
-      setQuestions(qs && qs.length > 0 ? qs : DEFAULT_QUESTIONS);
-      setCandidates(cs && cs.length > 0 ? cs : DEFAULT_CANDIDATES);
-      setSessions(ss && ss.length > 0 ? ss : DEFAULT_SESSIONS);
+      if (Array.isArray(qs)) setQuestions(qs);
+      if (Array.isArray(cs)) setCandidates(cs);
+      if (Array.isArray(ss)) setSessions(ss);
     } finally {
       setLoading(false);
     }

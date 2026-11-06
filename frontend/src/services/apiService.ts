@@ -689,15 +689,15 @@ export const getQuestionBanks = async (ownerEmail?: string): Promise<QuestionBan
       createdBy: b.createdBy || b.ownerEmail,
     }));
   } catch (err) {
-    console.warn('Lỗi lấy ngân hàng câu hỏi từ API, sử dụng mặc định:', err);
-    cloudBanks = [...DEFAULT_QUESTION_BANKS];
+    console.warn('Lỗi lấy ngân hàng câu hỏi từ API:', err);
+    cloudBanks = ownerEmail ? [] : [...DEFAULT_QUESTION_BANKS];
   }
 
-  // Kết hợp ngân hàng câu hỏi lưu trên trình duyệt
+  // Kết hợp ngân hàng câu hỏi lưu trên trình duyệt (chỉ khi đúng chủ sở hữu)
   const localBanks = getLocalBanks();
   const seenIds = new Set(cloudBanks.map((b) => b.id));
   for (const lb of localBanks) {
-    if (!seenIds.has(lb.id)) {
+    if (!seenIds.has(lb.id) && (!ownerEmail || lb.ownerEmail?.toLowerCase() === ownerEmail.toLowerCase())) {
       cloudBanks.push(lb);
       seenIds.add(lb.id);
     }

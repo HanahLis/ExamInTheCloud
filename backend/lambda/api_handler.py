@@ -1074,6 +1074,20 @@ def lambda_handler(event, context):
             if http_method == "GET":
                 scan_res = questions_table.scan()
                 items = scan_res.get("Items", [])
+
+                # Multi-tenant data isolation: Giảng viên chỉ xem câu hỏi thuộc sở hữu hoặc thuộc ngân hàng của mình
+                if user_email and not is_admin:
+                    banks_res = question_banks_table.scan(
+                        FilterExpression=Attr("ownerEmail").eq(user_email) | Attr("createdBy").eq(user_email)
+                    )
+                    my_bank_ids = {b.get("id") for b in banks_res.get("Items", []) if b.get("id")}
+                    items = [
+                        q for q in items
+                        if q.get("ownerEmail", "").lower() == user_email 
+                        or q.get("createdBy", "").lower() == user_email 
+                        or q.get("bankId") in my_bank_ids
+                    ]
+
                 # Bảo mật backend chống F12: Nếu không phải Admin/Organizer thì ẩn đáp án đúng
                 if not is_admin_or_organizer and not user_email.endswith("@cloudexam.vn"):
                     for q in items:
@@ -1091,7 +1105,9 @@ def lambda_handler(event, context):
                     correct_answer = body.get("correctAnswer", "")
                 else:
                     correct_answer = body.get("correctAnswer") or (options[correct_idx] if len(options) > correct_idx else "")
-                owner = body.get("ownerEmail") or user_email or body.get("createdBy", "")
+                
+                # Cưỡng chế ownerEmail từ JWT Token
+                owner = user_email or body.get("ownerEmail") or body.get("createdBy", "")
 
                 item = {
                     "id": question_id,
@@ -1127,6 +1143,14 @@ def lambda_handler(event, context):
                 return build_response(200, item)
 
             elif http_method == "PUT":
+                # Kiểm tra quyền sở hữu câu hỏi
+                q_res = questions_table.get_item(Key={"id": q_id})
+                existing_q = q_res.get("Item")
+                if not existing_q:
+                    return build_response(404, {"error": "Câu hỏi không tồn tại."})
+                if not is_admin and existing_q.get("ownerEmail") and existing_q.get("ownerEmail", "").lower() != user_email:
+                    return build_response(403, {"error": "Bạn không có quyền chỉnh sửa câu hỏi của tài khoản khác."})
+
                 q_type = body.get("type", "SINGLE_CHOICE")
                 is_essay = q_type == "ESSAY"
                 options = [] if is_essay else body.get("options", [])
@@ -1160,6 +1184,14 @@ def lambda_handler(event, context):
                 return build_response(200, {"message": "Cập nhật thành công", "id": q_id})
 
             elif http_method == "DELETE":
+                # Kiểm tra quyền sở hữu câu hỏi
+                q_res = questions_table.get_item(Key={"id": q_id})
+                existing_q = q_res.get("Item")
+                if not existing_q:
+                    return build_response(404, {"error": "Câu hỏi không tồn tại."})
+                if not is_admin and existing_q.get("ownerEmail") and existing_q.get("ownerEmail", "").lower() != user_email:
+                    return build_response(403, {"error": "Bạn không có quyền xóa câu hỏi của tài khoản khác."})
+
                 questions_table.delete_item(Key={"id": q_id})
                 return build_response(200, {"message": "Xóa câu hỏi thành công", "id": q_id})
 
@@ -1170,14 +1202,15 @@ def lambda_handler(event, context):
             if http_method == "GET":
                 scan_res = question_banks_table.scan()
                 all_banks = scan_res.get("Items", [])
-                owner_param = query_params.get("ownerEmail") or (user_email if is_admin_or_organizer and user_email else None)
-                if owner_param:
-                    filtered = [
-                        b for b in all_banks
-                        if not b.get("ownerEmail") or b.get("ownerEmail") == owner_param or b.get("createdBy") == owner_param
-                    ]
-                    return build_response(200, filtered)
-                return build_response(200, all_banks)
+                if is_admin:
+                    return build_response(200, all_banks)
+                
+                # Zero-Trust Multi-Tenancy: Chỉ hiển thị ngân hàng đề do chính tài khoản này tạo
+                my_banks = [
+                    b for b in all_banks
+                    if b.get("ownerEmail", "").lower() == user_email or b.get("createdBy", "").lower() == user_email
+                ]
+                return build_response(200, my_banks)
 
             elif http_method == "POST":
                 # Hỗ trợ xóa ngân hàng câu hỏi qua POST action=DELETE (Đảm bảo tương thích API Gateway)
@@ -1186,12 +1219,18 @@ def lambda_handler(event, context):
                     if not bank_id:
                         return build_response(400, {"error": "Thiếu id ngân hàng câu hỏi cần xóa."})
 
+                    bank_item = question_banks_table.get_item(Key={"id": bank_id}).get("Item")
+                    if not bank_item:
+                        return build_response(404, {"error": "Ngân hàng đề không tồn tại."})
+                    if not is_admin and bank_item.get("ownerEmail", "").lower() != user_email and bank_item.get("createdBy", "").lower() != user_email:
+                        return build_response(403, {"error": "Bạn không có quyền xóa ngân hàng đề của tài khoản khác."})
+
                     question_banks_table.delete_item(Key={"id": bank_id})
 
                     # Cascade delete: Xóa toàn bộ câu hỏi thuộc ngân hàng này trên AWS DynamoDB
                     try:
                         q_res = questions_table.scan(
-                            FilterExpression=boto3.dynamodb.conditions.Attr("bankId").eq(bank_id)
+                            FilterExpression=Attr("bankId").eq(bank_id)
                         )
                         items_to_del = q_res.get("Items", [])
                         for q_item in items_to_del:
@@ -1207,7 +1246,7 @@ def lambda_handler(event, context):
                     })
 
                 bank_id = body.get("id") or f"bank-{str(uuid.uuid4())[:8]}"
-                owner = body.get("ownerEmail") or user_email or body.get("createdBy", "")
+                owner = user_email or body.get("ownerEmail") or body.get("createdBy", "")
                 item = {
                     "id": bank_id,
                     "bankId": bank_id,
@@ -1226,10 +1265,16 @@ def lambda_handler(event, context):
                 if not bank_id:
                     return build_response(400, {"error": "Thiếu id ngân hàng câu hỏi cần xóa."})
 
+                bank_item = question_banks_table.get_item(Key={"id": bank_id}).get("Item")
+                if not bank_item:
+                    return build_response(404, {"error": "Ngân hàng đề không tồn tại."})
+                if not is_admin and bank_item.get("ownerEmail", "").lower() != user_email and bank_item.get("createdBy", "").lower() != user_email:
+                    return build_response(403, {"error": "Bạn không có quyền xóa ngân hàng đề của tài khoản khác."})
+
                 question_banks_table.delete_item(Key={"id": bank_id})
                 try:
                     q_res = questions_table.scan(
-                        FilterExpression=boto3.dynamodb.conditions.Attr("bankId").eq(bank_id)
+                        FilterExpression=Attr("bankId").eq(bank_id)
                     )
                     items_to_del = q_res.get("Items", [])
                     for q_item in items_to_del:
@@ -1250,10 +1295,16 @@ def lambda_handler(event, context):
                 if not bank_id:
                     return build_response(400, {"error": "Thiếu id ngân hàng câu hỏi cần xóa."})
 
+                bank_item = question_banks_table.get_item(Key={"id": bank_id}).get("Item")
+                if not bank_item:
+                    return build_response(404, {"error": "Ngân hàng đề không tồn tại."})
+                if not is_admin and bank_item.get("ownerEmail", "").lower() != user_email and bank_item.get("createdBy", "").lower() != user_email:
+                    return build_response(403, {"error": "Bạn không có quyền xóa ngân hàng đề của tài khoản khác."})
+
                 question_banks_table.delete_item(Key={"id": bank_id})
                 try:
                     q_res = questions_table.scan(
-                        FilterExpression=boto3.dynamodb.conditions.Attr("bankId").eq(bank_id)
+                        FilterExpression=Attr("bankId").eq(bank_id)
                     )
                     items_to_del = q_res.get("Items", [])
                     for q_item in items_to_del:
@@ -1274,7 +1325,18 @@ def lambda_handler(event, context):
         elif resource_path == "/candidates":
             if http_method == "GET":
                 scan_res = candidates_table.scan()
-                return build_response(200, scan_res.get("Items", []))
+                all_candidates = scan_res.get("Items", [])
+                if is_admin:
+                    return build_response(200, all_candidates)
+                
+                # Giảng viên chỉ xem danh sách thí sinh do chính mình tạo / quản lý
+                my_candidates = [
+                    c for c in all_candidates
+                    if c.get("ownerEmail", "").lower() == user_email 
+                    or c.get("createdBy", "").lower() == user_email 
+                    or user_email in [o.lower() for o in c.get("ownerEmails", [])]
+                ]
+                return build_response(200, my_candidates)
 
             elif http_method == "POST":
                 candidate_email = body.get("email")
@@ -1284,19 +1346,44 @@ def lambda_handler(event, context):
                 candidate_email = candidate_email.strip().lower()
                 student_code = body.get("studentCode", "").strip()
 
-                # Kiểm tra trùng email (partition key)
-                existing_email = candidates_table.get_item(Key={"email": candidate_email}).get("Item")
-                if existing_email:
-                    return build_response(409, {"error": f"Email '{candidate_email}' đã tồn tại trong hệ thống."})
+                # Kiểm tra xem thí sinh đã tồn tại trong hệ thống chưa
+                existing_cand = candidates_table.get_item(Key={"email": candidate_email}).get("Item")
+                if existing_cand:
+                    raw_owners = existing_cand.get("ownerEmails", [])
+                    if isinstance(raw_owners, str):
+                        owners = [raw_owners]
+                    else:
+                        owners = list(raw_owners)
+                    if not owners and existing_cand.get("ownerEmail"):
+                        owners = [existing_cand.get("ownerEmail")]
+                    
+                    owners_lower = [o.lower() for o in owners]
+                    if user_email in owners_lower or existing_cand.get("ownerEmail", "").lower() == user_email:
+                        return build_response(409, {"error": f"Thí sinh '{candidate_email}' đã có trong danh sách của bạn."})
+                    
+                    # Nếu thí sinh do giảng viên khác tạo nhưng giảng viên này muốn đưa vào danh sách lớp của mình
+                    if user_email and user_email not in owners_lower:
+                        owners.append(user_email)
+                    
+                    candidates_table.update_item(
+                        Key={"email": candidate_email},
+                        UpdateExpression="SET ownerEmails = :o",
+                        ExpressionAttributeValues={":o": owners}
+                    )
+                    existing_cand["ownerEmails"] = owners
+                    return build_response(200, existing_cand)
 
-                # Kiểm tra trùng mã sinh viên (qua GSI StudentCodeIndex)
+                # Kiểm tra trùng mã sinh viên trong danh sách của chính giảng viên này
                 if student_code:
                     sc_result = candidates_table.query(
                         IndexName="StudentCodeIndex",
                         KeyConditionExpression=Key("studentCode").eq(student_code)
                     )
-                    if sc_result.get("Items"):
-                        return build_response(409, {"error": f"Mã sinh viên '{student_code}' đã tồn tại trong hệ thống."})
+                    items_found = sc_result.get("Items", [])
+                    for it in items_found:
+                        it_owners = [o.lower() for o in it.get("ownerEmails", [])]
+                        if it.get("ownerEmail", "").lower() == user_email or user_email in it_owners:
+                            return build_response(409, {"error": f"Mã sinh viên '{student_code}' đã tồn tại trong danh sách của bạn."})
 
                 item = {
                     "email": candidate_email,
@@ -1304,13 +1391,16 @@ def lambda_handler(event, context):
                     "name": body.get("name", ""),
                     "className": body.get("className", ""),
                     "faceImageUrl": body.get("faceImageUrl", ""),
+                    "ownerEmail": user_email,
+                    "createdBy": user_email,
+                    "ownerEmails": [user_email] if user_email else [],
                     "createdAt": datetime.now(timezone.utc).isoformat()
                 }
                 candidates_table.put_item(Item=item)
                 return build_response(201, item)
 
         elif resource_path == "/candidates/{email}":
-            c_email = path_parameters.get("email")
+            c_email = path_parameters.get("email", "").lower().strip()
             if http_method == "GET":
                 res = candidates_table.get_item(Key={"email": c_email})
                 item = res.get("Item")
@@ -1319,8 +1409,35 @@ def lambda_handler(event, context):
                 return build_response(200, item)
 
             elif http_method == "DELETE":
-                candidates_table.delete_item(Key={"email": c_email})
-                return build_response(200, {"message": "Xóa thí sinh thành công", "email": c_email})
+                res = candidates_table.get_item(Key={"email": c_email})
+                item = res.get("Item")
+                if not item:
+                    return build_response(404, {"error": "Thí sinh không tồn tại"})
+
+                raw_owners = item.get("ownerEmails", [])
+                if isinstance(raw_owners, str):
+                    owners = [raw_owners]
+                else:
+                    owners = list(raw_owners)
+                if not owners and item.get("ownerEmail"):
+                    owners = [item.get("ownerEmail")]
+                
+                owners_lower = [o.lower() for o in owners]
+                if not is_admin and user_email not in owners_lower and item.get("ownerEmail", "").lower() != user_email:
+                    return build_response(403, {"error": "Bạn không có quyền xóa thí sinh của tài khoản khác."})
+
+                # Nếu có nhiều giảng viên cùng quản lý thí sinh này, chỉ gỡ quyền của giảng viên hiện tại
+                remaining_owners = [o for o in owners if o.lower() != user_email]
+                if remaining_owners and not is_admin:
+                    candidates_table.update_item(
+                        Key={"email": c_email},
+                        UpdateExpression="SET ownerEmails = :o",
+                        ExpressionAttributeValues={":o": remaining_owners}
+                    )
+                    return build_response(200, {"message": "Đã gỡ thí sinh khỏi danh sách của bạn", "email": c_email})
+                else:
+                    candidates_table.delete_item(Key={"email": c_email})
+                    return build_response(200, {"message": "Xóa thí sinh thành công", "email": c_email})
 
         # =========================================================================
         # 3. /sessions API (Quản lý ca thi & Step Functions Lifecycle)
@@ -1347,7 +1464,24 @@ def lambda_handler(event, context):
                             s["status"] = "SCHEDULED"
 
                     clean_items.append(s)
-                return build_response(200, clean_items)
+
+                if is_admin:
+                    return build_response(200, clean_items)
+
+                # Nếu là Thí sinh (Candidate): Chỉ xem các ca thi mà mình được phân công tham gia
+                if is_candidate and not is_organizer:
+                    cand_sessions = [
+                        s for s in clean_items
+                        if user_email in [e.lower() for e in s.get("candidateEmails", [])]
+                    ]
+                    return build_response(200, cand_sessions)
+
+                # Nếu là Giảng viên / Ban tổ chức (Organizer): Chỉ xem ca thi do chính mình tạo
+                my_sessions = [
+                    s for s in clean_items
+                    if s.get("ownerEmail", "").lower() == user_email or s.get("createdBy", "").lower() == user_email
+                ]
+                return build_response(200, my_sessions)
 
             elif http_method == "POST":
                 # Strict RBAC: Chỉ Giảng viên/Ban tổ chức (Organizer hoặc Admin) mới có quyền tạo ca thi
@@ -1373,6 +1507,8 @@ def lambda_handler(event, context):
                     "status": body.get("status", "SCHEDULED"),
                     "questionIds": body.get("questionIds", []),
                     "candidateEmails": body.get("candidateEmails", []),
+                    "ownerEmail": user_email,
+                    "createdBy": user_email,
                     "link": f"https://cloudexam.vn/exam/{session_id}",
                     "createdAt": now_utc.isoformat(),
                     "submissions": {},
@@ -1425,6 +1561,13 @@ def lambda_handler(event, context):
                 # Strict RBAC: Chỉ Giảng viên/Ban tổ chức (Organizer hoặc Admin) mới có quyền cập nhật ca thi
                 if claims.get("email") and not is_admin_or_organizer:
                     return build_response(403, {"error": "Chỉ Giảng viên/Ban tổ chức (Organizer) mới có quyền cập nhật trạng thái ca thi."})
+
+                # Kiểm tra quyền sở hữu ca thi (Row-level Security)
+                existing_sess = sessions_table.get_item(Key={"id": s_id}).get("Item")
+                if not existing_sess:
+                    return build_response(404, {"error": "Ca thi không tồn tại"})
+                if not is_admin and existing_sess.get("ownerEmail", "").lower() != user_email and existing_sess.get("createdBy", "").lower() != user_email:
+                    return build_response(403, {"error": "Bạn không có quyền chỉnh sửa ca thi của tài khoản khác."})
 
                 status = body.get("status")
                 candidate_emails = body.get("candidateEmails")

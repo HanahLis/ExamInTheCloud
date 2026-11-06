@@ -221,6 +221,8 @@ def seed_dynamodb_data(dynamodb_resource, bucket_name: str):
             "name": "Ngân hàng đề Kiến trúc AWS Cloud & Microservices",
             "subject": "Điện toán đám mây & Kiến trúc hệ thống",
             "description": "Bộ đề thi chuẩn hóa kiểm tra năng lực thiết kế hệ thống trên AWS và kiến trúc Microservices",
+            "ownerEmail": "annv@uet.vnu.edu.vn",
+            "createdBy": "annv@uet.vnu.edu.vn",
             "createdAt": "2026-10-20T00:00:00Z"
         },
         {
@@ -228,6 +230,8 @@ def seed_dynamodb_data(dynamodb_resource, bucket_name: str):
             "name": "Kiến trúc & Thiết kế Phần mềm Nâng cao",
             "subject": "Kiến trúc Phần mềm",
             "description": "Các mô hình SOA, EDA, CQRS, Event Sourcing và Microservices",
+            "ownerEmail": "annv@uet.vnu.edu.vn",
+            "createdBy": "annv@uet.vnu.edu.vn",
             "createdAt": "2026-10-20T00:00:00Z"
         }
     ]
@@ -444,6 +448,8 @@ def seed_dynamodb_data(dynamodb_resource, bucket_name: str):
     ]
 
     for q in questions:
+        q["ownerEmail"] = "annv@uet.vnu.edu.vn"
+        q["createdBy"] = "annv@uet.vnu.edu.vn"
         try:
             q_table.put_item(Item=q)
             print(f"  + Câu hỏi: {q['id']} - {q['content'][:60]}...")
@@ -560,6 +566,9 @@ def seed_dynamodb_data(dynamodb_resource, bucket_name: str):
     ]
 
     for c in candidates:
+        c["ownerEmail"] = "annv@uet.vnu.edu.vn"
+        c["createdBy"] = "annv@uet.vnu.edu.vn"
+        c["ownerEmails"] = ["annv@uet.vnu.edu.vn"]
         try:
             cand_table.put_item(Item=c)
             print(f"  + Thí sinh: {c['name']} ({c['studentCode']}) - {c['email']}")
@@ -580,6 +589,8 @@ def seed_dynamodb_data(dynamodb_resource, bucket_name: str):
         "questionIds": q_ids,
         "candidateEmails": cand_emails,
         "durationMinutes": 90,
+        "ownerEmail": "annv@uet.vnu.edu.vn",
+        "createdBy": "annv@uet.vnu.edu.vn",
         "createdAt": "2026-10-20T00:00:00.000Z"
     }
 

@@ -11,7 +11,6 @@ import {
   getDeletedBankIds,
   parseQuestionsFromDoc,
   extractTextFromDocxFile,
-  DEFAULT_QUESTION_BANKS,
   type Question,
   type QuestionType,
   type QuestionBank,
@@ -91,23 +90,16 @@ export const QuestionBankTab = ({ questions, onRefresh }: Props) => {
       const list = await getQuestionBanks(lecturerEmail);
       const deletedIds = getDeletedBankIds();
 
-      // Lọc các ngân hàng thuộc tài khoản giảng viên hiện tại hoặc ngân hàng dùng chung (chưa bị xóa)
+      // Lọc các ngân hàng thuộc tài khoản giảng viên hiện tại (chưa bị xóa)
       const myOwned = list.filter((b) => {
         if (deletedIds.has(b.id) || deletedIds.has(b.bankId || '')) return false;
-        if (!b.ownerEmail && !b.createdBy) return true;
         return (
           b.ownerEmail?.toLowerCase() === lecturerEmail ||
           b.createdBy?.toLowerCase() === lecturerEmail
         );
       });
 
-      // Kiểm tra ngân hàng mặc định nếu chưa bị xóa
-      const availableDefaults = DEFAULT_QUESTION_BANKS.filter(
-        (b) => !deletedIds.has(b.id) && !deletedIds.has(b.bankId || '')
-      );
-
-      const finalList =
-        myOwned.length > 0 ? myOwned : list.length > 0 ? list : availableDefaults;
+      const finalList = myOwned;
       setBanks(finalList);
 
       if (finalList.length > 0) {
@@ -119,18 +111,9 @@ export const QuestionBankTab = ({ questions, onRefresh }: Props) => {
       }
     } catch (e) {
       console.error('Lỗi tải ngân hàng câu hỏi:', e);
-      const deletedIds = getDeletedBankIds();
-      const availableDefaults = DEFAULT_QUESTION_BANKS.filter(
-        (b) => !deletedIds.has(b.id) && !deletedIds.has(b.bankId || '')
-      );
-      setBanks(availableDefaults);
-      if (availableDefaults.length > 0) {
-        setBankId(availableDefaults[0].id);
-        setImportBankId(availableDefaults[0].id);
-      } else {
-        setBankId('');
-        setImportBankId('');
-      }
+      setBanks([]);
+      setBankId('');
+      setImportBankId('');
     }
   };
 
