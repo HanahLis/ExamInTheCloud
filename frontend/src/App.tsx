@@ -416,7 +416,26 @@ export default function App() {
                 autoComplete="current-password"
               />
               <p className="text-[11px] text-slate-500 mt-1">
-                {t('login_lecturer_hint')} <span className="font-mono text-slate-700 font-medium">annv@uet.vnu.edu.vn</span> (MK: <span className="font-mono text-slate-700 font-medium">12345678</span>)
+                {t('login_lecturer_hint')}{' '}
+                <button
+                  type="button"
+                  onClick={() => {
+                    setLoginEmail('annv@uet.vnu.edu.vn');
+                    setLoginPassword('12345678');
+                  }}
+                  className="font-mono text-indigo-600 hover:underline font-medium cursor-pointer"
+                >
+                  annv@uet.vnu.edu.vn
+                </button>{' '}
+                (MK:{' '}
+                <button
+                  type="button"
+                  onClick={() => setLoginPassword('12345678')}
+                  className="font-mono text-indigo-600 hover:underline font-medium cursor-pointer"
+                >
+                  12345678
+                </button>
+                )
               </p>
             </div>
 

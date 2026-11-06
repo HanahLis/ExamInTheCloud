@@ -39,16 +39,20 @@ resource "aws_cloudfront_origin_access_control" "spa_oac" {
 resource "aws_cloudfront_function" "tenant_resolver" {
   name    = "${var.project_name}-tenant-resolver-${var.environment}"
   runtime = "cloudfront-js-1.0"
-  comment = "Tu dong inject x-tenant-id: la hoac vn dua tren Host domain tai Edge"
+  comment = "Tu dong inject x-tenant-id: la, de, vn hoac default dua tren Host domain tai Edge"
   publish = true
   code    = <<-EOT
 function handler(event) {
     var request = event.request;
-    var host = request.headers.host ? request.headers.host.value : '';
-    if (host.indexOf('edulao.la') !== -1) {
+    var host = request.headers.host ? request.headers.host.value.toLowerCase() : '';
+    if (host.indexOf('edulao.la') !== -1 || host.indexOf('lao.') !== -1 || host.indexOf('la.') !== -1) {
         request.headers['x-tenant-id'] = { value: 'la' };
-    } else {
+    } else if (host.indexOf('germany.') !== -1 || host.indexOf('de.') !== -1 || host.indexOf('deutschland.') !== -1) {
+        request.headers['x-tenant-id'] = { value: 'de' };
+    } else if (host.indexOf('vietnam.') !== -1 || host.indexOf('vn.') !== -1) {
         request.headers['x-tenant-id'] = { value: 'vn' };
+    } else {
+        request.headers['x-tenant-id'] = { value: 'default' };
     }
     return request;
 }
