@@ -219,26 +219,26 @@ resource "aws_cognito_user_in_group" "candidate_duc_group" {
   username     = aws_cognito_user.candidate_duc.username
 }
 
-# Tài khoản Quản trị viên: tranducmanh2006@gmail.com (MK: 12345678)
-resource "aws_cognito_user" "organizer_manh" {
+# Tài khoản Giám thị: laladoraema@gmail.com (MK: 12345678)
+resource "aws_cognito_user" "organizer_laladoraema" {
   user_pool_id   = aws_cognito_user_pool.main.id
-  username       = "tranducmanh2006@gmail.com"
+  username       = "laladoraema@gmail.com"
   password       = "12345678"
   message_action = "SUPPRESS"
 
   attributes = {
-    email            = "tranducmanh2006@gmail.com"
+    email            = "laladoraema@gmail.com"
     email_verified   = "true"
-    name             = "Trần Đức Mạnh"
-    student_code     = "24021561"
+    name             = "Giám thị Laladoraema"
+    student_code     = "GT002"
     "custom:tenant_id" = "vn"
   }
 }
 
-resource "aws_cognito_user_in_group" "organizer_manh_group" {
+resource "aws_cognito_user_in_group" "organizer_laladoraema_group" {
   user_pool_id = aws_cognito_user_pool.main.id
-  group_name   = aws_cognito_user_group.admin.name
-  username     = aws_cognito_user.organizer_manh.username
+  group_name   = aws_cognito_user_group.organizer.name
+  username     = aws_cognito_user.organizer_laladoraema.username
 }
 
 # 5. Cognito Identity Pool (Federated Identities)

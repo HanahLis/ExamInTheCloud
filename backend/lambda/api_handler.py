@@ -949,8 +949,8 @@ def lambda_handler(event, context):
     claims = get_auth_claims(event)
     user_email = (claims.get("email") or "").lower().strip()
     user_groups = claims.get("groups", [])
-    is_admin = "Admin" in user_groups or user_email == "tranducmanh2006@gmail.com"
-    is_organizer = "Organizer" in user_groups or user_email == "annv@uet.vnu.edu.vn"
+    is_admin = "Admin" in user_groups
+    is_organizer = "Organizer" in user_groups or user_email in ["annv@uet.vnu.edu.vn", "laladoraema@gmail.com"]
     is_candidate = "Candidate" in user_groups or (not is_admin and not is_organizer and bool(user_email))
     is_admin_or_organizer = is_admin or is_organizer
 

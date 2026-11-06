@@ -82,12 +82,12 @@ def seed_cognito_users(cognito_client, user_pool_id: str):
             "student_code": "GV001"
         },
         {
-            "username": "tranducmanh2006@gmail.com",
+            "username": "laladoraema@gmail.com",
             "password": "12345678",
-            "name": "Trần Đức Mạnh",
+            "name": "Giám thị Laladoraema",
             "role": "Organizer",
-            "group": "Admin",
-            "student_code": "24021561"
+            "group": "Organizer",
+            "student_code": "GT002"
         },
         {
             "username": "duc.tm24@vnu.edu.vn",
@@ -112,6 +112,22 @@ def seed_cognito_users(cognito_client, user_pool_id: str):
             "role": "Candidate",
             "group": "Candidate",
             "student_code": "24020003"
+        },
+        {
+            "username": "linh.vt24@vnu.edu.vn",
+            "password": "12345678",
+            "name": "Vũ Thùy Linh",
+            "role": "Candidate",
+            "group": "Candidate",
+            "student_code": "24020004"
+        },
+        {
+            "username": "huy.dq24@vnu.edu.vn",
+            "password": "12345678",
+            "name": "Đỗ Quang Huy",
+            "role": "Candidate",
+            "group": "Candidate",
+            "student_code": "24020005"
         }
     ]
 
@@ -460,14 +476,6 @@ def seed_dynamodb_data(dynamodb_resource, bucket_name: str):
     cand_table = dynamodb_resource.Table(f"CloudExam_Candidates_{ENV}")
     candidates = [
         {
-            "email": "annv@uet.vnu.edu.vn",
-            "name": "PGS. TS. Nguyễn Văn An",
-            "className": "Giảng viên - Bộ môn Các Hệ thống Thông tin",
-            "studentCode": "GV001",
-            "faceImageUrl": f"https://{bucket_name}.s3.{REGION}.amazonaws.com/faces/annv.jpg",
-            "createdAt": "2026-10-20T00:00:00Z"
-        },
-        {
             "email": "duc.tm24@vnu.edu.vn",
             "name": "Trần Minh Đức",
             "className": "QH-2024-I/CQ-CN1",
@@ -505,62 +513,6 @@ def seed_dynamodb_data(dynamodb_resource, bucket_name: str):
             "className": "QH-2024-I/CQ-CN2",
             "studentCode": "24020005",
             "faceImageUrl": f"https://{bucket_name}.s3.{REGION}.amazonaws.com/faces/24020005.jpg",
-            "createdAt": "2026-10-20T00:00:00Z"
-        },
-        {
-            "email": "huong.nt24@vnu.edu.vn",
-            "name": "Ngô Thị Hương",
-            "className": "QH-2024-I/CQ-CN2",
-            "studentCode": "24020006",
-            "faceImageUrl": f"https://{bucket_name}.s3.{REGION}.amazonaws.com/faces/24020006.jpg",
-            "createdAt": "2026-10-20T00:00:00Z"
-        },
-        {
-            "email": "tuan.bv24@vnu.edu.vn",
-            "name": "Bùi Văn Tuấn",
-            "className": "QH-2024-I/CQ-CN2",
-            "studentCode": "24020007",
-            "faceImageUrl": f"https://{bucket_name}.s3.{REGION}.amazonaws.com/faces/24020007.jpg",
-            "createdAt": "2026-10-20T00:00:00Z"
-        },
-        {
-            "email": "thu.hm24@vnu.edu.vn",
-            "name": "Hoàng Minh Thư",
-            "className": "QH-2024-I/CQ-CN3",
-            "studentCode": "24020008",
-            "faceImageUrl": f"https://{bucket_name}.s3.{REGION}.amazonaws.com/faces/24020008.jpg",
-            "createdAt": "2026-10-20T00:00:00Z"
-        },
-        {
-            "email": "quan.dm24@vnu.edu.vn",
-            "name": "Đặng Minh Quân",
-            "className": "QH-2024-I/CQ-CN3",
-            "studentCode": "24020009",
-            "faceImageUrl": f"https://{bucket_name}.s3.{REGION}.amazonaws.com/faces/24020009.jpg",
-            "createdAt": "2026-10-20T00:00:00Z"
-        },
-        {
-            "email": "chi.nq24@vnu.edu.vn",
-            "name": "Nguyễn Quỳnh Chi",
-            "className": "QH-2024-I/CQ-CN3",
-            "studentCode": "24020010",
-            "faceImageUrl": f"https://{bucket_name}.s3.{REGION}.amazonaws.com/faces/24020010.jpg",
-            "createdAt": "2026-10-20T00:00:00Z"
-        },
-        {
-            "email": "tranducmanh2006@gmail.com",
-            "name": "Trần Đức Mạnh",
-            "className": "QH-2024-I/CQ-CN1",
-            "studentCode": "24021561",
-            "faceImageUrl": f"https://{bucket_name}.s3.{REGION}.amazonaws.com/faces/24021561.jpg",
-            "createdAt": "2026-10-20T00:00:00Z"
-        },
-        {
-            "email": "tran.dm24@vnu.edu.vn",
-            "name": "Trần Đức Mạnh (24021501)",
-            "className": "QH-2024-I/CQ-CN1",
-            "studentCode": "24021501",
-            "faceImageUrl": f"https://{bucket_name}.s3.{REGION}.amazonaws.com/faces/24021501.jpg",
             "createdAt": "2026-10-20T00:00:00Z"
         }
     ]
