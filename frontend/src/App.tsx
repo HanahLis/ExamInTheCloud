@@ -16,7 +16,7 @@ import {
   createSession,
   updateSessionStatus,
   updateSessionCandidates,
-  syncCloudDatabaseToProduction,
+  syncLocalDataToCloud,
   type Question,
   type QuestionBank,
   type Candidate,
@@ -334,9 +334,13 @@ export default function App() {
     setSyncing(true);
     setSyncNotice(null);
     try {
-      const res = await syncCloudDatabaseToProduction();
-      setSyncNotice(res.message || t('notice_sync_success'));
-      await refreshAll();
+      const res = await syncLocalDataToCloud({
+        banks: questionBanks,
+        questions: questions,
+        candidates: candidates,
+        sessions: sessions,
+      });
+      setSyncNotice(res.message);
     } catch (err: any) {
       setSyncNotice(`${t('notice_sync_error')} ${err?.response?.data?.error || err?.message || err}`);
     } finally {

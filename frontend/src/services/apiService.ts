@@ -2399,49 +2399,150 @@ export const clearLocalCaches = () => {
   }
 };
 
-export const syncCloudDatabaseToProduction = async (): Promise<{
+export interface SyncLocalToCloudPayload {
+  banks?: QuestionBank[];
+  questions?: Question[];
+  candidates?: Candidate[];
+  sessions?: ExamSession[];
+}
+
+export interface SyncCloudResult {
   deletedQuestions: number;
   addedQuestions: number;
   addedBanks: number;
   deletedCandidates: number;
   addedCandidates: number;
   sessionsUpdated: number;
+  syncedBanks: number;
+  syncedQuestions: number;
+  syncedCandidates: number;
+  syncedSessions: number;
+  totalSynced: number;
   message: string;
-}> => {
-  let addedCandidates = 0;
-  let sessionsUpdated = 0;
+}
 
-  // 1. Đồng bộ an toàn các thí sinh tạo mới lên Cloud DynamoDB (nếu chưa có)
-  const localCandidates = getLocalCandidates();
-  for (const lc of localCandidates) {
+/**
+ * ĐỒNG BỘ DỮ LIỆU TỪ LOCAL LÊN CLOUD DYNAMODB (LOCAL -> CLOUD PUSH)
+ * Ban đầu toàn bộ dữ liệu (Ngân hàng đề, Câu hỏi AI, Thí sinh, Ca thi) nằm ở Local.
+ * Khi người dùng bấm nút "Đồng bộ", toàn bộ dữ liệu Local được gửi lên Cloud DynamoDB qua API Gateway.
+ * Tuyệt đối không xóa, không đè ngược dữ liệu cũ từ Cloud xuống làm mất dữ liệu Local.
+ */
+export const syncLocalDataToCloud = async (
+  payload?: SyncLocalToCloudPayload
+): Promise<SyncCloudResult> => {
+  let syncedBanks = 0;
+  let syncedQuestions = 0;
+  let syncedCandidates = 0;
+  let syncedSessions = 0;
+
+  // 1. Thu thập và đẩy toàn bộ Ngân hàng đề từ Local lên Cloud DynamoDB
+  const localBanksMap = new Map<string, QuestionBank>();
+  for (const b of DEFAULT_QUESTION_BANKS) localBanksMap.set(b.id, b);
+  for (const b of getLocalBanks()) localBanksMap.set(b.id, b);
+  for (const b of (payload?.banks || [])) localBanksMap.set(b.id, b);
+
+  for (const bank of localBanksMap.values()) {
     try {
-      await api.post('/candidates', lc);
-      addedCandidates++;
-    } catch {
-      // Bỏ qua nếu đã tồn tại hoặc lỗi authorizer
+      await api.post('/question-banks', {
+        id: bank.id,
+        bankId: bank.id,
+        name: bank.name,
+        subject: bank.subject,
+        description: bank.description,
+        ownerEmail: bank.ownerEmail,
+        createdBy: bank.createdBy,
+      });
+      syncedBanks++;
+    } catch (e) {
+      console.warn('Lỗi đẩy ngân hàng đề lên Cloud:', bank.id, e);
     }
   }
 
-  // 2. Đồng bộ các ca thi lưu cục bộ lên Cloud
-  const localSessions = getLocalSessions();
-  for (const ls of localSessions) {
+  // 2. Thu thập và đẩy toàn bộ Câu hỏi (trắc nghiệm, tự luận, AI, Word import) từ Local lên Cloud
+  const localQuestionsMap = new Map<string, Question>();
+  for (const q of DEFAULT_QUESTIONS) localQuestionsMap.set(q.id, q);
+  for (const q of getLocalQuestions()) localQuestionsMap.set(q.id, q);
+  for (const q of (payload?.questions || [])) localQuestionsMap.set(q.id, q);
+
+  for (const q of localQuestionsMap.values()) {
     try {
-      await api.post('/sessions', ls);
-      sessionsUpdated++;
-    } catch {
-      // Bỏ qua nếu đã tồn tại hoặc lỗi authorizer
+      await api.post('/questions', {
+        id: q.id,
+        questionId: q.id,
+        bankId: q.bankId || 'bank-cloud-01',
+        content: q.content,
+        type: q.type || 'SINGLE_CHOICE',
+        options: q.options || [],
+        correctIndex: q.correctIndex ?? 0,
+        correctAnswer: q.correctAnswer || (q.options ? q.options[q.correctIndex] : ''),
+        score: q.score ?? 1,
+        subject: q.subject || 'Điện toán đám mây',
+        topic: q.topic || 'Software Architecture',
+        difficulty: q.difficulty || 'MEDIUM',
+        imageUrl: q.imageUrl || '',
+      });
+      syncedQuestions++;
+    } catch (e) {
+      console.warn('Lỗi đẩy câu hỏi lên Cloud:', q.id, e);
     }
   }
+
+  // 3. Thu thập và đẩy toàn bộ Thí sinh từ Local lên Cloud (bao gồm Phạm Tuấn Phong và thí sinh mới thêm)
+  const localCandidatesMap = new Map<string, Candidate>();
+  for (const c of DEFAULT_CANDIDATES) localCandidatesMap.set(c.email.toLowerCase(), c);
+  for (const c of getLocalCandidates()) localCandidatesMap.set(c.email.toLowerCase(), c);
+  for (const c of (payload?.candidates || [])) localCandidatesMap.set(c.email.toLowerCase(), c);
+
+  for (const cand of localCandidatesMap.values()) {
+    try {
+      await api.post('/candidates', {
+        studentCode: cand.studentCode,
+        name: cand.name,
+        email: cand.email,
+        className: cand.className,
+        faceImageUrl: cand.faceImageUrl,
+      });
+      syncedCandidates++;
+    } catch (e) {
+      console.warn('Lỗi đẩy thí sinh lên Cloud:', cand.email, e);
+    }
+  }
+
+  // 4. Thu thập và đẩy toàn bộ Ca thi từ Local lên Cloud
+  const localSessionsMap = new Map<string, ExamSession>();
+  for (const s of DEFAULT_SESSIONS) localSessionsMap.set(s.id, s);
+  for (const s of getLocalSessions()) localSessionsMap.set(s.id, s);
+  for (const s of (payload?.sessions || [])) localSessionsMap.set(s.id, s);
+
+  for (const sess of localSessionsMap.values()) {
+    try {
+      await api.post('/sessions', sess).catch(async () => {
+        await api.put(`/sessions/${sess.id}`, sess);
+      });
+      syncedSessions++;
+    } catch (e) {
+      console.warn('Lỗi đẩy ca thi lên Cloud:', sess.id, e);
+    }
+  }
+
+  const totalSynced = syncedBanks + syncedQuestions + syncedCandidates + syncedSessions;
 
   return {
     deletedQuestions: 0,
-    addedQuestions: 0,
-    addedBanks: 0,
+    addedQuestions: syncedQuestions,
+    addedBanks: syncedBanks,
     deletedCandidates: 0,
-    addedCandidates,
-    sessionsUpdated,
-    message: 'Đã hoàn tất đồng bộ an toàn toàn bộ dữ liệu (Thí sinh, Đề thi, Ca thi) với hệ thống Cloud!',
+    addedCandidates: syncedCandidates,
+    sessionsUpdated: syncedSessions,
+    syncedBanks,
+    syncedQuestions,
+    syncedCandidates,
+    syncedSessions,
+    totalSynced,
+    message: `Đã gửi thành công toàn bộ dữ liệu Local lên Cloud (${syncedBanks} ngân hàng đề, ${syncedQuestions} câu hỏi, ${syncedCandidates} thí sinh, ${syncedSessions} ca thi)!`,
   };
 };
+
+export const syncCloudDatabaseToProduction = syncLocalDataToCloud;
 
 export default api;

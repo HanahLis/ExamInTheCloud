@@ -1262,7 +1262,7 @@ def lambda_handler(event, context):
                 items = scan_res.get("Items", [])
 
                 # Multi-tenant data isolation: Giảng viên chỉ xem câu hỏi thuộc sở hữu hoặc thuộc ngân hàng của mình
-                if user_email and not is_admin:
+                if user_email and not is_admin and not is_organizer:
                     banks_res = question_banks_table.scan(
                         FilterExpression=Attr("ownerEmail").eq(user_email) | Attr("createdBy").eq(user_email)
                     )
@@ -1272,6 +1272,8 @@ def lambda_handler(event, context):
                         if q.get("ownerEmail", "").lower() == user_email 
                         or q.get("createdBy", "").lower() == user_email 
                         or q.get("bankId") in my_bank_ids
+                        or q.get("id", "").startswith("q-aws-")
+                        or q.get("id", "").startswith("q-se-")
                     ]
 
                 # Bảo mật backend chống F12: Nếu không phải Admin/Organizer thì ẩn đáp án đúng
@@ -1282,7 +1284,7 @@ def lambda_handler(event, context):
                 return build_response(200, items)
 
             elif http_method == "POST":
-                question_id = body.get("questionId") or str(uuid.uuid4())
+                question_id = body.get("id") or body.get("questionId") or str(uuid.uuid4())
                 q_type = body.get("type", "SINGLE_CHOICE")
                 is_essay = q_type == "ESSAY"
                 options = [] if is_essay else body.get("options", [])
@@ -1388,13 +1390,14 @@ def lambda_handler(event, context):
             if http_method == "GET":
                 scan_res = question_banks_table.scan()
                 all_banks = scan_res.get("Items", [])
-                if is_admin:
+                if is_admin or is_organizer or not user_email:
                     return build_response(200, all_banks)
                 
-                # Zero-Trust Multi-Tenancy: Chỉ hiển thị ngân hàng đề do chính tài khoản này tạo
+                # Zero-Trust Multi-Tenancy: Chỉ hiển thị ngân hàng đề do chính tài khoản này tạo hoặc ngân hàng chung
                 my_banks = [
                     b for b in all_banks
                     if b.get("ownerEmail", "").lower() == user_email or b.get("createdBy", "").lower() == user_email
+                    or b.get("id") in ["bank-cloud-01", "bank-se-arch-01"]
                 ]
                 return build_response(200, my_banks)
 
@@ -1779,20 +1782,45 @@ def lambda_handler(event, context):
 
                 status = body.get("status")
                 candidate_emails = body.get("candidateEmails")
+                question_ids = body.get("questionIds")
+                name = body.get("name")
+                start_time = body.get("startTime")
+                end_time = body.get("endTime")
+
+                update_parts = []
+                expr_vals = {}
+                expr_names = {}
 
                 if status:
-                    sessions_table.update_item(
-                        Key={"id": s_id},
-                        UpdateExpression="SET #st = :s",
-                        ExpressionAttributeNames={"#st": "status"},
-                        ExpressionAttributeValues={":s": status}
-                    )
+                    update_parts.append("#st = :s")
+                    expr_names["#st"] = "status"
+                    expr_vals[":s"] = status
                 if candidate_emails is not None:
-                    sessions_table.update_item(
-                        Key={"id": s_id},
-                        UpdateExpression="SET candidateEmails = :c",
-                        ExpressionAttributeValues={":c": candidate_emails}
-                    )
+                    update_parts.append("candidateEmails = :c")
+                    expr_vals[":c"] = candidate_emails
+                if question_ids is not None:
+                    update_parts.append("questionIds = :q")
+                    expr_vals[":q"] = question_ids
+                if name:
+                    update_parts.append("#nm = :n")
+                    expr_names["#nm"] = "name"
+                    expr_vals[":n"] = name
+                if start_time:
+                    update_parts.append("startTime = :stt")
+                    expr_vals[":stt"] = start_time
+                if end_time:
+                    update_parts.append("endTime = :edt")
+                    expr_vals[":edt"] = end_time
+
+                if update_parts:
+                    kwargs = {
+                        "Key": {"id": s_id},
+                        "UpdateExpression": "SET " + ", ".join(update_parts),
+                        "ExpressionAttributeValues": expr_vals
+                    }
+                    if expr_names:
+                        kwargs["ExpressionAttributeNames"] = expr_names
+                    sessions_table.update_item(**kwargs)
                 return build_response(200, {"message": "Cập nhật ca thi thành công", "id": s_id})
 
         # =========================================================================
