@@ -192,7 +192,7 @@ def build_and_deploy():
     # 4. Hoàn tất và in URL
     print("\n=================================================================")
     print("[SUCCESS] HOAN THANH TRIEN KHAI CLOUDEXAM LEN AWS CLOUDFRONT CDN!")
-    print(f"Website Demo Truc Tuyen: https://{dist_domain}")
+    print(f"Website Demo Truc Tuyen: https://cloudexam.id.vn (CloudFront: https://{dist_domain})")
     print("=================================================================\n")
 
 if __name__ == "__main__":

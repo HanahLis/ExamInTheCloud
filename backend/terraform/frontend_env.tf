@@ -13,12 +13,12 @@ VITE_API_BASE_URL=https://${aws_api_gateway_rest_api.main.id}.execute-api.${var.
 VITE_COGNITO_DOMAIN=https://${aws_cognito_user_pool_domain.hosted_ui.domain}.auth.${var.aws_region}.amazoncognito.com
 VITE_COGNITO_USER_POOL_ID=${aws_cognito_user_pool.main.id}
 VITE_COGNITO_CLIENT_ID=${aws_cognito_user_pool_client.web_client.id}
-VITE_COGNITO_REDIRECT_URI=https://${aws_cloudfront_distribution.spa_distribution.domain_name}/callback
+VITE_COGNITO_REDIRECT_URI=${var.custom_domain_name != "" ? "https://${var.custom_domain_name}/callback" : "https://${aws_cloudfront_distribution.spa_distribution.domain_name}/callback"}
 VITE_IDENTITY_POOL_ID=${aws_cognito_identity_pool.main.id}
 VITE_S3_BUCKET_NAME=${aws_s3_bucket.image_storage.id}
-VITE_CLOUDFRONT_URL=https://${aws_cloudfront_distribution.spa_distribution.domain_name}
+VITE_CLOUDFRONT_URL=${var.custom_domain_name != "" ? "https://${var.custom_domain_name}" : "https://${aws_cloudfront_distribution.spa_distribution.domain_name}"}
 VITE_GEMINI_MODEL=gemini-3.8-flash
-VITE_GEMINI_API_KEY=${var.gemini_api_key != "" ? var.gemini_api_key : "AQ.Ab8RN6IM7Z8gAyK5YaSv5ZntwjK2bUW4OMkZhSKLUbUd-N68hQ"}
+VITE_GEMINI_API_KEY=${var.gemini_api_key}
 EOT
 
   file_permission = "0644"

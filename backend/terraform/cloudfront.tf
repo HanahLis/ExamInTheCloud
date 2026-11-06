@@ -67,6 +67,9 @@ resource "aws_cloudfront_distribution" "spa_distribution" {
   default_root_object = "index.html"
   price_class         = "PriceClass_100" # Phục vụ châu Á / Bắc Mỹ / Châu Âu tối ưu chi phí ($0)
 
+  # Tích hợp tên miền tùy chỉnh (cloudexam.id.vn và www.cloudexam.id.vn)
+  aliases = var.custom_domain_name != "" ? [var.custom_domain_name, "www.${var.custom_domain_name}"] : []
+
   origin {
     domain_name              = aws_s3_bucket.frontend_hosting.bucket_regional_domain_name
     origin_id                = "S3-Frontend-Hosting"
@@ -120,8 +123,21 @@ resource "aws_cloudfront_distribution" "spa_distribution" {
     }
   }
 
-  viewer_certificate {
-    cloudfront_default_certificate = true
+  dynamic "viewer_certificate" {
+    for_each = var.acm_certificate_arn != "" ? [1] : []
+    content {
+      acm_certificate_arn            = var.acm_certificate_arn
+      ssl_support_method             = "sni-only"
+      minimum_protocol_version       = "TLSv1.2_2021"
+      cloudfront_default_certificate = false
+    }
+  }
+
+  dynamic "viewer_certificate" {
+    for_each = var.acm_certificate_arn == "" ? [1] : []
+    content {
+      cloudfront_default_certificate = true
+    }
   }
 
   tags = {

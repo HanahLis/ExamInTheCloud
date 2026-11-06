@@ -632,8 +632,8 @@ def update_frontend_env_file(frontend_dir: Path, outputs: dict, cognito_client=N
         cf_domain = "dw1cx1i04s8fe.cloudfront.net"
     cf_url = f"https://{cf_domain}"
 
-    # Giữ lại Gemini API Key hiện tại nếu đã có trong .env
-    existing_key = existing_env.get("VITE_GEMINI_API_KEY", "AQ.Ab8RN6IM7Z8gAyK5YaSv5ZntwjK2bUW4OMkZhSKLUbUd-N68hQ")
+    # Giữ lại Gemini API Key hiện tại nếu đã có trong .env (mặc định để trống)
+    existing_key = existing_env.get("VITE_GEMINI_API_KEY", "")
 
     cognito_domain = outputs.get("cognito_domain") or existing_env.get("VITE_COGNITO_DOMAIN") or f"https://cloudexam-auth-{REGION}.auth.{REGION}.amazoncognito.com"
 

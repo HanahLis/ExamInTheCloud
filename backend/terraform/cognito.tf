@@ -106,7 +106,7 @@ resource "aws_cognito_user_pool_client" "web_client" {
   allowed_oauth_scopes                 = ["openid", "email", "profile"]
   supported_identity_providers         = ["COGNITO"]
 
-  # Cấu hình Callback URL & Logout URL (Bao gồm cả Localhost và AWS CloudFront CDN)
+  # Cấu hình Callback URL & Logout URL (Bao gồm Localhost, AWS CloudFront CDN và Custom Domain)
   callback_urls = distinct(concat(
     var.frontend_callback_urls,
     [
@@ -116,7 +116,13 @@ resource "aws_cognito_user_pool_client" "web_client" {
       "http://localhost:3000/callback",
       "https://${aws_cloudfront_distribution.spa_distribution.domain_name}",
       "https://${aws_cloudfront_distribution.spa_distribution.domain_name}/callback"
-    ]
+    ],
+    var.custom_domain_name != "" ? [
+      "https://${var.custom_domain_name}",
+      "https://${var.custom_domain_name}/callback",
+      "https://www.${var.custom_domain_name}",
+      "https://www.${var.custom_domain_name}/callback"
+    ] : []
   ))
   logout_urls = distinct(concat(
     var.frontend_logout_urls,
@@ -124,7 +130,11 @@ resource "aws_cognito_user_pool_client" "web_client" {
       "http://localhost:5173",
       "http://localhost:3000",
       "https://${aws_cloudfront_distribution.spa_distribution.domain_name}"
-    ]
+    ],
+    var.custom_domain_name != "" ? [
+      "https://${var.custom_domain_name}",
+      "https://www.${var.custom_domain_name}"
+    ] : []
   ))
 
   # Luồng xác thực trực tiếp
