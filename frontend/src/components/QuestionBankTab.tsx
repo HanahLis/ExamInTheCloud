@@ -45,9 +45,9 @@ export const QuestionBankTab = ({ questions, onRefresh }: Props) => {
 
   // 3. Form tạo / sửa câu hỏi (Hỗ trợ Trắc nghiệm A-F & Tự luận Essay)
   const [editingId, setEditingId] = useState<string | null>(null);
-  const [bankId, setBankId] = useState<string>('bank-se-arch-01');
-  const [subject, setSubject] = useState('Kiến trúc hướng dịch vụ');
-  const [topic, setTopic] = useState('Kiến trúc hệ thống');
+  const [bankId, setBankId] = useState<string>('');
+  const [subject, setSubject] = useState('');
+  const [topic, setTopic] = useState('');
   const [questionType, setQuestionType] = useState<QuestionType>('SINGLE_CHOICE');
   const [content, setContent] = useState('');
   const [essayRubric, setEssayRubric] = useState('');
@@ -64,9 +64,9 @@ export const QuestionBankTab = ({ questions, onRefresh }: Props) => {
 
   // 4. Modal nhập đề thi từ tệp Word (.docx)
   const [showImportModal, setShowImportModal] = useState(false);
-  const [importBankId, setImportBankId] = useState<string>('bank-se-arch-01');
-  const [importSubject, setImportSubject] = useState('Kiến trúc hướng dịch vụ');
-  const [importTopic, setImportTopic] = useState('Kiến trúc hệ thống');
+  const [importBankId, setImportBankId] = useState<string>('');
+  const [importSubject, setImportSubject] = useState('');
+  const [importTopic, setImportTopic] = useState('');
   const [importInputMode, setImportInputMode] = useState<'FILE' | 'TEXT'>('FILE');
   const [importFile, setImportFile] = useState<File | null>(null);
   const [importText, setImportText] = useState('');
@@ -157,10 +157,6 @@ export const QuestionBankTab = ({ questions, onRefresh }: Props) => {
 
   const handleBankChange = (newBankId: string) => {
     setBankId(newBankId);
-    const found = lecturerBanks.find((b) => b.id === newBankId);
-    if (found && found.subject) {
-      setSubject(found.subject);
-    }
   };
 
   // Tạo ngân hàng câu hỏi mới
@@ -178,7 +174,6 @@ export const QuestionBankTab = ({ questions, onRefresh }: Props) => {
       });
       await loadBanks();
       setBankId(created.id);
-      setSubject(created.subject || 'Chung');
       setNewBankName('');
       setNewBankSubject('');
       setNewBankDesc('');
@@ -218,6 +213,8 @@ export const QuestionBankTab = ({ questions, onRefresh }: Props) => {
     setQuestionType('SINGLE_CHOICE');
     setContent('');
     setEssayRubric('');
+    setSubject('');
+    setTopic('');
     setOptions(['', '', '', '']);
     setCorrectIndex(0);
     setScore(1);
@@ -231,12 +228,12 @@ export const QuestionBankTab = ({ questions, onRefresh }: Props) => {
   const startEdit = (q: Question) => {
     const isEssay = q.type === 'ESSAY';
     setEditingId(q.id);
-    setBankId(q.bankId || (lecturerBanks[0]?.id ?? 'bank-se-arch-01'));
+    setBankId(q.bankId || (lecturerBanks[0]?.id ?? ''));
     setQuestionType(isEssay ? 'ESSAY' : 'SINGLE_CHOICE');
     setContent(q.content);
     setEssayRubric(isEssay ? (q.correctAnswer || '') : '');
-    setSubject(q.subject || 'Kiến trúc hướng dịch vụ');
-    setTopic(q.topic || 'Kiến trúc hệ thống');
+    setSubject(q.subject || '');
+    setTopic(q.topic || '');
 
     if (!isEssay) {
       // Nạp danh sách phương án trắc nghiệm (đảm bảo ít nhất 2 và tối đa 6)
@@ -362,7 +359,6 @@ export const QuestionBankTab = ({ questions, onRefresh }: Props) => {
       const remaining = lecturerBanks.filter((b) => b.id !== bank.id);
       if (remaining.length > 0) {
         setBankId(remaining[0].id);
-        if (remaining[0].subject) setSubject(remaining[0].subject);
       } else {
         setBankId('');
       }
@@ -444,9 +440,9 @@ export const QuestionBankTab = ({ questions, onRefresh }: Props) => {
       }
 
       const res: ParseDocResponse = await parseQuestionsFromDoc({
-        bankId: importBankId || bankId || 'bank-se-arch-01',
-        subject: importSubject.trim() || subject || 'Kiến trúc hướng dịch vụ',
-        topic: importTopic.trim() || topic || 'Kiến trúc hệ thống',
+        bankId: importBankId || bankId || '',
+        subject: importSubject.trim() || subject || '',
+        topic: importTopic.trim() || topic || '',
         fileBase64,
         docText,
         text: docText,
@@ -724,7 +720,7 @@ export const QuestionBankTab = ({ questions, onRefresh }: Props) => {
                     type="text"
                     value={importSubject}
                     onChange={(e) => setImportSubject(e.target.value)}
-                    placeholder="Ví dụ: Kiến trúc hướng dịch vụ"
+                    placeholder="Nhập môn học..."
                     className="w-full p-2 border border-slate-300 rounded-md text-xs bg-white text-slate-800 outline-none"
                   />
                 </div>
@@ -737,7 +733,7 @@ export const QuestionBankTab = ({ questions, onRefresh }: Props) => {
                     type="text"
                     value={importTopic}
                     onChange={(e) => setImportTopic(e.target.value)}
-                    placeholder="Ví dụ: Kiến trúc hệ thống"
+                    placeholder="Nhập chủ đề..."
                     className="w-full p-2 border border-slate-300 rounded-md text-xs bg-white text-slate-800 outline-none"
                   />
                 </div>
@@ -1022,7 +1018,7 @@ export const QuestionBankTab = ({ questions, onRefresh }: Props) => {
                 type="text"
                 value={subject}
                 onChange={(e) => setSubject(e.target.value)}
-                placeholder="Ví dụ: Kiến trúc hướng dịch vụ"
+                placeholder="Nhập môn học..."
                 className="w-full p-2 border border-slate-200 rounded text-xs bg-white text-slate-800 outline-none focus:border-slate-400"
                 required
               />
@@ -1036,7 +1032,7 @@ export const QuestionBankTab = ({ questions, onRefresh }: Props) => {
                 type="text"
                 value={topic}
                 onChange={(e) => setTopic(e.target.value)}
-                placeholder="Ví dụ: Kiến trúc hệ thống"
+                placeholder="Nhập chủ đề..."
                 className="w-full p-2 border border-slate-200 rounded text-xs bg-white text-slate-800 outline-none focus:border-slate-400"
                 required
               />
