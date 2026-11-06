@@ -1,9 +1,11 @@
-import { useState } from 'react';
+import { useState, useMemo, useEffect } from 'react';
 import {
   type Question,
   type Candidate,
   type ExamSession,
   type SessionStatus,
+  type QuestionBank,
+  getQuestionBanks,
   resolveSessionStatus,
   sendSessionReport,
 } from '../services/apiService';
@@ -16,6 +18,7 @@ interface Props {
   questions: Question[];
   candidates: Candidate[];
   sessions: ExamSession[];
+  questionBanks?: QuestionBank[];
   loading?: boolean;
   onCreateSession: (s: Omit<ExamSession, 'id' | 'link' | 'createdAt'> & { id?: string }) => Promise<void> | void;
   onUpdateStatus?: (id: string, status: SessionStatus) => Promise<void> | void;
@@ -40,6 +43,7 @@ export const ExamSessionTab = ({
   questions,
   candidates,
   sessions,
+  questionBanks = [],
   loading = false,
   onCreateSession,
   onUpdateStatus,
@@ -58,6 +62,88 @@ export const ExamSessionTab = ({
   const [sendingReportId, setSendingReportId] = useState<string | null>(null);
 
   const [viewingResultsSessionId, setViewingResultsSessionId] = useState<string | null>(null);
+
+  // Danh sách ngân hàng đề phục vụ phân nhóm câu hỏi
+  const [banks, setBanks] = useState<QuestionBank[]>(questionBanks);
+  const [selectedBankFilter, setSelectedBankFilter] = useState<string>('ALL');
+
+  useEffect(() => {
+    if (questionBanks && questionBanks.length > 0) {
+      setBanks(questionBanks);
+    } else {
+      getQuestionBanks()
+        .then((b) => {
+          if (Array.isArray(b)) setBanks(b);
+        })
+        .catch((e) => console.warn('Lỗi tải ngân hàng câu hỏi:', e));
+    }
+  }, [questionBanks]);
+
+  // Ánh xạ bankId -> QuestionBank
+  const bankNameMap = useMemo(() => {
+    const map = new Map<string, QuestionBank>();
+    for (const b of banks) {
+      if (b.id) map.set(b.id, b);
+      if (b.bankId) map.set(b.bankId, b);
+    }
+    return map;
+  }, [banks]);
+
+  // Gom nhóm câu hỏi theo từng ngân hàng đề
+  const groupedQuestions = useMemo(() => {
+    const map = new Map<string, Question[]>();
+    for (const q of questions) {
+      const bId = q.bankId || 'unassigned';
+      if (!map.has(bId)) {
+        map.set(bId, []);
+      }
+      map.get(bId)!.push(q);
+    }
+
+    const groups: {
+      bankId: string;
+      bankName: string;
+      subject?: string;
+      questions: Question[];
+    }[] = [];
+
+    const processedBankIds = new Set<string>();
+    for (const b of banks) {
+      const bQuestions = map.get(b.id) || (b.bankId ? map.get(b.bankId) : []) || [];
+      if (bQuestions.length > 0) {
+        groups.push({
+          bankId: b.id,
+          bankName: b.name,
+          subject: b.subject,
+          questions: bQuestions,
+        });
+        processedBankIds.add(b.id);
+        if (b.bankId) processedBankIds.add(b.bankId);
+      }
+    }
+
+    // Các câu hỏi còn lại chưa thuộc ngân hàng trong danh sách
+    for (const [bId, qList] of map.entries()) {
+      if (!processedBankIds.has(bId) && qList.length > 0) {
+        const bankInfo = bankNameMap.get(bId);
+        groups.push({
+          bankId: bId,
+          bankName:
+            bankInfo?.name ||
+            (bId === 'unassigned' ? 'Câu hỏi chung (Chưa phân ngân hàng)' : `Ngân hàng đề: ${bId}`),
+          subject: bankInfo?.subject,
+          questions: qList,
+        });
+      }
+    }
+
+    return groups;
+  }, [questions, banks, bankNameMap]);
+
+  const displayGroups = useMemo(() => {
+    if (selectedBankFilter === 'ALL') return groupedQuestions;
+    return groupedQuestions.filter((g) => g.bankId === selectedBankFilter);
+  }, [groupedQuestions, selectedBankFilter]);
 
   const toggle = (list: string[], set: (v: string[]) => void, value: string, checked: boolean) =>
     set(checked ? [...list, value] : list.filter((x) => x !== value));
@@ -174,41 +260,118 @@ export const ExamSessionTab = ({
         </div>
 
         <div>
-          <div className="flex justify-between items-center mb-1.5">
-            <label className="text-xs font-medium text-slate-700">
-              {t('sess_select_questions')} ({selectedQuestions.length}/{questions.length}) *
+          <div className="flex flex-wrap items-center justify-between gap-2 mb-2">
+            <label className="text-xs font-semibold text-slate-800 flex items-center gap-1.5">
+              <span>{t('sess_select_questions')}</span>
+              <span className="text-slate-500 font-normal">
+                ({selectedQuestions.length}/{questions.length} {t('sess_questions_unit')} đã chọn) *
+              </span>
             </label>
-            <button
-              type="button"
-              className="text-xs text-slate-600 hover:text-slate-900 cursor-pointer"
-              onClick={() =>
-                setSelectedQuestions(selectedQuestions.length === questions.length ? [] : questions.map((q) => q.id))
-              }
-            >
-              {selectedQuestions.length === questions.length ? t('sess_deselect_all') : t('sess_select_all')}
-            </button>
-          </div>
-          <div className="max-h-40 overflow-y-auto border border-slate-200 rounded-md p-2.5 space-y-1.5 bg-slate-50">
-            {questions.length === 0 && (
-              <p className="text-xs text-slate-400 py-3 text-center">{t('sess_no_questions')}</p>
-            )}
-            {questions.map((q) => (
-              <label
-                key={q.id}
-                className="flex items-start space-x-2 text-xs text-slate-700 cursor-pointer p-1.5 hover:bg-white rounded transition"
+
+            <div className="flex flex-wrap items-center gap-2">
+              {groupedQuestions.length > 1 && (
+                <div className="flex items-center gap-1.5">
+                  <span className="text-[11px] text-slate-500 font-medium">Lọc theo ngân hàng:</span>
+                  <select
+                    value={selectedBankFilter}
+                    onChange={(e) => setSelectedBankFilter(e.target.value)}
+                    className="text-xs py-1 px-2 border border-slate-200 rounded-md bg-white text-slate-700 outline-none focus:border-slate-400"
+                  >
+                    <option value="ALL">Tất cả ngân hàng ({questions.length} câu)</option>
+                    {groupedQuestions.map((g) => (
+                      <option key={g.bankId} value={g.bankId}>
+                        {g.bankName} ({g.questions.length} câu)
+                      </option>
+                    ))}
+                  </select>
+                </div>
+              )}
+
+              <button
+                type="button"
+                className="text-xs text-slate-600 hover:text-slate-900 font-medium cursor-pointer underline ml-1"
+                onClick={() =>
+                  setSelectedQuestions(selectedQuestions.length === questions.length ? [] : questions.map((q) => q.id))
+                }
               >
-                <input
-                  type="checkbox"
-                  className="mt-0.5 rounded text-slate-800"
-                  checked={selectedQuestions.includes(q.id)}
-                  onChange={(e) => toggle(selectedQuestions, setSelectedQuestions, q.id, e.target.checked)}
-                />
-                <span className="flex-1">
-                  <span className="font-medium text-slate-900">[{q.difficulty}]</span> {q.content}{' '}
-                  <span className="text-slate-400">({q.score} {t('exam_points_unit')})</span>
-                </span>
-              </label>
-            ))}
+                {selectedQuestions.length === questions.length ? t('sess_deselect_all') : t('sess_select_all')}
+              </button>
+            </div>
+          </div>
+
+          <div className="max-h-80 overflow-y-auto border border-slate-200 rounded-lg p-2.5 space-y-3 bg-slate-50/80">
+            {questions.length === 0 && (
+              <p className="text-xs text-slate-400 py-6 text-center">{t('sess_no_questions')}</p>
+            )}
+
+            {displayGroups.map((g) => {
+              const gSelectedCount = g.questions.filter((q) => selectedQuestions.includes(q.id)).length;
+              const isAllInGroupSelected = gSelectedCount === g.questions.length && g.questions.length > 0;
+
+              return (
+                <div
+                  key={g.bankId}
+                  className="bg-white rounded-md border border-slate-200 overflow-hidden shadow-2xs"
+                >
+                  {/* Tiêu đề phân nhóm ngân hàng đề */}
+                  <div className="bg-slate-100/90 px-3 py-2 flex flex-wrap items-center justify-between gap-2 border-b border-slate-200">
+                    <div className="flex items-center gap-2 min-w-0">
+                      <span className="text-xs">📁</span>
+                      <span className="font-semibold text-xs text-slate-800 truncate">{g.bankName}</span>
+                      {g.subject && (
+                        <span className="text-[11px] text-slate-500 hidden sm:inline truncate">
+                          • Môn: {g.subject}
+                        </span>
+                      )}
+                      <span className="text-[10px] font-semibold text-slate-600 bg-slate-200/80 px-1.5 py-0.5 rounded">
+                        {gSelectedCount}/{g.questions.length} câu
+                      </span>
+                    </div>
+
+                    <button
+                      type="button"
+                      onClick={() => {
+                        const gIds = g.questions.map((q) => q.id);
+                        if (isAllInGroupSelected) {
+                          setSelectedQuestions((prev) => prev.filter((id) => !gIds.includes(id)));
+                        } else {
+                          setSelectedQuestions((prev) => Array.from(new Set([...prev, ...gIds])));
+                        }
+                      }}
+                      className="text-[11px] font-medium text-slate-700 hover:text-slate-900 cursor-pointer bg-white px-2 py-0.5 rounded border border-slate-200 hover:bg-slate-50 transition"
+                    >
+                      {isAllInGroupSelected ? 'Bỏ chọn ngân hàng này' : 'Chọn cả ngân hàng'}
+                    </button>
+                  </div>
+
+                  {/* Danh sách câu hỏi trong ngân hàng hiển thị theo thứ tự 1, 2, 3 */}
+                  <div className="divide-y divide-slate-100">
+                    {g.questions.map((q, idx) => (
+                      <label
+                        key={q.id}
+                        className="flex items-start space-x-2 text-xs text-slate-700 cursor-pointer p-2 hover:bg-slate-50/80 transition"
+                      >
+                        <input
+                          type="checkbox"
+                          className="mt-0.5 rounded text-slate-800 cursor-pointer"
+                          checked={selectedQuestions.includes(q.id)}
+                          onChange={(e) => toggle(selectedQuestions, setSelectedQuestions, q.id, e.target.checked)}
+                        />
+                        <span className="flex-1 min-w-0 leading-relaxed">
+                          <span className="font-semibold text-slate-900 mr-1.5 shrink-0">
+                            Câu {idx + 1}:
+                          </span>
+                          <span className="text-slate-800">{q.content}</span>
+                          <span className="text-slate-400 text-[11px] ml-1.5 whitespace-nowrap">
+                            ({q.score} {t('exam_points_unit')})
+                          </span>
+                        </span>
+                      </label>
+                    ))}
+                  </div>
+                </div>
+              );
+            })}
           </div>
         </div>
 

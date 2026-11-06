@@ -8,6 +8,7 @@ import {
 } from './services/auth';
 import {
   getQuestions,
+  getQuestionBanks,
   getCandidates,
   createCandidate,
   deleteCandidate,
@@ -17,6 +18,7 @@ import {
   updateSessionCandidates,
   syncCloudDatabaseToProduction,
   type Question,
+  type QuestionBank,
   type Candidate,
   type ExamSession,
   type SessionStatus,
@@ -221,6 +223,7 @@ export default function App() {
   const [questions, setQuestions] = useState<Question[]>([]);
   const [candidates, setCandidates] = useState<Candidate[]>([]);
   const [sessions, setSessions] = useState<ExamSession[]>([]);
+  const [questionBanks, setQuestionBanks] = useState<QuestionBank[]>([]);
   const [loading, setLoading] = useState(false);
 
   // ID ca thi đang mở (nếu đang ở trong phòng thi)
@@ -277,7 +280,7 @@ export default function App() {
   const refreshAll = useCallback(async () => {
     setLoading(true);
     try {
-      const [qs, cs, ss] = await Promise.all([
+      const [qs, cs, ss, bs] = await Promise.all([
         getQuestions().catch((e) => {
           console.error('Lỗi tải câu hỏi:', e);
           return null;
@@ -290,10 +293,15 @@ export default function App() {
           console.error('Lỗi tải ca thi:', e);
           return null;
         }),
+        getQuestionBanks().catch((e) => {
+          console.error('Lỗi tải ngân hàng câu hỏi:', e);
+          return null;
+        }),
       ]);
       if (Array.isArray(qs)) setQuestions(qs);
       if (Array.isArray(cs)) setCandidates(cs);
       if (Array.isArray(ss)) setSessions(ss);
+      if (Array.isArray(bs)) setQuestionBanks(bs);
     } finally {
       setLoading(false);
     }
@@ -631,6 +639,7 @@ export default function App() {
             questions={questions}
             candidates={candidates}
             sessions={sessions}
+            questionBanks={questionBanks}
             loading={loading}
             onCreateSession={handleCreateSession}
             onUpdateStatus={handleUpdateSessionStatus}
