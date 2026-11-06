@@ -36,7 +36,7 @@ export const CandidatesTab = ({
     if (candidates.some((c) => c.email.toLowerCase() === email.trim().toLowerCase())) {
       return alert(t('alert_email_exists'));
     }
-    if (studentCode.trim() && candidates.some((c) => c.studentCode === studentCode.trim())) {
+    if (studentCode.trim() && candidates.some((c) => (c.studentCode || '').trim().toLowerCase() === studentCode.trim().toLowerCase())) {
       return alert(t('alert_student_code_exists') || `Mã sinh viên '${studentCode.trim()}' đã tồn tại.`);
     }
 

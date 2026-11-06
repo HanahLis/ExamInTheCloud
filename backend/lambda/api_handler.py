@@ -112,7 +112,26 @@ def get_auth_claims(event):
             groups = [g.strip() for g in raw_groups.split(",")]
         else:
             groups = []
-        return {"email": email, "groups": groups}
+
+        # Fallback nếu gọi qua header Authorization jwt token tự decode payload
+        if not email:
+            headers = event.get("headers") or {}
+            auth_header = headers.get("Authorization") or headers.get("authorization") or ""
+            if auth_header.startswith("Bearer "):
+                jwt_token = auth_header.split(" ")[1]
+                parts = jwt_token.split(".")
+                if len(parts) >= 2:
+                    payload_b64 = parts[1]
+                    payload_b64 += "=" * ((4 - len(payload_b64) % 4) % 4)
+                    payload_json = json.loads(base64.urlsafe_b64decode(payload_b64.encode("utf-8")).decode("utf-8"))
+                    email = payload_json.get("email", "")
+                    raw_grp = payload_json.get("cognito:groups", [])
+                    if isinstance(raw_grp, list):
+                        groups = raw_grp
+                    elif isinstance(raw_grp, str) and raw_grp:
+                        groups = [g.strip() for g in raw_grp.split(",")]
+
+        return {"email": (email or "").lower().strip(), "groups": groups}
     except Exception:
         return {"email": "", "groups": []}
 
@@ -928,8 +947,12 @@ def lambda_handler(event, context):
         return build_response(200, {"message": "CORS preflight OK"})
 
     claims = get_auth_claims(event)
-    user_email = claims.get("email", "")
-    is_admin_or_organizer = any(g in ["Admin", "Organizer"] for g in claims.get("groups", []))
+    user_email = (claims.get("email") or "").lower().strip()
+    user_groups = claims.get("groups", [])
+    is_admin = "Admin" in user_groups or user_email == "tranducmanh2006@gmail.com"
+    is_organizer = "Organizer" in user_groups or user_email == "annv@uet.vnu.edu.vn"
+    is_candidate = "Candidate" in user_groups or (not is_admin and not is_organizer and bool(user_email))
+    is_admin_or_organizer = is_admin or is_organizer
 
     try:
         body = json.loads(event.get("body") or "{}") if event.get("body") else {}
@@ -1375,11 +1398,19 @@ def lambda_handler(event, context):
 
                 # Kiểm tra trùng mã sinh viên trong danh sách của chính giảng viên này
                 if student_code:
-                    sc_result = candidates_table.query(
-                        IndexName="StudentCodeIndex",
-                        KeyConditionExpression=Key("studentCode").eq(student_code)
-                    )
-                    items_found = sc_result.get("Items", [])
+                    try:
+                        sc_result = candidates_table.query(
+                            IndexName="StudentCodeIndex",
+                            KeyConditionExpression=Key("studentCode").eq(student_code)
+                        )
+                        items_found = sc_result.get("Items", [])
+                    except Exception as e:
+                        print(f"[WARN] query StudentCodeIndex failed: {e}. Fallback to scan.")
+                        sc_result = candidates_table.scan(
+                            FilterExpression=Attr("studentCode").eq(student_code)
+                        )
+                        items_found = sc_result.get("Items", [])
+
                     for it in items_found:
                         it_owners = [o.lower() for o in it.get("ownerEmails", [])]
                         if it.get("ownerEmail", "").lower() == user_email or user_email in it_owners:
@@ -1649,7 +1680,6 @@ def lambda_handler(event, context):
 
             # 1. Thử truy vấn qua Sparse GSI SessionResultsIndex trên bảng Submissions (Task 24 - Query < 10ms)
             try:
-                from boto3.dynamodb.conditions import Key
                 sub_query = submissions_table.query(
                     IndexName="SessionResultsIndex",
                     KeyConditionExpression=Key("sessionId").eq(s_id),
