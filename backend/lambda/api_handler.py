@@ -1281,9 +1281,26 @@ def lambda_handler(event, context):
                 if not candidate_email:
                     return build_response(400, {"error": "Thiếu email thí sinh."})
                 
+                candidate_email = candidate_email.strip().lower()
+                student_code = body.get("studentCode", "").strip()
+
+                # Kiểm tra trùng email (partition key)
+                existing_email = candidates_table.get_item(Key={"email": candidate_email}).get("Item")
+                if existing_email:
+                    return build_response(409, {"error": f"Email '{candidate_email}' đã tồn tại trong hệ thống."})
+
+                # Kiểm tra trùng mã sinh viên (qua GSI StudentCodeIndex)
+                if student_code:
+                    sc_result = candidates_table.query(
+                        IndexName="StudentCodeIndex",
+                        KeyConditionExpression=Key("studentCode").eq(student_code)
+                    )
+                    if sc_result.get("Items"):
+                        return build_response(409, {"error": f"Mã sinh viên '{student_code}' đã tồn tại trong hệ thống."})
+
                 item = {
-                    "email": candidate_email.strip().lower(),
-                    "studentCode": body.get("studentCode", ""),
+                    "email": candidate_email,
+                    "studentCode": student_code,
                     "name": body.get("name", ""),
                     "className": body.get("className", ""),
                     "faceImageUrl": body.get("faceImageUrl", ""),

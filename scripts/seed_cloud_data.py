@@ -10,6 +10,7 @@ import os
 import sys
 import json
 import time
+import subprocess
 from pathlib import Path
 from decimal import Decimal
 
@@ -36,9 +37,26 @@ def get_repo_paths():
     return repo_root, data_dir, sample_faces_dir, tf_dir, frontend_dir
 
 def load_terraform_outputs(tf_dir: Path):
-    """Đọc thông tin hạ tầng thực tế từ terraform.tfstate"""
-    tfstate_file = tf_dir / "terraform.tfstate"
+    """Đọc thông tin hạ tầng thực tế từ terraform output hoặc terraform.tfstate"""
     outputs = {}
+    try:
+        res = subprocess.run(
+            ["terraform", "output", "-json"],
+            cwd=str(tf_dir),
+            capture_output=True,
+            text=True,
+            check=False
+        )
+        if res.returncode == 0 and res.stdout.strip():
+            raw_outputs = json.loads(res.stdout)
+            for k, v in raw_outputs.items():
+                outputs[k] = v.get("value")
+            if outputs:
+                return outputs
+    except Exception:
+        pass
+
+    tfstate_file = tf_dir / "terraform.tfstate"
     if tfstate_file.exists():
         try:
             with open(tfstate_file, "r", encoding="utf-8") as f:
@@ -110,7 +128,7 @@ def seed_cognito_users(cognito_client, user_pool_id: str):
                     {"Name": "email", "Value": email},
                     {"Name": "email_verified", "Value": "true"},
                     {"Name": "name", "Value": u["name"]},
-                    {"Name": "student_code", "Value": u["student_code"]},
+                    {"Name": "custom:student_code", "Value": u["student_code"]},
                     {"Name": "custom:tenant_id", "Value": "vn"}
                 ],
                 MessageAction="SUPPRESS"
@@ -623,6 +641,8 @@ def update_frontend_env_file(frontend_dir: Path, outputs: dict, cognito_client=N
     # Giữ lại Gemini API Key hiện tại nếu đã có trong .env
     existing_key = existing_env.get("VITE_GEMINI_API_KEY", "AQ.Ab8RN6IM7Z8gAyK5YaSv5ZntwjK2bUW4OMkZhSKLUbUd-N68hQ")
 
+    cognito_domain = outputs.get("cognito_domain") or existing_env.get("VITE_COGNITO_DOMAIN") or f"https://cloudexam-auth-{REGION}.auth.{REGION}.amazoncognito.com"
+
     content = f"""# ==============================================================================
 # CLOUDEXAM FRONTEND ENVIRONMENT CONFIGURATION (.env)
 # Tự động cập nhật bởi seed_cloud_data.py khi terraform apply
@@ -638,7 +658,7 @@ VITE_AWS_REGION={REGION}
 VITE_API_BASE_URL={api_url}
 
 # Tên miền AWS Cognito Hosted UI
-VITE_COGNITO_DOMAIN=https://cloudexam-auth-onionegg-dev.auth.{REGION}.amazoncognito.com
+VITE_COGNITO_DOMAIN={cognito_domain}
 
 # ID của Cognito User Pool
 VITE_COGNITO_USER_POOL_ID={user_pool_id}
@@ -668,6 +688,13 @@ VITE_GEMINI_MODEL=gemini-3.8-flash
         with open(env_file, "w", encoding="utf-8") as f:
             f.write(content)
         print(f"[OK] Đã cập nhật {env_file} thành công!")
+
+        # Đồng thời cập nhật .env.local cho môi trường dev localhost
+        env_local = frontend_dir / ".env.local"
+        content_local = content.replace(f"VITE_COGNITO_REDIRECT_URI={cf_url}/callback", "VITE_COGNITO_REDIRECT_URI=http://localhost:5173/callback")
+        with open(env_local, "w", encoding="utf-8") as f:
+            f.write(content_local)
+        print(f"[OK] Đã cập nhật {env_local} thành công!")
     except Exception as e:
         print(f"[WARN] Không thể ghi .env: {e}")
 
