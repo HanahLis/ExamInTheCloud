@@ -30,7 +30,7 @@ export const QuestionBankTab = ({ questions, onRefresh }: Props) => {
   const currentUser = getCurrentUser();
   const lecturerEmail = (currentUser.email || 'annv@uet.vnu.edu.vn').toLowerCase().trim();
   const lecturerName =
-    currentUser.name || (currentUser.email ? currentUser.email.split('@')[0] : 'Giảng viên');
+    currentUser.name || (currentUser.email ? currentUser.email.split('@')[0] : t('qb_lecturer_label'));
 
   // Ngân hàng câu hỏi của Giảng viên
   const [banks, setBanks] = useState<QuestionBank[]>([]);
@@ -69,6 +69,7 @@ export const QuestionBankTab = ({ questions, onRefresh }: Props) => {
   const [importInputMode, setImportInputMode] = useState<'FILE' | 'TEXT'>('TEXT');
   const [importFile, setImportFile] = useState<File | null>(null);
   const [importText, setImportText] = useState(
+    t('qb_ai_default_prompt', { count: 20 }) ||
     'Tạo 20 câu hỏi trắc nghiệm chuyên sâu về điện toán đám mây AWS (bao gồm EC2, S3, Lambda, DynamoDB, VPC). Mỗi câu có 4 phương án A, B, C, D và chỉ rõ đáp án đúng.'
   );
   const [importCount, setImportCount] = useState<number>(20);
@@ -114,6 +115,9 @@ export const QuestionBankTab = ({ questions, onRefresh }: Props) => {
 
       const myOwned = list.filter((b) => {
         if (deletedIds.has(b.id) || deletedIds.has(b.bankId || '')) return false;
+        // Giữ lại ngân hàng mặc định của nhà trường hoặc ngân hàng do giảng viên sở hữu
+        if (!b.ownerEmail && !b.createdBy) return true;
+        if (b.id === 'bank-se-arch-01' || b.id === 'bank-cloud-01') return true;
         return (
           b.ownerEmail?.toLowerCase() === lecturerEmail ||
           b.createdBy?.toLowerCase() === lecturerEmail
@@ -146,6 +150,7 @@ export const QuestionBankTab = ({ questions, onRefresh }: Props) => {
     return banks.filter((b) => {
       if (deletedIds.has(b.id) || deletedIds.has(b.bankId || '')) return false;
       if (!b.ownerEmail && !b.createdBy) return true;
+      if (b.id === 'bank-se-arch-01' || b.id === 'bank-cloud-01') return true;
       return (
         b.ownerEmail?.toLowerCase() === lecturerEmail ||
         b.createdBy?.toLowerCase() === lecturerEmail
@@ -161,6 +166,7 @@ export const QuestionBankTab = ({ questions, onRefresh }: Props) => {
   const lecturerQuestions = useMemo(() => {
     return questions.filter((q) => {
       if (q.bankId && lecturerBankIds.has(q.bankId)) return true;
+      if (!q.ownerEmail && !q.createdBy) return true;
       if (q.ownerEmail && q.ownerEmail.toLowerCase() === lecturerEmail) return true;
       if (q.createdBy && q.createdBy.toLowerCase() === lecturerEmail) return true;
       return false;
@@ -300,9 +306,9 @@ export const QuestionBankTab = ({ questions, onRefresh }: Props) => {
     try {
       let imageUrl = existingImage;
       if (file) {
-        setUploadStatus('Đang tải ảnh lên lưu trữ...');
+        setUploadStatus(t('qb_uploading_image'));
         imageUrl = await uploadQuestionImage(file);
-        setUploadStatus('Tải ảnh thành công');
+        setUploadStatus(t('qb_upload_success'));
       }
 
       let payload: any;
@@ -430,11 +436,11 @@ export const QuestionBankTab = ({ questions, onRefresh }: Props) => {
     setExtractedQuestions([]);
 
     if (importInputMode === 'FILE' && !importFile) {
-      setImportError('Vui lòng chọn tệp Word (.docx) hoặc (.txt) từ máy tính.');
+      setImportError(t('qb_err_select_file'));
       return;
     }
     if (importInputMode === 'TEXT' && !importText.trim()) {
-      setImportError('Vui lòng nhập nội dung đề thi hoặc câu lệnh tạo đề thi.');
+      setImportError(t('qb_err_enter_prompt'));
       return;
     }
 
@@ -473,7 +479,7 @@ export const QuestionBankTab = ({ questions, onRefresh }: Props) => {
       });
 
       setImportSuccessMessage(
-        res.message || `Đã trích xuất thành công ${res.count} câu hỏi vào ngân hàng.`
+        res.message || t('qb_extract_success_msg', { count: res.count })
       );
       setExtractedQuestions(res.questions || []);
 
@@ -483,7 +489,7 @@ export const QuestionBankTab = ({ questions, onRefresh }: Props) => {
     } catch (err: any) {
       console.error('Lỗi trích xuất đề thi:', err);
       setImportError(
-        err.response?.data?.error || err.message || 'Lỗi xử lý tệp đề thi. Vui lòng thử lại.'
+        err.response?.data?.error || err.message || t('qb_extract_error_msg')
       );
     } finally {
       setImportLoading(false);
@@ -505,7 +511,7 @@ export const QuestionBankTab = ({ questions, onRefresh }: Props) => {
               {t('qb_my_banks')} ({lecturerBanks.length})
             </h3>
             <p className="text-xs text-slate-500">
-              Tổng số <span className="font-semibold text-indigo-700">{lecturerQuestions.length} câu hỏi</span> • Giảng viên: <span className="font-semibold text-slate-700">{lecturerName}</span> ({lecturerEmail})
+              {t('qb_total_label')} <span className="font-semibold text-indigo-700">{lecturerQuestions.length} {t('sess_questions_unit')}</span> • {t('qb_lecturer_label')}: <span className="font-semibold text-slate-700">{lecturerName}</span> ({lecturerEmail})
             </p>
           </div>
         </div>
@@ -530,7 +536,7 @@ export const QuestionBankTab = ({ questions, onRefresh }: Props) => {
             <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 4v16m8-8H4" />
             </svg>
-            <span>{showQuestionForm ? 'Đóng biểu mẫu' : 'Thêm câu hỏi'}</span>
+            <span>{showQuestionForm ? t('qb_cancel_edit') : t('qb_create_question')}</span>
           </button>
 
           <button
@@ -538,7 +544,7 @@ export const QuestionBankTab = ({ questions, onRefresh }: Props) => {
             onClick={() => setShowCreateBankModal(true)}
             className="px-3.5 py-2 bg-slate-900 hover:bg-slate-800 text-white text-xs font-semibold rounded-xl shadow-xs transition cursor-pointer flex items-center gap-1.5"
           >
-            <span>+ Tạo ngân hàng</span>
+            <span>+ {t('qb_create_bank')}</span>
           </button>
         </div>
       </div>
@@ -549,10 +555,10 @@ export const QuestionBankTab = ({ questions, onRefresh }: Props) => {
         <div className="lg:col-span-4 bg-white p-5 rounded-3xl border border-slate-200/80 shadow-xs space-y-3">
           <div className="flex justify-between items-center pb-2 border-b border-slate-100">
             <span className="text-xs font-bold text-slate-800 uppercase tracking-wider">
-              Ngân hàng đề thi
+              {t('qb_filter_bank')}
             </span>
             <span className="text-[11px] text-slate-400">
-              {lecturerBanks.length} danh mục
+              {lecturerBanks.length} {t('qb_categories_unit')}
             </span>
           </div>
 
@@ -567,10 +573,10 @@ export const QuestionBankTab = ({ questions, onRefresh }: Props) => {
             >
               <div className="flex items-center gap-2.5">
                 <span className="w-2.5 h-2.5 rounded-full bg-indigo-600"></span>
-                <span className="text-xs">Tất cả ngân hàng</span>
+                <span className="text-xs">{t('qb_all_banks')}</span>
               </div>
               <span className="text-[10px] font-mono px-2 py-0.5 rounded-full bg-white border border-slate-200 text-slate-600 font-semibold">
-                {lecturerQuestions.length} câu
+                {lecturerQuestions.length} {t('sess_questions_unit')}
               </span>
             </button>
 
@@ -594,7 +600,7 @@ export const QuestionBankTab = ({ questions, onRefresh }: Props) => {
                   >
                     <p className="text-xs font-semibold truncate text-slate-900">{b.name}</p>
                     <p className="text-[10px] text-slate-500 truncate mt-0.5">
-                      {b.subject || 'Chung'} • {count} câu
+                      {b.subject || t('qb_general_subject')} • {count} {t('sess_questions_unit')}
                     </p>
                   </button>
 
@@ -604,7 +610,7 @@ export const QuestionBankTab = ({ questions, onRefresh }: Props) => {
                     </span>
                     <button
                       type="button"
-                      title="Xóa ngân hàng đề này"
+                      title={t('qb_delete_bank_title')}
                       disabled={isDeleting}
                       onClick={(e) => {
                         e.stopPropagation();
@@ -663,7 +669,7 @@ export const QuestionBankTab = ({ questions, onRefresh }: Props) => {
                       type="text"
                       value={subject}
                       onChange={(e) => setSubject(e.target.value)}
-                      placeholder="Môn học..."
+                      placeholder={t('qb_subject_placeholder')}
                       className="w-full p-2 border border-slate-200 rounded-xl text-xs bg-slate-50 text-slate-800 outline-none"
                       required
                     />
@@ -675,7 +681,7 @@ export const QuestionBankTab = ({ questions, onRefresh }: Props) => {
                       type="text"
                       value={topic}
                       onChange={(e) => setTopic(e.target.value)}
-                      placeholder="Chủ đề..."
+                      placeholder={t('qb_topic_placeholder')}
                       className="w-full p-2 border border-slate-200 rounded-xl text-xs bg-slate-50 text-slate-800 outline-none"
                       required
                     />
@@ -689,13 +695,13 @@ export const QuestionBankTab = ({ questions, onRefresh }: Props) => {
                     onChange={(e) => setContent(e.target.value)}
                     className="w-full p-3 bg-white border border-slate-200 rounded-2xl outline-none focus:border-indigo-400 focus:ring-2 focus:ring-indigo-100 text-xs leading-relaxed"
                     rows={3}
-                    placeholder="Nhập nội dung câu hỏi..."
+                    placeholder={t('qb_content_placeholder')}
                     required
                   />
                 </div>
 
                 <div className="flex items-center gap-3">
-                  <span className="text-xs font-semibold text-slate-700">Loại câu hỏi:</span>
+                  <span className="text-xs font-semibold text-slate-700">{t('qb_question_type_label')}</span>
                   <div className="inline-flex rounded-xl p-1 bg-slate-100 border border-slate-200">
                     <button
                       type="button"
@@ -728,20 +734,20 @@ export const QuestionBankTab = ({ questions, onRefresh }: Props) => {
                       onChange={(e) => setEssayRubric(e.target.value)}
                       className="w-full p-2.5 border border-slate-200 rounded-xl outline-none focus:border-indigo-400 text-xs leading-relaxed"
                       rows={3}
-                      placeholder="Nhập barem chấm điểm hoặc các ý chính cần có..."
+                      placeholder={t('qb_rubric_placeholder')}
                     />
                   </div>
                 ) : (
                   <div className="space-y-2 bg-white p-4 rounded-2xl border border-slate-200">
                     <div className="flex justify-between items-center mb-1">
-                      <span className="text-xs font-semibold text-slate-700">Các phương án lựa chọn (Click chọn đáp án đúng):</span>
+                      <span className="text-xs font-semibold text-slate-700">{t('qb_options_and_correct')}</span>
                       {options.length < 6 && (
                         <button
                           type="button"
                           onClick={handleAddOption}
                           className="text-xs text-indigo-600 font-semibold cursor-pointer hover:underline"
                         >
-                          + Thêm phương án ({OPTION_LABELS[options.length]})
+                          + {t('qb_add_option_btn')} ({OPTION_LABELS[options.length]})
                         </button>
                       )}
                     </div>
@@ -773,7 +779,7 @@ export const QuestionBankTab = ({ questions, onRefresh }: Props) => {
                                 const val = e.target.value;
                                 setOptions((prev) => prev.map((o, idx) => (idx === i ? val : o)));
                               }}
-                              placeholder={`Nội dung phương án ${OPTION_LABELS[i]}...`}
+                              placeholder={`${OPTION_LABELS[i]}...`}
                               className="flex-1 bg-white px-2.5 py-1.5 border border-slate-200 rounded-lg text-xs outline-none focus:border-indigo-400"
                             />
                             {options.length > 2 && (
@@ -826,14 +832,14 @@ export const QuestionBankTab = ({ questions, onRefresh }: Props) => {
                     onClick={resetForm}
                     className="px-4 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-xl text-xs font-medium transition cursor-pointer"
                   >
-                    Hủy
+                    {t('qb_cancel_edit')}
                   </button>
                   <button
                     type="submit"
                     disabled={loading}
                     className="px-5 py-2 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl text-xs font-semibold shadow-xs transition cursor-pointer disabled:opacity-50"
                   >
-                    {loading ? 'Đang lưu...' : editingId ? t('qb_update_btn') : t('qb_save_btn')}
+                    {loading ? t('qb_saving') : editingId ? t('qb_update_btn') : t('qb_save_btn')}
                   </button>
                 </div>
               </form>
@@ -849,12 +855,12 @@ export const QuestionBankTab = ({ questions, onRefresh }: Props) => {
                 </h3>
                 <p className="text-xs text-slate-500">
                   {selectedBankFilter === 'ALL'
-                    ? 'Toàn bộ câu hỏi trong tất cả ngân hàng'
-                    : `Ngân hàng: ${lecturerBanks.find((b) => b.id === selectedBankFilter)?.name || selectedBankFilter}`}
+                    ? t('qb_all_questions_desc')
+                    : `${t('qb_bank_label')}: ${lecturerBanks.find((b) => b.id === selectedBankFilter)?.name || selectedBankFilter}`}
                 </p>
               </div>
               <span className="text-xs font-semibold text-indigo-700 bg-indigo-50 px-3 py-1 rounded-full border border-indigo-100">
-                Tổng điểm: {filteredQuestions.reduce((sum, q) => sum + (Number(q.score) || 0), 0)} điểm
+                {t('qb_total_score')} {filteredQuestions.reduce((sum, q) => sum + (Number(q.score) || 0), 0)} {t('qb_points_suffix')}
               </span>
             </div>
 
@@ -866,7 +872,7 @@ export const QuestionBankTab = ({ questions, onRefresh }: Props) => {
                   </svg>
                 </div>
                 <p className="text-xs font-semibold text-slate-700">{t('qb_empty')}</p>
-                <p className="text-[11px] text-slate-400">Hãy nhấn "Soạn đề / Trích xuất AI" hoặc "Thêm câu hỏi" để bắt đầu.</p>
+                <p className="text-[11px] text-slate-400">{t('qb_empty_hint')}</p>
               </div>
             )}
 
@@ -909,14 +915,14 @@ export const QuestionBankTab = ({ questions, onRefresh }: Props) => {
                     {q.type === 'ESSAY' ? (
                       <div className="p-3.5 rounded-2xl border border-indigo-100 bg-indigo-50/40 text-xs space-y-1">
                         <div className="flex items-center gap-1.5 text-indigo-900 font-semibold text-[11px]">
-                          <span>Hướng dẫn chấm điểm:</span>
+                          <span>{t('qb_essay_rubric_label')}</span>
                         </div>
                         {q.correctAnswer ? (
                           <p className="text-slate-700 whitespace-pre-wrap leading-relaxed pl-2 border-l-2 border-indigo-400">
                             {q.correctAnswer}
                           </p>
                         ) : (
-                          <p className="text-slate-400 italic">Chưa có barem chấm</p>
+                          <p className="text-slate-400 italic">{t('qb_no_rubric')}</p>
                         )}
                       </div>
                     ) : (
@@ -942,7 +948,7 @@ export const QuestionBankTab = ({ questions, onRefresh }: Props) => {
                               </span>
                               {isCorrect && (
                                 <span className="text-[10px] font-bold text-emerald-700 bg-emerald-100 border border-emerald-300 px-1.5 py-0.5 rounded-full shrink-0">
-                                  Đáp án đúng
+                                  {t('qb_correct_answer_badge')}
                                 </span>
                               )}
                             </div>
@@ -1007,7 +1013,7 @@ export const QuestionBankTab = ({ questions, onRefresh }: Props) => {
                   type="text"
                   value={newBankName}
                   onChange={(e) => setNewBankName(e.target.value)}
-                  placeholder="Ví dụ: Đề thi Kiến trúc Điện toán Đám mây"
+                  placeholder={t('qb_bank_name_label')}
                   className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs outline-none focus:bg-white focus:border-indigo-400 focus:ring-2 focus:ring-indigo-100 transition"
                   required
                 />
@@ -1021,7 +1027,7 @@ export const QuestionBankTab = ({ questions, onRefresh }: Props) => {
                   type="text"
                   value={newBankSubject}
                   onChange={(e) => setNewBankSubject(e.target.value)}
-                  placeholder="Ví dụ: Điện toán đám mây (Cloud Computing)"
+                  placeholder={t('qb_subject_label')}
                   className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs outline-none focus:bg-white focus:border-indigo-400 focus:ring-2 focus:ring-indigo-100 transition"
                   required
                 />
@@ -1034,7 +1040,7 @@ export const QuestionBankTab = ({ questions, onRefresh }: Props) => {
                 <textarea
                   value={newBankDesc}
                   onChange={(e) => setNewBankDesc(e.target.value)}
-                  placeholder="Mô tả tóm tắt..."
+                  placeholder={t('qb_desc_label')}
                   rows={2}
                   className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs outline-none focus:bg-white focus:border-indigo-400 focus:ring-2 focus:ring-indigo-100 transition"
                 />
@@ -1069,7 +1075,7 @@ export const QuestionBankTab = ({ questions, onRefresh }: Props) => {
               <div>
                 <h4 className="text-base font-bold tracking-tight">{t('qb_import_modal_title')}</h4>
                 <p className="text-xs text-indigo-100 mt-0.5">
-                  Tự động bóc tách từ tài liệu Word (.docx) hoặc sinh đề thi theo chuẩn sư phạm qua AI
+                  {t('qb_import_modal_desc')}
                 </p>
               </div>
               <button
@@ -1109,7 +1115,7 @@ export const QuestionBankTab = ({ questions, onRefresh }: Props) => {
                     type="text"
                     value={importSubject}
                     onChange={(e) => setImportSubject(e.target.value)}
-                    placeholder="Môn học..."
+                    placeholder={t('qb_subject_placeholder')}
                     className="w-full p-2 border border-slate-200 rounded-xl text-xs bg-white text-slate-800 outline-none"
                   />
                 </div>
@@ -1120,7 +1126,7 @@ export const QuestionBankTab = ({ questions, onRefresh }: Props) => {
                     type="text"
                     value={importTopic}
                     onChange={(e) => setImportTopic(e.target.value)}
-                    placeholder="Chủ đề..."
+                    placeholder={t('qb_topic_placeholder')}
                     className="w-full p-2 border border-slate-200 rounded-xl text-xs bg-white text-slate-800 outline-none"
                   />
                 </div>
@@ -1132,20 +1138,22 @@ export const QuestionBankTab = ({ questions, onRefresh }: Props) => {
                   <button
                     type="button"
                     onClick={() => setImportInputMode('TEXT')}
-                    className={`pb-2.5 px-4 text-xs font-semibold border-b-2 transition cursor-pointer ${importInputMode === 'TEXT'
+                    className={`pb-2.5 px-4 text-xs font-semibold border-b-2 transition cursor-pointer ${
+                      importInputMode === 'TEXT'
                         ? 'border-indigo-600 text-indigo-700'
                         : 'border-transparent text-slate-500 hover:text-slate-800'
-                      }`}
+                    }`}
                   >
                     {t('qb_ai_prompt_mode')}
                   </button>
                   <button
                     type="button"
                     onClick={() => setImportInputMode('FILE')}
-                    className={`pb-2.5 px-4 text-xs font-semibold border-b-2 transition cursor-pointer ${importInputMode === 'FILE'
+                    className={`pb-2.5 px-4 text-xs font-semibold border-b-2 transition cursor-pointer ${
+                      importInputMode === 'FILE'
                         ? 'border-indigo-600 text-indigo-700'
                         : 'border-transparent text-slate-500 hover:text-slate-800'
-                      }`}
+                    }`}
                   >
                     {t('qb_upload_file_mode')}
                   </button>
@@ -1155,7 +1163,7 @@ export const QuestionBankTab = ({ questions, onRefresh }: Props) => {
                   <div className="space-y-3">
                     {/* Chọn số lượng câu hỏi */}
                     <div className="flex flex-wrap items-center justify-between gap-2 bg-slate-50 p-2.5 rounded-2xl border border-slate-200/80">
-                      <span className="text-xs font-semibold text-slate-700">Số lượng câu hỏi cần tạo:</span>
+                      <span className="text-xs font-semibold text-slate-700">{t('qb_ai_num_questions_label')}:</span>
                       <div className="flex items-center gap-1.5">
                         {[5, 10, 15, 20, 25].map((cnt) => (
                           <button
@@ -1164,15 +1172,17 @@ export const QuestionBankTab = ({ questions, onRefresh }: Props) => {
                             onClick={() => {
                               setImportCount(cnt);
                               setImportText(
+                                t('qb_ai_default_prompt', { count: cnt }) ||
                                 `Tạo ${cnt} câu hỏi trắc nghiệm chuyên sâu về điện toán đám mây AWS (bao gồm EC2, S3, Lambda, DynamoDB, VPC). Mỗi câu có 4 phương án A, B, C, D và chỉ rõ đáp án đúng.`
                               );
                             }}
-                            className={`px-2.5 py-1 rounded-lg text-xs font-semibold transition cursor-pointer ${importCount === cnt
+                            className={`px-2.5 py-1 rounded-lg text-xs font-semibold transition cursor-pointer ${
+                              importCount === cnt
                                 ? 'bg-indigo-600 text-white shadow-2xs'
                                 : 'bg-white border border-slate-200 text-slate-700 hover:bg-slate-100'
-                              }`}
+                            }`}
                           >
-                            {cnt} câu
+                            {cnt} {t('sess_questions_unit')}
                           </button>
                         ))}
                       </div>
@@ -1181,7 +1191,7 @@ export const QuestionBankTab = ({ questions, onRefresh }: Props) => {
                     <textarea
                       value={importText}
                       onChange={(e) => setImportText(e.target.value)}
-                      placeholder="Nhập nội dung đề thi hoặc câu lệnh tạo đề thi..."
+                      placeholder={t('qb_import_prompt_placeholder')}
                       rows={5}
                       className="w-full p-3 bg-white border border-slate-200 rounded-2xl text-xs outline-none focus:border-indigo-400 focus:ring-2 focus:ring-indigo-100 font-sans leading-relaxed"
                     />
@@ -1209,9 +1219,9 @@ export const QuestionBankTab = ({ questions, onRefresh }: Props) => {
                         </svg>
                       </div>
                       <p className="text-xs font-bold text-slate-800">
-                        {importFile ? importFile.name : 'Chọn tệp Word (.docx) hoặc Văn bản (.txt)'}
+                        {importFile ? importFile.name : t('qb_ai_select_file')}
                       </p>
-                      <p className="text-[11px] text-slate-400">Hỗ trợ nhận diện tự động cấu trúc câu hỏi và bảng đáp án</p>
+                      <p className="text-[11px] text-slate-400">{t('qb_ai_file_hint')}</p>
                     </label>
                   </div>
                 )}
@@ -1224,14 +1234,14 @@ export const QuestionBankTab = ({ questions, onRefresh }: Props) => {
                     <svg className="w-4 h-4 text-purple-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M13 10V3L4 14h7v7l9-11h-7z" />
                     </svg>
-                    <span>Cấu hình Google Gemini AI</span>
+                    <span>{t('qb_gemini_config')}</span>
                   </span>
                   <span className={`text-[11px] px-2.5 py-0.5 rounded-full font-semibold border ${
                     importApiKey
                       ? 'bg-emerald-50 text-emerald-700 border-emerald-200'
                       : 'bg-indigo-50 text-indigo-700 border-indigo-200'
                   }`}>
-                    {importApiKey ? '✓ Đã kết nối API Key' : '⚡ Chế độ Sinh đề Ngữ cảnh Tích hợp'}
+                    {importApiKey ? t('qb_gemini_connected') : t('qb_gemini_builtin_mode')}
                   </span>
                 </div>
 
@@ -1241,7 +1251,7 @@ export const QuestionBankTab = ({ questions, onRefresh }: Props) => {
                       type="password"
                       value={importApiKey}
                       onChange={(e) => handleApiKeyChange(e.target.value)}
-                      placeholder="Nhập khóa API Gemini (AIzaSy...) để gọi LLM trực tiếp (Tùy chọn)"
+                      placeholder={t('qb_gemini_api_key_placeholder')}
                       className="w-full p-2 border border-slate-200 rounded-xl text-xs bg-white text-slate-800 outline-none focus:border-indigo-400 font-mono"
                     />
                   </div>
@@ -1251,16 +1261,14 @@ export const QuestionBankTab = ({ questions, onRefresh }: Props) => {
                       onChange={(e) => handleModelChange(e.target.value)}
                       className="w-full p-2 border border-slate-200 rounded-xl text-xs bg-white text-slate-800 outline-none"
                     >
-                      <option value="gemini-1.5-flash">gemini-1.5-flash (Chuẩn)</option>
-                      <option value="gemini-2.0-flash">gemini-2.0-flash (Mới nhất)</option>
-                      <option value="gemini-1.5-pro">gemini-1.5-pro (Chuyên sâu)</option>
+                      <option value="gemini-1.5-flash">gemini-1.5-flash ({t('qb_model_standard')})</option>
+                      <option value="gemini-2.0-flash">gemini-2.0-flash ({t('qb_model_latest')})</option>
+                      <option value="gemini-1.5-pro">gemini-1.5-pro ({t('qb_model_pro')})</option>
                     </select>
                   </div>
                 </div>
                 <p className="text-[10px] text-slate-500">
-                  {importApiKey
-                    ? 'Đang sử dụng trực tiếp Google Gemini API. Tốc độ sinh đề tức thì không bị giới hạn Gateway timeout.'
-                    : 'Nếu chưa có khóa API Gemini, hệ thống tự động kích hoạt bộ sinh đề thông minh ngữ cảnh tương ứng với môn học, chủ đề và số lượng yêu cầu.'}
+                  {importApiKey ? t('qb_gemini_active_hint') : t('qb_gemini_fallback_hint')}
                 </p>
               </div>
 
@@ -1293,16 +1301,16 @@ export const QuestionBankTab = ({ questions, onRefresh }: Props) => {
               {extractedQuestions.length > 0 && (
                 <div className="space-y-3 pt-3 border-t border-slate-200">
                   <span className="text-xs font-bold text-slate-900 block">
-                    Danh sách câu hỏi vừa trích xuất ({extractedQuestions.length} câu):
+                    {t('qb_ai_extracted_list')} ({extractedQuestions.length} {t('sess_questions_unit')}):
                   </span>
                   <div className="space-y-2 max-h-56 overflow-y-auto pr-1">
                     {extractedQuestions.map((q, idx) => (
                       <div key={idx} className="p-3 bg-slate-50 rounded-2xl border border-slate-200 text-xs space-y-1">
                         <p className="font-bold text-slate-900">
-                          Câu {idx + 1}: {q.content}
+                          {t('qb_question_item_label')} {idx + 1}: {q.content}
                         </p>
                         <p className="text-[11px] text-emerald-700 font-medium">
-                          Đáp án đúng: {q.correctAnswer || (q.options && q.options[q.correctIndex || 0])}
+                          {t('qb_correct_answer')}: {q.correctAnswer || (q.options && q.options[q.correctIndex || 0])}
                         </p>
                       </div>
                     ))}
@@ -1317,7 +1325,7 @@ export const QuestionBankTab = ({ questions, onRefresh }: Props) => {
                 onClick={handleCloseImportModal}
                 className="px-4 py-2 bg-white border border-slate-200 text-slate-700 rounded-xl text-xs font-medium hover:bg-slate-50 transition cursor-pointer"
               >
-                {extractedQuestions.length > 0 ? 'Hoàn thành' : 'Hủy'}
+                {extractedQuestions.length > 0 ? t('complete') : t('cancel')}
               </button>
               <button
                 type="button"
@@ -1328,10 +1336,10 @@ export const QuestionBankTab = ({ questions, onRefresh }: Props) => {
                 {importLoading ? (
                   <>
                     <span className="w-3.5 h-3.5 border-2 border-white/30 border-t-white rounded-full animate-spin"></span>
-                    <span>Đang xử lý trích xuất...</span>
+                    <span>{t('qb_extracting_btn')}</span>
                   </>
                 ) : (
-                  <span>Thực Hiện Trích Xuất</span>
+                  <span>{t('qb_extract_btn')}</span>
                 )}
               </button>
             </div>

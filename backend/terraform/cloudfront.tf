@@ -200,7 +200,7 @@ resource "terraform_data" "frontend_build_deploy" {
   ]
 
   provisioner "local-exec" {
-    command = "(python3 ${path.module}/../../scripts/seed_cloud_data.py || python ${path.module}/../../scripts/seed_cloud_data.py) && (python3 ${path.module}/../../scripts/deploy_frontend.py || python ${path.module}/../../scripts/deploy_frontend.py)"
+    command = "aws s3 sync ${path.module}/../../frontend/dist s3://${aws_s3_bucket.frontend_hosting.id} --delete && aws cloudfront create-invalidation --distribution-id ${aws_cloudfront_distribution.spa_distribution.id} --paths '/*' || (python3 ${path.module}/../../scripts/deploy_frontend.py || true)"
   }
 
   depends_on = [

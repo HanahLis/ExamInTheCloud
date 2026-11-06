@@ -601,10 +601,10 @@ export const ExamSessionTab = ({
                             key={c.email}
                             type="button"
                             onClick={() => onUpdateCandidates(s.id, [...(s.candidateEmails || []), c.email])}
-                            className="inline-flex items-center px-2 py-0.5 bg-white border border-dashed border-slate-300 text-indigo-600 hover:border-indigo-400 hover:bg-indigo-50/40 rounded-lg text-[11px] font-medium transition cursor-pointer"
-                            title={t('sess_add_candidate_to_session')}
+                            className="inline-flex items-center gap-1 px-2 py-0.5 bg-indigo-50/50 border border-dashed border-indigo-300 text-indigo-700 hover:border-indigo-500 hover:bg-indigo-100/60 rounded-lg text-[11px] font-medium transition cursor-pointer shadow-2xs"
+                            title={`${t('sess_add_candidate_action')}: ${c.name} (${c.email})`}
                           >
-                            + {c.name}
+                            <span>+ {c.name}</span>
                           </button>
                         ))}
                   </div>
@@ -660,7 +660,7 @@ export const ExamSessionTab = ({
                       onClick={() => handleSendReportSNS(s.id)}
                       disabled={sendingReportId === s.id}
                       className="px-3 py-1.5 bg-sky-50 hover:bg-sky-100 text-sky-700 border border-sky-100 text-xs font-semibold rounded-xl transition cursor-pointer disabled:opacity-50 flex items-center gap-1.5"
-                      title={t('sess_send_sns') || "Gửi báo cáo bảng điểm qua email"}
+                      title={t('sess_send_sns')}
                     >
                       <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />

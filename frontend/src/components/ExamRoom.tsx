@@ -102,7 +102,7 @@ export const ExamRoom = ({ sessionId, currentUserEmail = '', isOrganizer = false
               const parsedLocal = JSON.parse(localSaved);
               if (parsedLocal.answers && Object.keys(parsedLocal.answers).length >= Object.keys(restoredAnswers).length) {
                 restoredAnswers = parsedLocal.answers;
-                draftSource = 'bộ nhớ máy (0ms)';
+                draftSource = t('exam_draft_device');
               }
             }
           } catch (e) {
@@ -113,12 +113,12 @@ export const ExamRoom = ({ sessionId, currentUserEmail = '', isOrganizer = false
             setAnswers(restoredAnswers);
             answersRef.current = restoredAnswers;
             lastSyncAnswersRef.current = { ...restoredAnswers };
-            setLastSavedTime(`Đã nạp bài từ ${draftSource}`);
+            setLastSavedTime(`${t('exam_draft_loaded')} ${draftSource}`);
           }
         }
       } catch (err: any) {
         if (!isMounted) return;
-        setErrorMsg(err?.response?.data?.error || err?.message || 'Không thể tải thông tin ca thi.');
+        setErrorMsg(err?.response?.data?.error || err?.message || 'Failed to load exam session');
       } finally {
         if (isMounted) setLoadingSession(false);
       }
@@ -166,7 +166,7 @@ export const ExamRoom = ({ sessionId, currentUserEmail = '', isOrganizer = false
       lastSyncAnswersRef.current = { ...currentAnswers };
       const now = new Date();
       setLastSavedTime(
-        `Đã lưu lúc ${now.toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit', second: '2-digit' })}`
+        `${t('exam_saved_at')} ${now.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' })}`
       );
     } catch (err) {
       console.warn('Lỗi đồng bộ nháp:', err);
@@ -186,7 +186,7 @@ export const ExamRoom = ({ sessionId, currentUserEmail = '', isOrganizer = false
         answers: updated,
         updatedAt: new Date().toISOString()
       }));
-      setLastSavedTime('Đã lưu bài tự động');
+      setLastSavedTime(t('exam_auto_saved'));
     } catch (e) {
       console.warn('Lỗi ghi localStorage:', e);
     }
@@ -208,7 +208,7 @@ export const ExamRoom = ({ sessionId, currentUserEmail = '', isOrganizer = false
         answers: updated,
         updatedAt: new Date().toISOString()
       }));
-      setLastSavedTime('Đã lưu bài tự động');
+      setLastSavedTime(t('exam_auto_saved'));
     } catch (e) {
       console.warn('Lỗi ghi localStorage:', e);
     }
@@ -351,9 +351,9 @@ export const ExamRoom = ({ sessionId, currentUserEmail = '', isOrganizer = false
       });
       setVerifyResult(result);
     } catch (err: any) {
-      let msg = err?.response?.data?.message || err?.response?.data?.error || err?.message || 'Lỗi xác thực khuôn mặt';
+      let msg = err?.response?.data?.message || err?.response?.data?.error || err?.message || t('face_verify_failed');
       if (msg === 'Forbidden' || err?.response?.status === 403) {
-        msg = 'Khuôn mặt không khớp với ảnh hồ sơ thí sinh (Độ tương đồng < 80%). Vui lòng chụp lại rõ mặt hoặc liên hệ Giám thị.';
+        msg = t('face_mismatch_desc');
       }
       setVerifyResult({
         status: 'FAIL',
@@ -632,7 +632,7 @@ export const ExamRoom = ({ sessionId, currentUserEmail = '', isOrganizer = false
                   type="button"
                   onClick={toggleMirror}
                   className="absolute top-2.5 right-2.5 z-20 px-2 py-1 bg-slate-900/80 hover:bg-slate-900 text-white rounded-lg text-[10px] font-semibold flex items-center gap-1 shadow-md transition cursor-pointer border border-white/20 active:scale-95"
-                  title="Lật gương / Đảo chiều camera"
+                  title={t('exam_camera_mirror_title')}
                 >
                   <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M8 7h12m0 0l-4-4m4 4l-4 4m0 6H4m0 0l4 4m-4-4l4-4" />
@@ -697,7 +697,7 @@ export const ExamRoom = ({ sessionId, currentUserEmail = '', isOrganizer = false
                   type="button"
                   onClick={toggleMirror}
                   className="py-1.5 px-3 bg-white border border-slate-200 text-slate-700 rounded-xl text-xs font-medium hover:bg-slate-50 transition cursor-pointer flex items-center gap-1 shadow-2xs"
-                  title="Lật gương / Đảo chiều camera"
+                  title={t('exam_camera_mirror_title')}
                 >
                   <svg className="w-3.5 h-3.5 text-slate-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M8 7h12m0 0l-4-4m4 4l-4 4m0 6H4m0 0l4 4m-4-4l4-4" />

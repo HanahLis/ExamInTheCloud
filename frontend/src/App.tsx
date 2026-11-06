@@ -490,7 +490,7 @@ export default function App() {
                   <input
                     type="email"
                     list="vnu-accounts"
-                    placeholder="annv@uet.vnu.edu.vn hoặc 24020001@vnu.edu.vn"
+                    placeholder={t('login_email_placeholder')}
                     value={loginEmail}
                     onChange={(e) => setLoginEmail(e.target.value)}
                     className="w-full pl-3 pr-3 py-2.5 bg-slate-50/50 border border-slate-200 rounded-xl text-xs outline-none focus:bg-white focus:border-indigo-400 focus:ring-2 focus:ring-indigo-200/40 transition"
@@ -501,7 +501,7 @@ export default function App() {
                 <datalist id="vnu-accounts">
                   {DATABASE_ACCOUNTS.map((acc) => (
                     <option key={acc.email} value={acc.email}>
-                      {acc.name} ({acc.role === 'Organizer' ? (t('app_subtitle_organizer') || 'Giảng viên') : acc.studentCode})
+                      {acc.name} ({acc.role === 'Organizer' ? t('qb_lecturer_label') : acc.studentCode})
                     </option>
                   ))}
                 </datalist>
@@ -774,7 +774,7 @@ export default function App() {
         </main>
 
         <footer className="text-center text-xs text-slate-400 py-4 border-t border-slate-200/50">
-          &copy; 2026 CloudExam • Đại học Quốc gia Hà Nội (VNU - UET)
+          &copy; 2026 CloudExam • {t('footer_uet_title')}
         </footer>
       </div>
     );
@@ -796,7 +796,7 @@ export default function App() {
               <div className="flex items-center gap-2">
                 <h1 className="text-sm font-bold text-slate-900 tracking-tight">{t('app_title')}</h1>
                 <span className="text-[10px] font-semibold px-2 py-0.5 rounded-full bg-indigo-50 text-indigo-700 border border-indigo-100">
-                  {user.groups.includes('Organizer') ? (t('app_subtitle_organizer') || 'Giảng viên') : (t('admin') || 'Quản trị viên')}
+                  {user.groups.includes('Organizer') ? t('qb_lecturer_label') : t('admin')}
                 </span>
               </div>
               <p className="text-[11px] text-slate-500">
@@ -980,7 +980,7 @@ export default function App() {
       </main>
 
       <footer className="text-center text-xs text-slate-400 py-4 border-t border-slate-200/50">
-        &copy; 2026 CloudExam • Hệ thống Khảo thí Trực tuyến • UET VNU
+        &copy; 2026 CloudExam • {t('footer_copyright')}
       </footer>
     </div>
   );

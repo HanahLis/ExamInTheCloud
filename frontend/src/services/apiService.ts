@@ -976,9 +976,17 @@ export const getCandidates = async (): Promise<Candidate[]> => {
     cloudItems = [...DEFAULT_CANDIDATES];
   }
 
+  // Kết hợp các thí sinh mặc định của hệ thống
+  const seenEmails = new Set(cloudItems.map((c) => c.email.toLowerCase()));
+  for (const dc of DEFAULT_CANDIDATES) {
+    if (!seenEmails.has(dc.email.toLowerCase())) {
+      cloudItems.push(dc);
+      seenEmails.add(dc.email.toLowerCase());
+    }
+  }
+
   // Kết hợp an toàn các thí sinh lưu cục bộ (Local-first)
   const localCandidates = getLocalCandidates();
-  const seenEmails = new Set(cloudItems.map((c) => c.email.toLowerCase()));
   for (const lc of localCandidates) {
     if (!seenEmails.has(lc.email.toLowerCase())) {
       cloudItems.push(lc);
@@ -1070,6 +1078,15 @@ export const getSessions = async (): Promise<ExamSession[]> => {
   } catch (err) {
     console.warn('Lỗi tải ca thi từ DynamoDB API, sử dụng DEFAULT_SESSIONS:', err);
     cloudSessions = [...DEFAULT_SESSIONS];
+  }
+
+  // Hợp nhất candidateEmails từ DEFAULT_SESSIONS cho ca thi mặc định EX-VNU-2026-01
+  const defaultExam = DEFAULT_SESSIONS.find((s) => s.id === 'EX-VNU-2026-01');
+  const targetExam = cloudSessions.find((s) => s.id === 'EX-VNU-2026-01');
+  if (defaultExam && targetExam) {
+    targetExam.candidateEmails = Array.from(
+      new Set([...(targetExam.candidateEmails || []), ...(defaultExam.candidateEmails || [])])
+    );
   }
 
   // Kết hợp các ca thi đã lưu cục bộ (Local-first persistence)

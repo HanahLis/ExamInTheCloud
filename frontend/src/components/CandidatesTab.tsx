@@ -55,7 +55,7 @@ export const CandidatesTab = ({
         (c) => (c.studentCode || '').trim().toLowerCase() === studentCode.trim().toLowerCase()
       )
     ) {
-      return alert(t('alert_student_code_exists') || `Mã sinh viên '${studentCode.trim()}' đã tồn tại.`);
+      return alert(t('alert_student_code_exists'));
     }
 
     setSubmitting(true);

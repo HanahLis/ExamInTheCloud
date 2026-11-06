@@ -486,9 +486,18 @@ export const getCurrentUser = (): AuthUser => {
   }
 };
 
-// 6. Đăng xuất an toàn và chuyển về trang đăng nhập
+// 6. Đăng xuất an toàn và chuyển về trang đăng nhập (giữ nguyên dữ liệu thí sinh/ca thi/ngôn ngữ đã tạo)
 export const logout = () => {
-  localStorage.clear();
+  const authKeys = [
+    'cloudexam_jwt',
+    'cloudexam_id_token',
+    'cloudexam_refresh_token',
+    'cloudexam_user',
+    'cloudexam_auth_type',
+  ];
+  for (const k of authKeys) {
+    localStorage.removeItem(k);
+  }
   sessionStorage.clear();
   window.location.href = window.location.origin + '/';
 };
