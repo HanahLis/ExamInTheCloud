@@ -60,6 +60,18 @@ export const DATABASE_ACCOUNTS_MAP: Record<
     email: 'phongpt@vnu.edu.vn',
     studentCode: '24021598',
   },
+  'phamphong240706@gmail.com': {
+    role: 'Organizer',
+    name: 'Phạm Tuấn Phong',
+    email: 'phamphong240706@gmail.com',
+    studentCode: '24021598',
+  },
+  '24021598@vnu.edu.vn': {
+    role: 'Candidate',
+    name: 'Phạm Tuấn Phong',
+    email: '24021598@vnu.edu.vn',
+    studentCode: '24021598',
+  },
   'tranducmanh2006@gmail.com': {
     role: 'Organizer',
     name: 'Trần Đức Mạnh',

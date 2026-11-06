@@ -489,6 +489,20 @@ export const DEFAULT_CANDIDATES: Candidate[] = [
     className: 'K69I-IT6',
     faceImageUrl: `${S3_BASE}/faces/24020007.jpg`,
   },
+  {
+    studentCode: '24021598',
+    name: 'Phạm Tuấn Phong',
+    email: 'phongpt@vnu.edu.vn',
+    className: 'K69 - Khoa CNTT - UET',
+    faceImageUrl: `${S3_BASE}/faces/24020001.jpg`,
+  },
+  {
+    studentCode: '24021598',
+    name: 'Phạm Tuấn Phong',
+    email: '24021598@vnu.edu.vn',
+    className: 'K69 - Khoa CNTT - UET',
+    faceImageUrl: `${S3_BASE}/faces/24020001.jpg`,
+  },
 ];
 
 export const resolveSessionStatus = (
@@ -538,6 +552,8 @@ export const DEFAULT_SESSIONS: ExamSession[] = [
       '24020006@vnu.edu.vn',
       '24020007@vnu.edu.vn',
       'annv@uet.vnu.edu.vn',
+      'phongpt@vnu.edu.vn',
+      '24021598@vnu.edu.vn',
     ],
     link: `${typeof window !== 'undefined' ? window.location.origin : ''}/?exam=EX-VNU-2026-01`,
   },

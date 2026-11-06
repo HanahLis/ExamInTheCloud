@@ -44,6 +44,7 @@ export const ExamRoom = ({ sessionId, currentUserEmail = '', isOrganizer = false
   const [cameraActive, setCameraActive] = useState(false);
   const [capturedImage, setCapturedImage] = useState<string | null>(null);
   const [capturedBlob, setCapturedBlob] = useState<Blob | null>(null);
+  const [isMirrored, setIsMirrored] = useState(false);
   const [isVerifying, setIsVerifying] = useState(false);
   const [verifyResult, setVerifyResult] = useState<FaceVerifyResponse | null>(null);
 
@@ -242,6 +243,32 @@ export const ExamRoom = ({ sessionId, currentUserEmail = '', isOrganizer = false
     }
   };
 
+  const toggleMirror = () => {
+    setIsMirrored((prev) => !prev);
+    if (capturedImage && canvasRef.current) {
+      const img = new Image();
+      img.onload = () => {
+        const canvas = canvasRef.current!;
+        canvas.width = img.width;
+        canvas.height = img.height;
+        const ctx = canvas.getContext('2d');
+        if (ctx) {
+          ctx.save();
+          ctx.translate(canvas.width, 0);
+          ctx.scale(-1, 1);
+          ctx.drawImage(img, 0, 0);
+          ctx.restore();
+          const b64 = canvas.toDataURL('image/jpeg', 0.85);
+          setCapturedImage(b64);
+          canvas.toBlob((blob) => {
+            if (blob) setCapturedBlob(blob);
+          }, 'image/jpeg', 0.85);
+        }
+      };
+      img.src = capturedImage;
+    }
+  };
+
   const capturePhoto = () => {
     if (!videoRef.current || !canvasRef.current) return;
     const canvas = canvasRef.current;
@@ -250,7 +277,13 @@ export const ExamRoom = ({ sessionId, currentUserEmail = '', isOrganizer = false
     canvas.height = video.videoHeight || 480;
     const ctx = canvas.getContext('2d');
     if (ctx) {
+      ctx.save();
+      if (isMirrored) {
+        ctx.translate(canvas.width, 0);
+        ctx.scale(-1, 1);
+      }
       ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+      ctx.restore();
       const b64 = canvas.toDataURL('image/jpeg', 0.85);
       setCapturedImage(b64);
       canvas.toBlob((blob) => {
@@ -424,7 +457,7 @@ export const ExamRoom = ({ sessionId, currentUserEmail = '', isOrganizer = false
           </div>
           <h2 className="text-base font-bold text-slate-900 tracking-tight">{session.name}</h2>
           <p className="text-xs text-slate-500">
-            {sessionQuestions.length} câu hỏi • Thí sinh: <span className="font-semibold text-slate-700">{currentCandidateObj?.name || candidateEmail}</span>
+            {sessionQuestions.length} {t('sess_questions_unit')} • {t('exam_candidate_label')} <span className="font-semibold text-slate-700">{currentCandidateObj?.name || candidateEmail}</span>
             {currentCandidateObj?.studentCode && <span className="font-mono text-indigo-700"> ({currentCandidateObj.studentCode})</span>}
           </p>
         </div>
@@ -435,7 +468,7 @@ export const ExamRoom = ({ sessionId, currentUserEmail = '', isOrganizer = false
               <div className="text-right">
                 <span className="text-[10px] text-slate-500 flex items-center justify-end gap-1 font-medium">
                   <span className={`inline-block w-1.5 h-1.5 rounded-full ${isSavingDraft ? 'bg-amber-500 animate-ping' : 'bg-emerald-500'}`}></span>
-                  {isSavingDraft ? 'Đang lưu...' : (lastSavedTime || 'Đã lưu tự động')}
+                  {isSavingDraft ? t('exam_syncing_cloud') : (lastSavedTime || t('exam_auto_save_local'))}
                 </span>
                 <span className={`text-base font-mono font-bold ${timeLeft < 300 ? 'text-rose-600 animate-pulse' : 'text-indigo-900'}`}>
                   {formatTimer(timeLeft)}
@@ -485,7 +518,7 @@ export const ExamRoom = ({ sessionId, currentUserEmail = '', isOrganizer = false
                 {t('exam_biometric_title')}
               </h3>
               <p className="text-xs text-slate-500">
-                Hệ thống xác thực danh tính sinh trắc học tự động nhằm đảm bảo tính công bằng trong phòng thi
+                {t('exam_biometric_desc')}
               </p>
             </div>
           </div>
@@ -541,10 +574,10 @@ export const ExamRoom = ({ sessionId, currentUserEmail = '', isOrganizer = false
             <div className="pt-2 border-t border-indigo-100/60 flex flex-wrap items-center justify-between gap-2 text-[11px] text-slate-500">
               <span className="flex items-center gap-1.5">
                 <span className="w-1.5 h-1.5 rounded-full bg-emerald-500"></span>
-                <span>Thuật toán đối sánh sinh trắc học khuôn mặt AI</span>
+                <span>{t('exam_biometric_algo')}</span>
               </span>
               <span className="font-medium">
-                Ngưỡng đạt tiêu chuẩn: <span className="font-mono font-bold text-indigo-700">&ge; 80%</span>
+                {t('exam_threshold_label')} <span className="font-mono font-bold text-indigo-700">&ge; 80%</span>
               </span>
             </div>
           </div>
@@ -593,13 +626,26 @@ export const ExamRoom = ({ sessionId, currentUserEmail = '', isOrganizer = false
                 {t('exam_webcam_photo')}
               </div>
 
-              <div className="aspect-[3/4] max-w-[240px] mx-auto bg-slate-900 rounded-2xl overflow-hidden flex items-center justify-center border border-slate-800 shadow-inner relative">
+              <div className="aspect-[3/4] max-w-[240px] mx-auto bg-slate-900 rounded-2xl overflow-hidden flex items-center justify-center border border-slate-800 shadow-inner relative group">
+                {/* Nút lật gương / Đảo chiều nhanh góc trên bên phải */}
+                <button
+                  type="button"
+                  onClick={toggleMirror}
+                  className="absolute top-2.5 right-2.5 z-20 px-2 py-1 bg-slate-900/80 hover:bg-slate-900 text-white rounded-lg text-[10px] font-semibold flex items-center gap-1 shadow-md transition cursor-pointer border border-white/20 active:scale-95"
+                  title="Lật gương / Đảo chiều camera"
+                >
+                  <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M8 7h12m0 0l-4-4m4 4l-4 4m0 6H4m0 0l4 4m-4-4l4-4" />
+                  </svg>
+                  <span>{isMirrored ? t('exam_camera_mirror') : t('exam_camera_normal')}</span>
+                </button>
+
                 <video
                   ref={videoRef}
                   autoPlay
                   playsInline
                   muted
-                  className={`w-full h-full object-cover ${cameraActive ? 'block' : 'hidden'}`}
+                  className={`w-full h-full object-cover transition-transform duration-200 ${cameraActive ? "block" : "hidden"} ${isMirrored ? "-scale-x-100" : "scale-x-100"}`}
                 />
 
                 {capturedImage && !cameraActive && (
@@ -614,7 +660,6 @@ export const ExamRoom = ({ sessionId, currentUserEmail = '', isOrganizer = false
                   <div className="text-center text-slate-400 p-4 space-y-1">
                     <svg className="w-8 h-8 mx-auto text-slate-500 mb-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M3 9a2 2 0 012-2h.93a2 2 0 001.664-.89l.812-1.22A2 2 0 0110.07 4h3.86a2 2 0 011.664.89l.812 1.22A2 2 0 0018.07 7H19a2 2 0 012 2v9a2 2 0 01-2 2H5a2 2 0 01-2-2V9z" />
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M15 13a3 3 0 11-6 0 3 3 0 016 0z" />
                     </svg>
                     <span className="text-xs block">{t('exam_camera_not_active')}</span>
                   </div>
@@ -648,6 +693,19 @@ export const ExamRoom = ({ sessionId, currentUserEmail = '', isOrganizer = false
                   </>
                 )}
 
+                <button
+                  type="button"
+                  onClick={toggleMirror}
+                  className="py-1.5 px-3 bg-white border border-slate-200 text-slate-700 rounded-xl text-xs font-medium hover:bg-slate-50 transition cursor-pointer flex items-center gap-1 shadow-2xs"
+                  title="Lật gương / Đảo chiều camera"
+                >
+                  <svg className="w-3.5 h-3.5 text-slate-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M8 7h12m0 0l-4-4m4 4l-4 4m0 6H4m0 0l4 4m-4-4l4-4" />
+                  </svg>
+                  <span>{t('exam_camera_flip')}</span>
+                  <span className="text-[10px] text-indigo-600 font-bold font-mono">({isMirrored ? t('exam_camera_mirror') : t('exam_camera_normal')})</span>
+                </button>
+
                 <label className="py-1.5 px-3.5 bg-white border border-slate-200 text-slate-700 rounded-xl text-xs font-medium hover:bg-slate-50 cursor-pointer transition">
                   {t('exam_upload_file')}
                   <input type="file" accept="image/*" onChange={handleFileUpload} className="hidden" />
@@ -665,10 +723,10 @@ export const ExamRoom = ({ sessionId, currentUserEmail = '', isOrganizer = false
               {isVerifying ? (
                 <span className="flex items-center justify-center gap-2">
                   <span className="w-3.5 h-3.5 border-2 border-white/30 border-t-white rounded-full animate-spin"></span>
-                  <span>Đang xử lý phân tích sinh trắc học...</span>
+                  <span>{t('exam_camera_capturing')}</span>
                 </span>
               ) : (
-                'Bắt đầu Đối sánh Khuôn Mặt'
+                t('exam_camera_verify_btn')
               )}
             </button>
 
@@ -684,13 +742,13 @@ export const ExamRoom = ({ sessionId, currentUserEmail = '', isOrganizer = false
                   <span className={`w-5 h-5 rounded-full flex items-center justify-center text-xs ${verifyResult.verified ? 'bg-emerald-200 text-emerald-800' : 'bg-rose-200 text-rose-800'}`}>
                     {verifyResult.verified ? '✓' : '✕'}
                   </span>
-                  <span>{verifyResult.verified ? 'Xác thực sinh trắc học thành công!' : 'Xác thực khuôn mặt chưa đạt'}</span>
+                  <span>{verifyResult.verified ? t('exam_camera_success') : t('exam_camera_failed')}</span>
                 </div>
                 <p className="leading-relaxed text-slate-600">{verifyResult.message}</p>
                 {verifyResult.similarity > 0 && (
                   <div className="space-y-1">
                     <div className="flex justify-between text-[11px] font-medium text-slate-600">
-                      <span>Độ tương đồng</span>
+                      <span>{t('exam_similarity_label')}</span>
                       <span className="font-mono font-bold">{verifyResult.similarity}%</span>
                     </div>
                     <div className="w-full h-2 bg-slate-200 rounded-full overflow-hidden">
@@ -735,7 +793,7 @@ export const ExamRoom = ({ sessionId, currentUserEmail = '', isOrganizer = false
                 {t('exam_multiple_choice_title')} ({sessionQuestions.length} {t('sess_questions_unit')})
               </h3>
               <p className="text-xs text-slate-500 mt-0.5">
-                {t('exam_question_answered_stat')}: <span className="font-bold text-indigo-700">{Object.keys(answers).length}</span>/{sessionQuestions.length} câu
+                {t('exam_question_answered_stat')}: <span className="font-bold text-indigo-700">{Object.keys(answers).length}</span>/{sessionQuestions.length} {t('sess_questions_unit')}
               </p>
             </div>
             <button
@@ -848,9 +906,7 @@ export const ExamRoom = ({ sessionId, currentUserEmail = '', isOrganizer = false
           <div>
             <h3 className="text-xl font-bold text-slate-900 tracking-tight">{t('exam_complete_title')}</h3>
             <p className="text-xs text-slate-500 mt-1 max-w-md mx-auto">
-              {submitResult.status === 'QUEUED'
-                ? 'Bài thi đã được ghi nhận vào hàng đợi xử lý chấm điểm tự động.'
-                : 'Bài thi đã được chấm điểm và đồng bộ vào hệ thống.'}
+              {t('exam_submitted_desc')}
             </p>
           </div>
 
@@ -860,7 +916,7 @@ export const ExamRoom = ({ sessionId, currentUserEmail = '', isOrganizer = false
                 {submitResult.score} <span className="text-lg font-normal text-slate-400">/ {submitResult.maxScore}</span>
               </div>
               <p className="text-xs text-slate-600 font-medium mt-1">
-                {t('res_correct_count')}: {submitResult.correctCount} / {submitResult.totalQuestions} câu đúng
+                {t('res_correct_count')}: {submitResult.correctCount} / {submitResult.totalQuestions} {t('sess_questions_unit')}
               </p>
             </div>
 

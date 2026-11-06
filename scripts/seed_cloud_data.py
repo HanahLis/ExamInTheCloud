@@ -90,6 +90,22 @@ def seed_cognito_users(cognito_client, user_pool_id: str):
             "student_code": "GT002"
         },
         {
+            "username": "phongpt@vnu.edu.vn",
+            "password": "12345678",
+            "name": "Phạm Tuấn Phong",
+            "role": "Organizer",
+            "group": "Organizer",
+            "student_code": "24021598"
+        },
+        {
+            "username": "24021598@vnu.edu.vn",
+            "password": "12345678",
+            "name": "Phạm Tuấn Phong",
+            "role": "Candidate",
+            "group": "Candidate",
+            "student_code": "24021598"
+        },
+        {
             "username": "24020001@vnu.edu.vn",
             "password": "12345678",
             "name": "Trần Minh Đức",
@@ -544,6 +560,22 @@ def seed_dynamodb_data(dynamodb_resource, bucket_name: str):
             "className": "K69I-IT6",
             "studentCode": "24020007",
             "faceImageUrl": f"https://{bucket_name}.s3.{REGION}.amazonaws.com/faces/24020007.jpg",
+            "createdAt": "2026-10-20T00:00:00Z"
+        },
+        {
+            "email": "phongpt@vnu.edu.vn",
+            "name": "Phạm Tuấn Phong",
+            "className": "K69 - Khoa CNTT - UET",
+            "studentCode": "24021598",
+            "faceImageUrl": f"https://{bucket_name}.s3.{REGION}.amazonaws.com/faces/24020001.jpg",
+            "createdAt": "2026-10-20T00:00:00Z"
+        },
+        {
+            "email": "24021598@vnu.edu.vn",
+            "name": "Phạm Tuấn Phong",
+            "className": "K69 - Khoa CNTT - UET",
+            "studentCode": "24021598",
+            "faceImageUrl": f"https://{bucket_name}.s3.{REGION}.amazonaws.com/faces/24020001.jpg",
             "createdAt": "2026-10-20T00:00:00Z"
         }
     ]

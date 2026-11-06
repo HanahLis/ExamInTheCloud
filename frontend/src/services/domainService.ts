@@ -138,25 +138,25 @@ export const detectCountryFromLocation = (): {
 };
 
 /**
- * Chuyển đổi tên miền tương ứng khi người dùng chọn Quốc gia
+ * Chuyển đổi Quốc gia & Ngôn ngữ tương ứng khi người dùng chọn trong thanh Header.
+ * Lưu trữ trạng thái vào localStorage và cập nhật tham số ?country=... trên URL
+ * mà KHÔNG reload/redirect sang origin khác, đảm bảo giữ nguyên phiên đăng nhập (auth tokens),
+ * không làm mất dữ liệu thí sinh/ca thi và tránh lỗi SSL Cipher Mismatch trên các subdomain.
  */
 export const switchCountryDomain = (targetCountryId: string) => {
   if (typeof window === 'undefined') return;
 
   const target = COUNTRY_DOMAINS[targetCountryId] || COUNTRY_DOMAINS.default;
-  const hostname = window.location.hostname.toLowerCase();
-  const port = window.location.port ? `:${window.location.port}` : '';
 
-  if (hostname.includes('cloudexam.id.vn') || hostname.includes('cloudexam.com')) {
-    // Đang chạy trên domain thật: chuyển hướng sang subdomain tương ứng
-    if (hostname !== target.domain) {
-      window.location.href = `${window.location.protocol}//${target.domain}${port}${window.location.pathname}${window.location.search}`;
-    }
-  } else {
-    // Đang chạy trên localhost/IP: cập nhật tham số ?country=... để kiểm thử tức thì
-    const url = new URL(window.location.href);
-    url.searchParams.set('country', targetCountryId);
-    window.history.replaceState({}, '', url.toString());
+  // 1. Lưu theme và ngôn ngữ đã chọn vào localStorage
+  localStorage.setItem('cloudexam_theme', targetCountryId);
+  if (target.defaultLang) {
+    localStorage.setItem('cloudexam_lang', target.defaultLang);
   }
+
+  // 2. Cập nhật URL parameter mà không thay đổi origin hoặc reload trang
+  const url = new URL(window.location.href);
+  url.searchParams.set('country', targetCountryId);
+  window.history.replaceState({}, '', url.toString());
 };
 
