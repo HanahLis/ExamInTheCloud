@@ -396,5 +396,18 @@
   "qb_ai_default_prompt": "Generate {count} multiple-choice questions on AWS Cloud Computing (including EC2, S3, Lambda, DynamoDB, VPC). Each question must have 4 options A, B, C, D and indicate the correct answer.",
   "qb_extract_success_msg": "Successfully extracted {count} questions into the question bank.",
   "qb_extract_error_msg": "Error processing exam file. Please try again.",
-  "login_email_placeholder": "annv@uet.vnu.edu.vn or 24020001@vnu.edu.vn"
+  "login_email_placeholder": "annv@uet.vnu.edu.vn or 24020001@vnu.edu.vn",
+  "default_bank_se_name": "Software Architecture Question Bank",
+  "default_bank_cloud_name": "Cloud Computing Question Bank",
+  "default_subject_se": "Software Architecture & Development",
+  "default_subject_cloud": "Cloud Computing",
+  "default_session_exam_name": "Competency Assessment: Software Architecture & Development",
+  "sync_cloud_success_detail": "Successfully synced local data to Cloud ({banks} banks, {questions} questions, {candidates} candidates, {sessions} sessions)!",
+  "alert_incorrect_password": "Incorrect password. Please try again (default password: 12345678).",
+  "alert_user_not_found": "Account not found in the system.",
+  "alert_user_unconfirmed": "Account has not been confirmed via email on AWS Cognito.",
+  "demo_unit_lecturer": "Faculty of Information Technology - VNU-UET",
+  "demo_unit_student": "Student Cohort K69 - FIT - VNU-UET",
+  "role_abbr_lecturer": "LEC",
+  "role_abbr_student": "STU"
 }

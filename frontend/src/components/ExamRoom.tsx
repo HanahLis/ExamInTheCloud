@@ -29,7 +29,8 @@ interface Props {
 type ExamStep = 'FACE_VERIFY' | 'IN_EXAM' | 'COMPLETED';
 
 export const ExamRoom = ({ sessionId, currentUserEmail = '', isOrganizer = false, onExit }: Props) => {
-  const { t } = useTranslation();
+  const { t, lang } = useTranslation();
+  const dateLocale = lang === 'en' ? 'en-US' : lang === 'de' ? 'de-DE' : lang === 'la' ? 'lo-LA' : 'vi-VN';
   const [session, setSession] = useState<ExamSession | null>(null);
   const [sessionQuestions, setSessionQuestions] = useState<Question[]>([]);
   const [candidates, setCandidates] = useState<Candidate[]>([]);
@@ -166,7 +167,7 @@ export const ExamRoom = ({ sessionId, currentUserEmail = '', isOrganizer = false
       lastSyncAnswersRef.current = { ...currentAnswers };
       const now = new Date();
       setLastSavedTime(
-        `${t('exam_saved_at')} ${now.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' })}`
+        `${t('exam_saved_at')} ${now.toLocaleTimeString(dateLocale, { hour: '2-digit', minute: '2-digit', second: '2-digit' })}`
       );
     } catch (err) {
       console.warn('Lỗi đồng bộ nháp:', err);
@@ -455,7 +456,9 @@ export const ExamRoom = ({ sessionId, currentUserEmail = '', isOrganizer = false
               {t(statusKeys[currentStatus] || 'sess_status_scheduled')}
             </span>
           </div>
-          <h2 className="text-base font-bold text-slate-900 tracking-tight">{session.name}</h2>
+          <h2 className="text-base font-bold text-slate-900 tracking-tight">
+            {session.id === 'EX-VNU-2026-01' ? t('default_session_exam_name') : session.name}
+          </h2>
           <p className="text-xs text-slate-500">
             {sessionQuestions.length} {t('sess_questions_unit')} • {t('exam_candidate_label')} <span className="font-semibold text-slate-700">{currentCandidateObj?.name || candidateEmail}</span>
             {currentCandidateObj?.studentCode && <span className="font-mono text-indigo-700"> ({currentCandidateObj.studentCode})</span>}

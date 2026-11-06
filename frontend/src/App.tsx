@@ -60,6 +60,21 @@ export const CountryLanguageBar = () => {
     }
   };
 
+  const handleLangChange = (newLang: Language) => {
+    setLang(newLang);
+    const langToCountry: Record<Language, string> = {
+      vi: 'vn',
+      en: 'us',
+      la: 'la',
+      de: 'de',
+    };
+    const targetCountry = langToCountry[newLang];
+    if (targetCountry && targetCountry !== themeName) {
+      setThemeName(targetCountry);
+      switchCountryDomain(targetCountry);
+    }
+  };
+
   return (
     <div className="flex items-center gap-2">
       <div className="flex items-center gap-1.5 bg-slate-100/80 px-2.5 py-1 rounded-full border border-slate-200/80">
@@ -86,7 +101,7 @@ export const CountryLanguageBar = () => {
         <span className="text-[11px] text-slate-500 font-medium">{t('lang_label')}:</span>
         <select
           value={lang}
-          onChange={(e) => setLang(e.target.value as Language)}
+          onChange={(e) => handleLangChange(e.target.value as Language)}
           className="text-[11px] bg-transparent border-0 font-medium text-slate-700 cursor-pointer outline-none focus:ring-0"
         >
           <option value="vi">Tiếng Việt</option>
@@ -340,7 +355,14 @@ export default function App() {
         candidates: candidates,
         sessions: sessions,
       });
-      setSyncNotice(res.message);
+      setSyncNotice(
+        t('sync_cloud_success_detail', {
+          banks: res.syncedBanks ?? questionBanks.length,
+          questions: res.syncedQuestions ?? questions.length,
+          candidates: res.syncedCandidates ?? candidates.length,
+          sessions: res.syncedSessions ?? sessions.length,
+        }) || res.message
+      );
     } catch (err: any) {
       setSyncNotice(`${t('notice_sync_error')} ${err?.response?.data?.error || err?.message || err}`);
     } finally {
@@ -362,7 +384,16 @@ export default function App() {
         await loginWithCognitoPassword(loginEmail.trim(), loginPassword);
         window.location.reload();
       } catch (err: any) {
-        alert(err?.message || t('alert_login_failed'));
+        const msg = err?.message || '';
+        if (msg.includes('Mật khẩu không chính xác') || msg.includes('Incorrect password')) {
+          alert(t('alert_incorrect_password'));
+        } else if (msg.includes('Tài khoản không tồn tại') || msg.includes('User not found')) {
+          alert(t('alert_user_not_found'));
+        } else if (msg.includes('chưa được xác thực') || msg.includes('UserNotConfirmed')) {
+          alert(t('alert_user_unconfirmed'));
+        } else {
+          alert(msg || t('alert_login_failed'));
+        }
       } finally {
         setLoginLoading(false);
       }
@@ -454,7 +485,7 @@ export default function App() {
                   className="p-2.5 rounded-xl bg-indigo-50/70 hover:bg-indigo-100/80 border border-indigo-200/60 text-left transition cursor-pointer group"
                 >
                   <div className="flex items-center gap-2">
-                    <span className="w-6 h-6 rounded-full bg-indigo-200 text-indigo-800 text-[11px] font-bold flex items-center justify-center">GV</span>
+                    <span className="px-1.5 py-0.5 rounded-full bg-indigo-200 text-indigo-800 text-[10px] font-bold flex items-center justify-center">{t('role_abbr_lecturer')}</span>
                     <div className="min-w-0">
                       <p className="text-xs font-semibold text-indigo-900 truncate">PGS. TS. Nguyễn Văn An</p>
                       <p className="text-[10px] text-indigo-700 truncate font-mono">annv@uet.vnu.edu.vn</p>
@@ -471,7 +502,7 @@ export default function App() {
                   className="p-2.5 rounded-xl bg-sky-50/70 hover:bg-sky-100/80 border border-sky-200/60 text-left transition cursor-pointer group"
                 >
                   <div className="flex items-center gap-2">
-                    <span className="w-6 h-6 rounded-full bg-sky-200 text-sky-800 text-[11px] font-bold flex items-center justify-center">TS</span>
+                    <span className="px-1.5 py-0.5 rounded-full bg-sky-200 text-sky-800 text-[10px] font-bold flex items-center justify-center">{t('role_abbr_student')}</span>
                     <div className="min-w-0">
                       <p className="text-xs font-semibold text-sky-900 truncate">Trần Minh Đức</p>
                       <p className="text-[10px] text-sky-700 truncate font-mono">24020001@vnu.edu.vn</p>

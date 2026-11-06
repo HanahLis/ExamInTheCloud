@@ -396,5 +396,18 @@
   "qb_ai_default_prompt": "Tạo {count} câu hỏi trắc nghiệm chuyên sâu về điện toán đám mây AWS (bao gồm EC2, S3, Lambda, DynamoDB, VPC). Mỗi câu có 4 phương án A, B, C, D và chỉ rõ đáp án đúng.",
   "qb_extract_success_msg": "Đã trích xuất thành công {count} câu hỏi vào ngân hàng.",
   "qb_extract_error_msg": "Lỗi xử lý tệp đề thi. Vui lòng thử lại.",
-  "login_email_placeholder": "annv@uet.vnu.edu.vn hoặc 24020001@vnu.edu.vn"
+  "login_email_placeholder": "annv@uet.vnu.edu.vn hoặc 24020001@vnu.edu.vn",
+  "default_bank_se_name": "Ngân hàng Kiến trúc Phần mềm",
+  "default_bank_cloud_name": "Ngân hàng Điện toán Đám mây",
+  "default_subject_se": "Kiến trúc & Phát triển Phần mềm",
+  "default_subject_cloud": "Điện toán đám mây",
+  "default_session_exam_name": "Thi Đánh Giá Năng Lực: Kiến trúc & Phát triển Phần mềm",
+  "sync_cloud_success_detail": "Đã gửi thành công dữ liệu Local lên Cloud ({banks} ngân hàng, {questions} câu hỏi, {candidates} thí sinh, {sessions} ca thi)!",
+  "alert_incorrect_password": "Mật khẩu không chính xác. Vui lòng thử lại (mật khẩu mặc định: 12345678).",
+  "alert_user_not_found": "Tài khoản không tồn tại trong hệ thống.",
+  "alert_user_unconfirmed": "Tài khoản chưa được xác thực email trên AWS Cognito.",
+  "demo_unit_lecturer": "Khoa Công nghệ Thông tin - ĐH Công nghệ (UET)",
+  "demo_unit_student": "Sinh viên K69 - Khoa CNTT - UET",
+  "role_abbr_lecturer": "GV",
+  "role_abbr_student": "TS"
 }

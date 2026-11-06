@@ -9,7 +9,8 @@ interface ResultModalProps {
 }
 
 export default function SessionResultsModal({ isOpen, onClose, sessionId }: ResultModalProps) {
-  const { t } = useTranslation();
+  const { t, lang } = useTranslation();
+  const dateLocale = lang === 'en' ? 'en-US' : lang === 'de' ? 'de-DE' : lang === 'la' ? 'lo-LA' : 'vi-VN';
   const [results, setResults] = useState<CandidateSessionResult[]>([]);
   const [sessionName, setSessionName] = useState<string>('');
   const [loading, setLoading] = useState(true);
@@ -75,7 +76,7 @@ export default function SessionResultsModal({ isOpen, onClose, sessionId }: Resu
       r.maxScore,
       r.correctCount,
       r.totalQuestions,
-      `"${r.submittedAt ? new Date(r.submittedAt).toLocaleString() : ''}"`,
+      `"${r.submittedAt ? new Date(r.submittedAt).toLocaleString(dateLocale) : ''}"`,
       `"${r.status || 'COMPLETED'}"`,
     ]);
 
@@ -121,7 +122,12 @@ export default function SessionResultsModal({ isOpen, onClose, sessionId }: Resu
             </div>
             <div>
               <h2 className="text-base font-bold text-slate-900 tracking-tight">
-                {t('res_modal_title')} {sessionName && <span className="font-semibold text-indigo-700">• {sessionName}</span>}
+                {t('res_modal_title')}{' '}
+                {sessionName && (
+                  <span className="font-semibold text-indigo-700">
+                    • {sessionId === 'EX-VNU-2026-01' ? t('default_session_exam_name') : sessionName}
+                  </span>
+                )}
               </h2>
               <div className="flex items-center gap-2 mt-0.5">
                 <span className="text-xs font-mono font-semibold text-slate-500 bg-white/80 px-2 py-0.5 rounded-md border border-slate-200">
@@ -231,7 +237,7 @@ export default function SessionResultsModal({ isOpen, onClose, sessionId }: Resu
                           {res.correctCount} / {res.totalQuestions}
                         </td>
                         <td className="p-3 text-right text-slate-500 font-mono text-[11px]">
-                          {res.submittedAt ? new Date(res.submittedAt).toLocaleTimeString() : '—'}
+                          {res.submittedAt ? new Date(res.submittedAt).toLocaleTimeString(dateLocale) : '—'}
                         </td>
                       </tr>
                     ))

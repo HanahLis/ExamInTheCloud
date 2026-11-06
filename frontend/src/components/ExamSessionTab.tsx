@@ -51,7 +51,8 @@ export const ExamSessionTab = ({
   onOpenExam,
   onRefresh,
 }: Props) => {
-  const { t } = useTranslation();
+  const { t, lang } = useTranslation();
+  const dateLocale = lang === 'en' ? 'en-US' : lang === 'de' ? 'de-DE' : lang === 'la' ? 'lo-LA' : 'vi-VN';
   const [showCreateForm, setShowCreateForm] = useState(false);
   const [name, setName] = useState('');
   const [startTime, setStartTime] = useState('');
@@ -527,7 +528,9 @@ export const ExamSessionTab = ({
                     <span className="text-xs font-mono font-bold text-indigo-700 bg-indigo-50 px-2.5 py-1 rounded-lg border border-indigo-100">
                       #{s.id}
                     </span>
-                    <h4 className="font-bold text-slate-900 text-sm">{s.name}</h4>
+                    <h4 className="font-bold text-slate-900 text-sm">
+                      {s.id === 'EX-VNU-2026-01' ? t('default_session_exam_name') : s.name}
+                    </h4>
                   </div>
 
                   <div className="flex items-center gap-2">
@@ -544,12 +547,12 @@ export const ExamSessionTab = ({
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
                     </svg>
                     <span>
-                      {new Date(s.startTime).toLocaleString('vi-VN', {
+                      {new Date(s.startTime).toLocaleString(dateLocale, {
                         dateStyle: 'short',
                         timeStyle: 'short',
                       })}{' '}
                       -{' '}
-                      {new Date(s.endTime).toLocaleString('vi-VN', {
+                      {new Date(s.endTime).toLocaleString(dateLocale, {
                         dateStyle: 'short',
                         timeStyle: 'short',
                       })}

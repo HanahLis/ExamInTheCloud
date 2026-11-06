@@ -396,5 +396,18 @@
   "qb_ai_default_prompt": "Erstelle {count} Multiple-Choice-Fragen zu AWS Cloud Computing (einschließlich EC2, S3, Lambda, DynamoDB, VPC). Jede Frage muss 4 Optionen A, B, C, D haben und die richtige Antwort angeben.",
   "qb_extract_success_msg": "{count} Fragen erfolgreich in die Fragendatenbank extrahiert.",
   "qb_extract_error_msg": "Fehler beim Verarbeiten der Prüfungsdatei. Bitte erneut versuchen.",
-  "login_email_placeholder": "annv@uet.vnu.edu.vn oder 24020001@vnu.edu.vn"
+  "login_email_placeholder": "annv@uet.vnu.edu.vn oder 24020001@vnu.edu.vn",
+  "default_bank_se_name": "Fragendatenbank Softwarearchitektur",
+  "default_bank_cloud_name": "Fragendatenbank Cloud Computing",
+  "default_subject_se": "Softwarearchitektur & Entwicklung",
+  "default_subject_cloud": "Cloud Computing",
+  "default_session_exam_name": "Kompetenzbewertung: Softwarearchitektur & -entwicklung",
+  "sync_cloud_success_detail": "Lokale Daten erfolgreich mit Cloud synchronisiert ({banks} Datenbanken, {questions} Fragen, {candidates} Kandidaten, {sessions} Sitzungen)!",
+  "alert_incorrect_password": "Falsches Passwort. Bitte erneut versuchen (Standard-Passwort: 12345678).",
+  "alert_user_not_found": "Konto im System nicht gefunden.",
+  "alert_user_unconfirmed": "Konto wurde noch nicht per E-Mail auf AWS Cognito bestätigt.",
+  "demo_unit_lecturer": "Fakultät für Informationstechnologie - VNU-UET",
+  "demo_unit_student": "Student Jahrgang K69 - FIT - VNU-UET",
+  "role_abbr_lecturer": "DOZ",
+  "role_abbr_student": "STUD"
 }

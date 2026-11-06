@@ -361,7 +361,16 @@ const sha256Challenge = async (verifier: string) =>
 export const redirectToCognitoLogin = async (isSignUp?: boolean | unknown) => {
   const isDirectSignUp = isSignUp === true;
   if (!DOMAIN || !CLIENT_ID) {
-    alert('Hệ thống chưa tìm thấy cấu hình Cognito Domain hoặc Client ID. Vui lòng kiểm tra lại tệp cấu hình .env.');
+    const lang = localStorage.getItem('cloudexam_lang') || 'vi';
+    const alertMsg =
+      lang === 'en'
+        ? 'Cognito Domain or Client ID configuration is missing in .env.'
+        : lang === 'de'
+        ? 'Cognito Domain oder Client ID Konfiguration fehlt in .env.'
+        : lang === 'la'
+        ? 'ບໍ່ພົບການຕັ້ງຄ່າ Cognito Domain ຫຼື Client ID ໃນ .env.'
+        : 'Hệ thống chưa tìm thấy cấu hình Cognito Domain hoặc Client ID. Vui lòng kiểm tra lại tệp cấu hình .env.';
+    alert(alertMsg);
     return;
   }
   const verifier = randomString(48);

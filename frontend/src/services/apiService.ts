@@ -665,12 +665,20 @@ export const getQuestionBanks = async (ownerEmail?: string): Promise<QuestionBan
     }));
   } catch (err) {
     console.warn('Lỗi lấy ngân hàng câu hỏi từ API:', err);
-    cloudBanks = ownerEmail ? [] : [...DEFAULT_QUESTION_BANKS];
+    cloudBanks = [...DEFAULT_QUESTION_BANKS];
+  }
+
+  // Kết hợp ngân hàng mặc định của nhà trường để luôn hiển thị cho giảng viên
+  const seenIds = new Set(cloudBanks.map((b) => b.id));
+  for (const defBank of DEFAULT_QUESTION_BANKS) {
+    if (!seenIds.has(defBank.id)) {
+      cloudBanks.push(defBank);
+      seenIds.add(defBank.id);
+    }
   }
 
   // Kết hợp ngân hàng câu hỏi lưu trên trình duyệt (chỉ khi đúng chủ sở hữu)
   const localBanks = getLocalBanks();
-  const seenIds = new Set(cloudBanks.map((b) => b.id));
   for (const lb of localBanks) {
     if (!seenIds.has(lb.id) && (!ownerEmail || lb.ownerEmail?.toLowerCase() === ownerEmail.toLowerCase())) {
       cloudBanks.push(lb);
@@ -839,9 +847,17 @@ export const getQuestions = async (): Promise<Question[]> => {
     cloudItems = [...DEFAULT_QUESTIONS];
   }
 
+  // Kết hợp an toàn các câu hỏi mặc định của hệ thống
+  const seenIds = new Set(cloudItems.map((q) => q.id));
+  for (const dq of DEFAULT_QUESTIONS) {
+    if (!seenIds.has(dq.id)) {
+      cloudItems.push(dq);
+      seenIds.add(dq.id);
+    }
+  }
+
   // Kết hợp an toàn các câu hỏi đã trích xuất/tạo mới để không bao giờ bị mất dữ liệu
   const localItems = getLocalQuestions();
-  const seenIds = new Set(cloudItems.map((q) => q.id));
   for (const lq of localItems) {
     if (!seenIds.has(lq.id)) {
       cloudItems.push(lq);

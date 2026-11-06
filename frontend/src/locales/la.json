@@ -396,5 +396,18 @@
   "qb_ai_default_prompt": "ສ້າງ {count} ຄຳຖາມປາລະໄນກ່ຽວກັບ AWS Cloud Computing (ລວມທັງ EC2, S3, Lambda, DynamoDB, VPC). ແຕ່ລະຂໍ້ມີ 4 ຕົວເລືອກ A, B, C, D ແລະ ລະບຸຄຳຕອບທີ່ຖືກຕ້ອງ.",
   "qb_extract_success_msg": "ສະກັດຄຳຖາມສຳເລັດແລ້ວ {count} ຂໍ້ ເຂົ້າໃນຄັງຄຳຖາມ.",
   "qb_extract_error_msg": "ເກີດຂໍ້ຜິດພາດໃນການປະມວນຜົນໄຟລ໌ບົດສອບເສັງ. ກະລຸນາລອງໃໝ່ອີກຄັ້ງ.",
-  "login_email_placeholder": "annv@uet.vnu.edu.vn ຫຼື 24020001@vnu.edu.vn"
+  "login_email_placeholder": "annv@uet.vnu.edu.vn ຫຼື 24020001@vnu.edu.vn",
+  "default_bank_se_name": "ຄັງຄຳຖາມສະຖາປັດຕະຍະກຳຊອບແວ",
+  "default_bank_cloud_name": "ຄັງຄຳຖາມລະບົບຄລາວ",
+  "default_subject_se": "ສະຖາປັດຕະຍະກຳ ແລະ ການພັດທະນາຊອບແວ",
+  "default_subject_cloud": "ການຄຳນວນເທິງຄລາວ",
+  "default_session_exam_name": "ການສອບເສັງປະເມີນຄວາມສາມາດ: ສະຖາປັດຕະຍະກຳ ແລະ ການພັດທະນາຊອບແວ",
+  "sync_cloud_success_detail": "ຊິງຂໍ້ມູນ Local ຂຶ້ນ Cloud ສຳເລັດແລ້ວ ({banks} ຄັງ, {questions} ຂໍ້, {candidates} ຜູ້ສອບເສັງ, {sessions} ຫ້ອງສອບເສັງ)!",
+  "alert_incorrect_password": "ລະຫັດຜ່ານບໍ່ຖືກຕ້ອງ. ກະລຸນາລອງໃໝ່ (ລະຫັດຜ່ານເລີ່ມຕົ້ນ: 12345678).",
+  "alert_user_not_found": "ບໍ່ພົບຂໍ້ມູນບັນຊີໃນລະບົບ.",
+  "alert_user_unconfirmed": "ບັນຊີຍັງບໍ່ທັນໄດ້ຢືນຢັນອີເມວໃນ AWS Cognito.",
+  "demo_unit_lecturer": "ຄະນະເຕັກໂນໂລຊີຂໍ້ມູນຂ່າວສານ - ມະຫາວິທະຍາໄລເຕັກໂນໂລຊີ (UET)",
+  "demo_unit_student": "ນັກສຶກສາລຸ້ນ K69 - ພາກວິຊາ CNTT - UET",
+  "role_abbr_lecturer": "ອາຈານ",
+  "role_abbr_student": "ນັກຮຽນ"
 }

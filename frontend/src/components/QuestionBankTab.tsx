@@ -178,6 +178,28 @@ export const QuestionBankTab = ({ questions, onRefresh }: Props) => {
     return lecturerQuestions.filter((q) => q.bankId === selectedBankFilter);
   }, [lecturerQuestions, selectedBankFilter]);
 
+  const getLocalizedBankName = (b?: QuestionBank | null) => {
+    if (!b) return '';
+    if (b.id === 'bank-se-arch-01' || b.bankId === 'bank-se-arch-01') {
+      return t('default_bank_se_name');
+    }
+    if (b.id === 'bank-cloud-01' || b.bankId === 'bank-cloud-01') {
+      return t('default_bank_cloud_name');
+    }
+    return b.name;
+  };
+
+  const getLocalizedBankSubject = (subj?: string) => {
+    if (!subj) return t('qb_general_subject');
+    if (subj.includes('Kiến trúc') || subj.includes('Software Architecture')) {
+      return t('default_subject_se');
+    }
+    if (subj.includes('Điện toán đám mây') || subj.includes('Cloud Computing')) {
+      return t('default_subject_cloud');
+    }
+    return subj;
+  };
+
   const handleBankChange = (newBankId: string) => {
     setBankId(newBankId);
     const found = lecturerBanks.find((b) => b.id === newBankId);
@@ -598,9 +620,9 @@ export const QuestionBankTab = ({ questions, onRefresh }: Props) => {
                     onClick={() => setSelectedBankFilter(b.id)}
                     className="flex-1 text-left min-w-0 pr-2 cursor-pointer"
                   >
-                    <p className="text-xs font-semibold truncate text-slate-900">{b.name}</p>
+                    <p className="text-xs font-semibold truncate text-slate-900">{getLocalizedBankName(b)}</p>
                     <p className="text-[10px] text-slate-500 truncate mt-0.5">
-                      {b.subject || t('qb_general_subject')} • {count} {t('sess_questions_unit')}
+                      {getLocalizedBankSubject(b.subject)} • {count} {t('sess_questions_unit')}
                     </p>
                   </button>
 
@@ -657,7 +679,7 @@ export const QuestionBankTab = ({ questions, onRefresh }: Props) => {
                     >
                       {lecturerBanks.map((b) => (
                         <option key={b.id} value={b.id}>
-                          {b.name}
+                          {getLocalizedBankName(b)}
                         </option>
                       ))}
                     </select>
@@ -856,7 +878,7 @@ export const QuestionBankTab = ({ questions, onRefresh }: Props) => {
                 <p className="text-xs text-slate-500">
                   {selectedBankFilter === 'ALL'
                     ? t('qb_all_questions_desc')
-                    : `${t('qb_bank_label')}: ${lecturerBanks.find((b) => b.id === selectedBankFilter)?.name || selectedBankFilter}`}
+                    : `${t('qb_bank_label')}: ${getLocalizedBankName(lecturerBanks.find((b) => b.id === selectedBankFilter)) || selectedBankFilter}`}
                 </p>
               </div>
               <span className="text-xs font-semibold text-indigo-700 bg-indigo-50 px-3 py-1 rounded-full border border-indigo-100">
@@ -1103,7 +1125,7 @@ export const QuestionBankTab = ({ questions, onRefresh }: Props) => {
                   >
                     {lecturerBanks.map((b) => (
                       <option key={b.id} value={b.id}>
-                        {b.name}
+                        {getLocalizedBankName(b)}
                       </option>
                     ))}
                   </select>
