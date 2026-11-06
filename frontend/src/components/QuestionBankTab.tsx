@@ -157,7 +157,23 @@ export const QuestionBankTab = ({ questions, onRefresh }: Props) => {
 
   const handleBankChange = (newBankId: string) => {
     setBankId(newBankId);
+    const found = lecturerBanks.find((b) => b.id === newBankId);
+    if (found?.subject) {
+      setSubject(found.subject);
+    } else {
+      setSubject('');
+    }
   };
+
+  // Tự động đồng bộ tên môn học khi chọn ngân hàng đề hoặc khi danh sách ngân hàng được tải lần đầu
+  useEffect(() => {
+    if (bankId && !editingId) {
+      const found = lecturerBanks.find((b) => b.id === bankId);
+      if (found?.subject) {
+        setSubject(found.subject);
+      }
+    }
+  }, [bankId, lecturerBanks, editingId]);
 
   // Tạo ngân hàng câu hỏi mới
   const handleCreateBank = async (e: FormEvent) => {
@@ -213,7 +229,8 @@ export const QuestionBankTab = ({ questions, onRefresh }: Props) => {
     setQuestionType('SINGLE_CHOICE');
     setContent('');
     setEssayRubric('');
-    setSubject('');
+    const curBank = lecturerBanks.find((b) => b.id === bankId);
+    setSubject(curBank?.subject || '');
     setTopic('');
     setOptions(['', '', '', '']);
     setCorrectIndex(0);
@@ -228,11 +245,13 @@ export const QuestionBankTab = ({ questions, onRefresh }: Props) => {
   const startEdit = (q: Question) => {
     const isEssay = q.type === 'ESSAY';
     setEditingId(q.id);
-    setBankId(q.bankId || (lecturerBanks[0]?.id ?? ''));
+    const targetBankId = q.bankId || bankId || lecturerBanks[0]?.id || '';
+    setBankId(targetBankId);
     setQuestionType(isEssay ? 'ESSAY' : 'SINGLE_CHOICE');
     setContent(q.content);
     setEssayRubric(isEssay ? (q.correctAnswer || '') : '');
-    setSubject(q.subject || '');
+    const foundBank = lecturerBanks.find((b) => b.id === targetBankId);
+    setSubject(q.subject || foundBank?.subject || '');
     setTopic(q.topic || '');
 
     if (!isEssay) {
@@ -381,10 +400,11 @@ export const QuestionBankTab = ({ questions, onRefresh }: Props) => {
     const target =
       selectedBankFilter !== 'ALL'
         ? selectedBankFilter
-        : lecturerBanks[0]?.id || 'bank-se-arch-01';
+        : bankId || lecturerBanks[0]?.id || '';
     setImportBankId(target);
     const found = lecturerBanks.find((b) => b.id === target);
-    if (found?.subject) setImportSubject(found.subject);
+    setImportSubject(found?.subject || '');
+    setImportTopic('');
     setImportError('');
     setImportSuccessMessage('');
     setExtractedQuestions([]);
