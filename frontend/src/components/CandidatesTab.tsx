@@ -102,7 +102,13 @@ export const CandidatesTab = ({
               type="text"
               placeholder="Ví dụ: 24020001"
               value={studentCode}
-              onChange={(e) => setStudentCode(e.target.value)}
+              onChange={(e) => {
+                const val = e.target.value;
+                setStudentCode(val);
+                if (!email || email.endsWith('@vnu.edu.vn')) {
+                  setEmail(val.trim() ? `${val.trim().toLowerCase()}@vnu.edu.vn` : '');
+                }
+              }}
               className="w-full p-2 border border-slate-200 rounded-md outline-none focus:border-slate-400 text-xs"
               required
             />
@@ -124,7 +130,7 @@ export const CandidatesTab = ({
             <label className="block text-xs font-medium text-slate-700 mb-1">{t('cand_table_email')} *</label>
             <input
               type="email"
-              placeholder="Ví dụ: sinhvien@example.edu.vn"
+              placeholder="Ví dụ: 24020001@vnu.edu.vn"
               value={email}
               onChange={(e) => setEmail(e.target.value)}
               className="w-full p-2 border border-slate-200 rounded-md outline-none focus:border-slate-400 text-xs"

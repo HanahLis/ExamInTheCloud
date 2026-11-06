@@ -197,15 +197,15 @@ resource "aws_cognito_user_in_group" "lecturer_an_group" {
   username     = aws_cognito_user.lecturer_an.username
 }
 
-# Tài khoản Thí sinh mẫu: duc.tm24@vnu.edu.vn (MK: 12345678)
+# Tài khoản Thí sinh mẫu: 24020001@vnu.edu.vn (MK: 12345678)
 resource "aws_cognito_user" "candidate_duc" {
   user_pool_id   = aws_cognito_user_pool.main.id
-  username       = "duc.tm24@vnu.edu.vn"
+  username       = "24020001@vnu.edu.vn"
   password       = "12345678"
   message_action = "SUPPRESS"
 
   attributes = {
-    email            = "duc.tm24@vnu.edu.vn"
+    email            = "24020001@vnu.edu.vn"
     email_verified   = "true"
     name             = "Trần Minh Đức"
     student_code     = "24020001"

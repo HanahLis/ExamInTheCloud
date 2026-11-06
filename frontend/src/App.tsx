@@ -150,100 +150,51 @@ export interface SystemAccount {
 const DATABASE_ACCOUNTS: SystemAccount[] = [
   {
     role: 'Organizer',
-    name: 'Phạm Tuấn Phong',
-    email: 'phongpt@vnu.edu.vn',
-    studentCode: '24021598',
-    unit: 'Trưởng nhóm - Khoa Công nghệ Thông tin - UET',
-  },
-  {
-    role: 'Candidate',
-    name: 'Phạm Tuấn Phong',
-    email: 'phongpt@vnu.edu.vn',
-    studentCode: '24021598',
-    unit: 'Sinh viên K66 - Khoa CNTT - UET',
-  },
-  {
-    role: 'Organizer',
-    name: 'Trần Đức Mạnh',
-    email: 'tranducmanh2006@gmail.com',
-    studentCode: '24021561',
-    unit: 'Khoa Công nghệ Thông tin - ĐH Công nghệ (UET)',
-  },
-  {
-    role: 'Organizer',
     name: 'PGS. TS. Nguyễn Văn An',
     email: 'annv@uet.vnu.edu.vn',
     studentCode: 'GV001',
     unit: 'Giảng viên Khoa Công nghệ Thông tin - ĐH Công nghệ (UET)',
   },
   {
+    role: 'Organizer',
+    name: 'Giám thị Laladoraema',
+    email: 'laladoraema@gmail.com',
+    studentCode: 'GT002',
+    unit: 'Cán bộ Giám thị - Hội đồng thi CloudExam',
+  },
+  {
     role: 'Candidate',
     name: 'Trần Minh Đức',
-    email: 'duc.tm24@vnu.edu.vn',
+    email: '24020001@vnu.edu.vn',
     studentCode: '24020001',
     unit: 'Sinh viên K69 - Khoa CNTT - UET',
   },
   {
     role: 'Candidate',
     name: 'Lê Thị Mai',
-    email: 'mai.lt24@vnu.edu.vn',
+    email: '24020002@vnu.edu.vn',
     studentCode: '24020002',
     unit: 'Sinh viên K69 - Khoa CNTT - UET',
   },
   {
     role: 'Candidate',
     name: 'Phạm Hoàng Long',
-    email: 'long.ph24@vnu.edu.vn',
+    email: '24020003@vnu.edu.vn',
     studentCode: '24020003',
     unit: 'Sinh viên K69 - Khoa CNTT - UET',
   },
   {
     role: 'Candidate',
     name: 'Vũ Thùy Linh',
-    email: 'linh.vt24@vnu.edu.vn',
+    email: '24020004@vnu.edu.vn',
     studentCode: '24020004',
     unit: 'Sinh viên K69 - Khoa CNTT - UET',
   },
   {
     role: 'Candidate',
     name: 'Đỗ Quang Huy',
-    email: 'huy.dq24@vnu.edu.vn',
+    email: '24020005@vnu.edu.vn',
     studentCode: '24020005',
-    unit: 'Sinh viên K69 - Khoa CNTT - UET',
-  },
-  {
-    role: 'Candidate',
-    name: 'Ngô Thị Hương',
-    email: 'huong.nt24@vnu.edu.vn',
-    studentCode: '24020006',
-    unit: 'Sinh viên K69 - Khoa CNTT - UET',
-  },
-  {
-    role: 'Candidate',
-    name: 'Bùi Văn Tuấn',
-    email: 'tuan.bv24@vnu.edu.vn',
-    studentCode: '24020007',
-    unit: 'Sinh viên K69 - Khoa CNTT - UET',
-  },
-  {
-    role: 'Candidate',
-    name: 'Hoàng Minh Thư',
-    email: 'thu.hm24@vnu.edu.vn',
-    studentCode: '24020008',
-    unit: 'Sinh viên K69 - Khoa CNTT - UET',
-  },
-  {
-    role: 'Candidate',
-    name: 'Đặng Minh Quân',
-    email: 'quan.dm24@vnu.edu.vn',
-    studentCode: '24020009',
-    unit: 'Sinh viên K69 - Khoa CNTT - UET',
-  },
-  {
-    role: 'Candidate',
-    name: 'Nguyễn Quỳnh Chi',
-    email: 'chi.nq24@vnu.edu.vn',
-    studentCode: '24020010',
     unit: 'Sinh viên K69 - Khoa CNTT - UET',
   },
 ];
@@ -426,7 +377,7 @@ export default function App() {
               <input
                 type="email"
                 list="vnu-accounts"
-                placeholder="annv@uet.vnu.edu.vn hoặc duc.tm24@vnu.edu.vn"
+                placeholder="annv@uet.vnu.edu.vn hoặc 24020001@vnu.edu.vn"
                 value={loginEmail}
                 onChange={(e) => setLoginEmail(e.target.value)}
                 className="w-full p-2 border border-slate-200 rounded-md text-xs outline-none focus:border-slate-800 transition"

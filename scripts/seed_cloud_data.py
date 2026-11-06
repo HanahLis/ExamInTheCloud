@@ -90,7 +90,7 @@ def seed_cognito_users(cognito_client, user_pool_id: str):
             "student_code": "GT002"
         },
         {
-            "username": "duc.tm24@vnu.edu.vn",
+            "username": "24020001@vnu.edu.vn",
             "password": "12345678",
             "name": "Trần Minh Đức",
             "role": "Candidate",
@@ -98,7 +98,7 @@ def seed_cognito_users(cognito_client, user_pool_id: str):
             "student_code": "24020001"
         },
         {
-            "username": "mai.lt24@vnu.edu.vn",
+            "username": "24020002@vnu.edu.vn",
             "password": "12345678",
             "name": "Lê Thị Mai",
             "role": "Candidate",
@@ -106,7 +106,7 @@ def seed_cognito_users(cognito_client, user_pool_id: str):
             "student_code": "24020002"
         },
         {
-            "username": "long.ph24@vnu.edu.vn",
+            "username": "24020003@vnu.edu.vn",
             "password": "12345678",
             "name": "Phạm Hoàng Long",
             "role": "Candidate",
@@ -114,7 +114,7 @@ def seed_cognito_users(cognito_client, user_pool_id: str):
             "student_code": "24020003"
         },
         {
-            "username": "linh.vt24@vnu.edu.vn",
+            "username": "24020004@vnu.edu.vn",
             "password": "12345678",
             "name": "Vũ Thùy Linh",
             "role": "Candidate",
@@ -122,7 +122,7 @@ def seed_cognito_users(cognito_client, user_pool_id: str):
             "student_code": "24020004"
         },
         {
-            "username": "huy.dq24@vnu.edu.vn",
+            "username": "24020005@vnu.edu.vn",
             "password": "12345678",
             "name": "Đỗ Quang Huy",
             "role": "Candidate",
@@ -476,7 +476,7 @@ def seed_dynamodb_data(dynamodb_resource, bucket_name: str):
     cand_table = dynamodb_resource.Table(f"CloudExam_Candidates_{ENV}")
     candidates = [
         {
-            "email": "duc.tm24@vnu.edu.vn",
+            "email": "24020001@vnu.edu.vn",
             "name": "Trần Minh Đức",
             "className": "QH-2024-I/CQ-CN1",
             "studentCode": "24020001",
@@ -484,7 +484,7 @@ def seed_dynamodb_data(dynamodb_resource, bucket_name: str):
             "createdAt": "2026-10-20T00:00:00Z"
         },
         {
-            "email": "mai.lt24@vnu.edu.vn",
+            "email": "24020002@vnu.edu.vn",
             "name": "Lê Thị Mai",
             "className": "QH-2024-I/CQ-CN1",
             "studentCode": "24020002",
@@ -492,7 +492,7 @@ def seed_dynamodb_data(dynamodb_resource, bucket_name: str):
             "createdAt": "2026-10-20T00:00:00Z"
         },
         {
-            "email": "long.ph24@vnu.edu.vn",
+            "email": "24020003@vnu.edu.vn",
             "name": "Phạm Hoàng Long",
             "className": "QH-2024-I/CQ-CN1",
             "studentCode": "24020003",
@@ -500,7 +500,7 @@ def seed_dynamodb_data(dynamodb_resource, bucket_name: str):
             "createdAt": "2026-10-20T00:00:00Z"
         },
         {
-            "email": "linh.vt24@vnu.edu.vn",
+            "email": "24020004@vnu.edu.vn",
             "name": "Vũ Thùy Linh",
             "className": "QH-2024-I/CQ-CN1",
             "studentCode": "24020004",
@@ -508,7 +508,7 @@ def seed_dynamodb_data(dynamodb_resource, bucket_name: str):
             "createdAt": "2026-10-20T00:00:00Z"
         },
         {
-            "email": "huy.dq24@vnu.edu.vn",
+            "email": "24020005@vnu.edu.vn",
             "name": "Đỗ Quang Huy",
             "className": "QH-2024-I/CQ-CN2",
             "studentCode": "24020005",
@@ -721,7 +721,7 @@ def main():
     print("\n=================================================================")
     print("[SUCCESS] ĐÃ NẠP TOÀN BỘ DỮ LIỆU KIỂM THỬ THÀNH CÔNG LÊN AWS CLOUD!")
     print("Tài khoản Giảng viên: annv@uet.vnu.edu.vn (MK: 12345678)")
-    print("Tài khoản Thí sinh:   duc.tm24@vnu.edu.vn (MK: 12345678)")
+    print("Tài khoản Thí sinh:   24020001@vnu.edu.vn (MK: 12345678)")
     print("Ca thi trực tuyến:    EX-VNU-2026-01 (Trạng thái: RUNNING)")
     print("=================================================================\n")
 

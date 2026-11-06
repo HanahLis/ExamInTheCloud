@@ -776,18 +776,21 @@ export const deleteQuestionBank = async (bankId: string): Promise<any> => {
     console.warn('Lỗi quét câu hỏi cần xóa trên AWS:', qErr);
   }
 
-  // 3. Thử gọi DELETE endpoint trên API Gateway (nếu đã mở route)
-  // Tuyệt đối KHÔNG gọi POST /question-banks vì Lambda cũ trên AWS sẽ hiểu nhầm là put_item tạo lại
+  // 3. Gọi endpoint xóa ngân hàng đề trên AWS
   try {
-    const res = await api.delete(`/question-banks/${bankId}`);
+    const res = await api.post('/question-banks', { action: 'DELETE', id: bankId });
     return res.data;
-  } catch (err) {
+  } catch (postErr) {
     try {
-      const res2 = await api.delete('/question-banks', { params: { id: bankId } });
-      return res2.data;
-    } catch {
-      // API Gateway chưa cấu hình DELETE cho /question-banks, danh sách đã được dọn sạch qua blacklist & xóa toàn bộ câu hỏi
-      return { id: bankId, deleted: true };
+      const res = await api.delete(`/question-banks/${bankId}`);
+      return res.data;
+    } catch (err) {
+      try {
+        const res2 = await api.delete('/question-banks', { params: { id: bankId } });
+        return res2.data;
+      } catch {
+        return { id: bankId, deleted: true };
+      }
     }
   }
 };
