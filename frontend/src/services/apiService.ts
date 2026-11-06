@@ -22,15 +22,12 @@ api.interceptors.request.use((config) => {
   return config;
 });
 
-// Tự động xử lý khi Token bị lỗi 401: Xóa phiên rác và làm mới trang để không crash giao diện
+// Tự động xử lý khi Token bị lỗi 401
 api.interceptors.response.use(
   (response) => response,
   (error) => {
     if (error.response && error.response.status === 401) {
-      console.warn('[CloudExam API] Bị chặn 401 Unauthorized do token cũ/hết hạn. Tự động dọn dẹp phiên.');
-      localStorage.removeItem('id_token');
-      localStorage.removeItem('access_token');
-      localStorage.removeItem('auth_mode');
+      console.warn('[CloudExam API] Phản hồi 401 Unauthorized từ API Gateway.');
     }
     return Promise.reject(error);
   }

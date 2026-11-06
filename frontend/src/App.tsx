@@ -32,7 +32,6 @@ import { useTheme } from './themes/themeContext';
 import { useTranslation, type Language } from './locales/i18nContext';
 import {
   detectCountryFromLocation,
-  switchCountryDomain,
   COUNTRY_DOMAINS,
 } from './services/domainService';
 
@@ -56,38 +55,32 @@ export const CountryLanguageBar = () => {
     const domainCfg = COUNTRY_DOMAINS[c];
     if (domainCfg) {
       setLang(domainCfg.defaultLang);
-      switchCountryDomain(c);
     }
   };
 
-  const currentDomain = COUNTRY_DOMAINS[themeName]?.domain || COUNTRY_DOMAINS.default.domain;
-
   return (
     <div className="flex items-center gap-2">
-      {/* Huy hiệu tên miền tương ứng với quốc gia */}
-      <span
-        className="hidden xl:inline-flex items-center gap-1.5 text-[11px] font-mono bg-indigo-50/70 text-indigo-700 px-2.5 py-1 rounded-full border border-indigo-100 shadow-2xs"
-        title={`${t('domain_current_hint')} https://${currentDomain}`}
-      >
-        <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse"></span>
-        {currentDomain}
-      </span>
-
       <div className="flex items-center gap-1.5 bg-slate-100/80 px-2.5 py-1 rounded-full border border-slate-200/80">
+        <svg className="w-3.5 h-3.5 text-slate-500 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3.055 11H5a2 2 0 012 2v1a2 2 0 002 2 2 2 0 012 2v2.945M8 3.935V5.5A2.5 2.5 0 0010.5 8h.5a2 2 0 012 2 2 2 0 104 0 2 2 0 012-2h1.064M15 20.488V18a2 2 0 012-2h3.064M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+        </svg>
         <span className="text-[11px] text-slate-500 font-medium">{t('country_label')}:</span>
         <select
           value={themeName}
           onChange={(e) => handleCountryChange(e.target.value)}
           className="text-[11px] bg-transparent border-0 font-medium text-slate-700 cursor-pointer outline-none focus:ring-0"
         >
-          <option value="vn">🇻🇳 {t('country_vn')} (vietnam.cloudexam.com)</option>
-          <option value="la">🇱🇦 {t('country_la')} (lao.cloudexam.com)</option>
-          <option value="de">🇩🇪 {t('country_de')} (germany.cloudexam.com)</option>
-          <option value="default">🌐 {t('country_intl')} (cloudexam.com)</option>
+          <option value="vn">{t('country_vn')}</option>
+          <option value="la">{t('country_la')}</option>
+          <option value="de">{t('country_de')}</option>
+          <option value="default">{t('country_intl')}</option>
         </select>
       </div>
 
       <div className="flex items-center gap-1.5 bg-slate-100/80 px-2.5 py-1 rounded-full border border-slate-200/80">
+        <svg className="w-3.5 h-3.5 text-slate-500 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 5h12M9 3v2m1.048 9.5A18.022 18.022 0 016.412 9m6.088 9h7M11 21l5-10 5 10M12.751 5C11.783 10.77 8.07 15.61 3 18.129" />
+        </svg>
         <span className="text-[11px] text-slate-500 font-medium">{t('lang_label')}:</span>
         <select
           value={lang}

@@ -189,6 +189,8 @@ export const loginWithDatabaseAccount = (
   name = '',
   studentCode = ''
 ) => {
+  const poolId = import.meta.env.VITE_COGNITO_USER_POOL_ID || 'ap-southeast-1_CloudExam';
+  const region = import.meta.env.VITE_AWS_REGION || 'ap-southeast-1';
   const header = base64EncodeUtf8(JSON.stringify({ alg: 'RS256', typ: 'JWT' }));
   const payload = base64EncodeUtf8(
     JSON.stringify({
@@ -197,8 +199,8 @@ export const loginWithDatabaseAccount = (
       name,
       'cognito:groups': groups,
       'custom:student_code': studentCode,
-      iss: `https://cognito-idp.ap-southeast-1.amazonaws.com/ap-southeast-1_CloudExam`,
-      exp: Math.floor(Date.now() / 1000) + 3600 * 24, // 24 giờ
+      iss: `https://cognito-idp.${region}.amazonaws.com/${poolId}`,
+      exp: Math.floor(Date.now() / 1000) + 3600 * 24 * 7, // 7 ngày
     })
   );
   const token = `${header}.${payload}.cloudexam-verified-token`;
@@ -219,10 +221,15 @@ export const loginWithCognitoPassword = async (email: string, password: string):
   // 1. Kiểm tra tài khoản trong danh mục Database local / Giảng viên / Thí sinh
   const fallback = DATABASE_ACCOUNTS_MAP[cleanEmail];
 
-  // Nếu mật khẩu khớp với mật khẩu demo mặc định (12345678 hoặc CloudExam@2026), đăng nhập tức thì an toàn
-  if (fallback && (cleanPassword === '12345678' || cleanPassword === 'CloudExam@2026')) {
-    loginWithDatabaseAccount(fallback.email, [fallback.role], fallback.name, fallback.studentCode);
-    return;
+  // Nếu là tài khoản hệ thống demo
+  if (fallback) {
+    if (cleanPassword === '12345678' || cleanPassword === 'CloudExam@2026') {
+      loginWithDatabaseAccount(fallback.email, [fallback.role], fallback.name, fallback.studentCode);
+      return;
+    }
+    // Nếu người dùng cố tình nhập sai mật khẩu cho tài khoản demo:
+    // Tuyệt đối không cho phép đăng nhập lung tung! Báo lỗi rõ ràng!
+    throw new Error('Mật khẩu không chính xác. Mật khẩu mặc định: 12345678');
   }
 
   // Danh sách mật khẩu tương thích cho tài khoản quản trị viên demo
@@ -263,12 +270,8 @@ export const loginWithCognitoPassword = async (email: string, password: string):
       }
 
       if (data.__type === 'UserNotConfirmedException') {
-        if (fallback) {
-          loginWithDatabaseAccount(fallback.email, [fallback.role], fallback.name, fallback.studentCode);
-          return;
-        }
         throw new Error(
-          'Tài khoản này chưa được xác thực email trên AWS Cognito. Vui lòng bấm "Đăng nhập qua AWS Cognito Hosted UI" để hoàn tất xác thực mã code, hoặc đăng nhập tài khoản Giảng viên: annv@uet.vnu.edu.vn.'
+          'Tài khoản này chưa được xác thực email trên AWS Cognito. Vui lòng bấm "Cổng đăng nhập SSO / Đăng ký tài khoản" để xác thực mã code, hoặc đăng nhập tài khoản Giảng viên: annv@uet.vnu.edu.vn (MK: 12345678).'
         );
       }
 
@@ -280,31 +283,22 @@ export const loginWithCognitoPassword = async (email: string, password: string):
         throw new Error('Tài khoản không tồn tại trong hệ thống.');
       }
 
-      if (data.__type === 'ResourceNotFoundException' || data.message?.includes('does not exist')) {
-        // AWS Cognito User Pool không tồn tại (stack cũ đã xóa / offline)
-        if (fallback) {
-          loginWithDatabaseAccount(fallback.email, [fallback.role], fallback.name, fallback.studentCode);
-          return;
-        }
-      }
-
       lastError = data.message || 'Đăng nhập không thành công.';
     } catch (e: any) {
-      if (e?.message && (e.message.includes('Mật khẩu không chính xác') || e.message.includes('Tài khoản không tồn tại'))) {
+      if (
+        e?.message &&
+        (e.message.includes('Mật khẩu không chính xác') ||
+          e.message.includes('Tài khoản không tồn tại') ||
+          e.message.includes('Tài khoản này chưa được xác thực'))
+      ) {
         throw e;
       }
       lastError = e?.message || 'Không thể kết nối đến máy chủ xác thực.';
     }
   }
 
-  // Tự phục hồi: Cho phép tài khoản trong Database đăng nhập dự phòng khi AWS gặp sự cố
-  if (fallback) {
-    loginWithDatabaseAccount(fallback.email, [fallback.role], fallback.name, fallback.studentCode);
-    return;
-  }
-
   throw new Error(
-    lastError || 'Mật khẩu hoặc email không chính xác. Bạn có thể sử dụng tài khoản Giảng viên: annv@uet.vnu.edu.vn (MK: 12345678).'
+    lastError || 'Mật khẩu hoặc email không chính xác.'
   );
 };
 
@@ -433,23 +427,13 @@ export const isLoggedIn = (): boolean => {
   try {
     const claims = decodeJwt(token);
     if (!claims) {
-      localStorage.clear();
-      return false;
-    }
-    // Tự động phát hiện nếu User Pool trên AWS đã được tạo mới qua Terraform
-    const currentPoolId = import.meta.env.VITE_COGNITO_USER_POOL_ID;
-    if (currentPoolId && claims.iss && !claims.iss.includes(currentPoolId)) {
-      console.warn('[CloudExam Auth] User Pool ID đã thay đổi sau khi Terraform Apply. Tự động làm sạch phiên cũ.');
-      localStorage.clear();
       return false;
     }
     if (claims.exp && claims.exp * 1000 < Date.now()) {
-      localStorage.clear();
       return false;
     }
     return true;
   } catch {
-    localStorage.clear();
     return false;
   }
 };

@@ -534,11 +534,10 @@ export const QuestionBankTab = ({ questions, onRefresh }: Props) => {
             <button
               type="button"
               onClick={() => setSelectedBankFilter('ALL')}
-              className={`w-full text-left p-3 rounded-2xl border transition-all cursor-pointer flex items-center justify-between ${
-                selectedBankFilter === 'ALL'
+              className={`w-full text-left p-3 rounded-2xl border transition-all cursor-pointer flex items-center justify-between ${selectedBankFilter === 'ALL'
                   ? 'bg-indigo-50/80 border-indigo-300 text-indigo-900 shadow-2xs font-bold ring-1 ring-indigo-200'
                   : 'bg-slate-50/50 border-slate-200/70 text-slate-700 hover:bg-slate-100/70'
-              }`}
+                }`}
             >
               <div className="flex items-center gap-2.5">
                 <span className="w-2.5 h-2.5 rounded-full bg-indigo-600"></span>
@@ -557,11 +556,10 @@ export const QuestionBankTab = ({ questions, onRefresh }: Props) => {
               return (
                 <div
                   key={b.id}
-                  className={`p-3 rounded-2xl border transition-all flex items-center justify-between group ${
-                    isSelected
+                  className={`p-3 rounded-2xl border transition-all flex items-center justify-between group ${isSelected
                       ? 'bg-indigo-50/80 border-indigo-300 text-indigo-900 shadow-2xs font-bold ring-1 ring-indigo-200'
                       : 'bg-white border-slate-200/80 text-slate-700 hover:border-slate-300 hover:bg-slate-50/50'
-                  }`}
+                    }`}
                 >
                   <button
                     type="button"
@@ -676,22 +674,20 @@ export const QuestionBankTab = ({ questions, onRefresh }: Props) => {
                     <button
                       type="button"
                       onClick={() => setQuestionType('SINGLE_CHOICE')}
-                      className={`px-3 py-1 rounded-lg text-xs font-semibold cursor-pointer transition ${
-                        questionType !== 'ESSAY'
+                      className={`px-3 py-1 rounded-lg text-xs font-semibold cursor-pointer transition ${questionType !== 'ESSAY'
                           ? 'bg-white text-indigo-700 shadow-2xs'
                           : 'text-slate-600 hover:text-slate-900'
-                      }`}
+                        }`}
                     >
                       {t('qb_mode_choice')}
                     </button>
                     <button
                       type="button"
                       onClick={() => setQuestionType('ESSAY')}
-                      className={`px-3 py-1 rounded-lg text-xs font-semibold cursor-pointer transition ${
-                        questionType === 'ESSAY'
+                      className={`px-3 py-1 rounded-lg text-xs font-semibold cursor-pointer transition ${questionType === 'ESSAY'
                           ? 'bg-white text-indigo-700 shadow-2xs'
                           : 'text-slate-600 hover:text-slate-900'
-                      }`}
+                        }`}
                     >
                       {t('qb_mode_essay')}
                     </button>
@@ -729,11 +725,10 @@ export const QuestionBankTab = ({ questions, onRefresh }: Props) => {
                         return (
                           <div
                             key={i}
-                            className={`flex items-center gap-2 p-2 rounded-xl border transition ${
-                              isSelected
+                            className={`flex items-center gap-2 p-2 rounded-xl border transition ${isSelected
                                 ? 'bg-emerald-50/70 border-emerald-300 ring-1 ring-emerald-200'
                                 : 'bg-slate-50/50 border-slate-200'
-                            }`}
+                              }`}
                           >
                             <input
                               type="radio"
@@ -866,11 +861,10 @@ export const QuestionBankTab = ({ questions, onRefresh }: Props) => {
                         </span>
                       </div>
                       <span
-                        className={`shrink-0 text-[10px] font-semibold px-2.5 py-0.5 rounded-full border ${
-                          q.type === 'ESSAY'
+                        className={`shrink-0 text-[10px] font-semibold px-2.5 py-0.5 rounded-full border ${q.type === 'ESSAY'
                             ? 'bg-purple-50 text-purple-700 border-purple-200'
                             : 'bg-sky-50 text-sky-700 border-sky-200'
-                        }`}
+                          }`}
                       >
                         {q.type === 'ESSAY' ? t('qb_type_essay_badge') : t('qb_type_choice_badge')}
                       </span>
@@ -906,16 +900,14 @@ export const QuestionBankTab = ({ questions, onRefresh }: Props) => {
                           return (
                             <div
                               key={i}
-                              className={`p-3 rounded-2xl border text-xs flex items-start gap-2.5 transition ${
-                                isCorrect
+                              className={`p-3 rounded-2xl border text-xs flex items-start gap-2.5 transition ${isCorrect
                                   ? 'border-emerald-300 bg-emerald-50/70 text-emerald-950 font-semibold shadow-2xs ring-1 ring-emerald-200'
                                   : 'border-slate-200/80 bg-slate-50/40 text-slate-700'
-                              }`}
+                                }`}
                             >
                               <span
-                                className={`w-5 h-5 rounded-lg flex items-center justify-center text-[10px] font-bold shrink-0 mt-0.5 ${
-                                  isCorrect ? 'bg-emerald-600 text-white' : 'bg-slate-200 text-slate-600'
-                                }`}
+                                className={`w-5 h-5 rounded-lg flex items-center justify-center text-[10px] font-bold shrink-0 mt-0.5 ${isCorrect ? 'bg-emerald-600 text-white' : 'bg-slate-200 text-slate-600'
+                                  }`}
                               >
                                 {OPTION_LABELS[i] || String.fromCharCode(65 + i)}
                               </span>
@@ -1114,22 +1106,20 @@ export const QuestionBankTab = ({ questions, onRefresh }: Props) => {
                   <button
                     type="button"
                     onClick={() => setImportInputMode('TEXT')}
-                    className={`pb-2.5 px-4 text-xs font-semibold border-b-2 transition cursor-pointer ${
-                      importInputMode === 'TEXT'
+                    className={`pb-2.5 px-4 text-xs font-semibold border-b-2 transition cursor-pointer ${importInputMode === 'TEXT'
                         ? 'border-indigo-600 text-indigo-700'
                         : 'border-transparent text-slate-500 hover:text-slate-800'
-                    }`}
+                      }`}
                   >
                     Dán đề thi / Soạn câu hỏi bằng AI Prompt
                   </button>
                   <button
                     type="button"
                     onClick={() => setImportInputMode('FILE')}
-                    className={`pb-2.5 px-4 text-xs font-semibold border-b-2 transition cursor-pointer ${
-                      importInputMode === 'FILE'
+                    className={`pb-2.5 px-4 text-xs font-semibold border-b-2 transition cursor-pointer ${importInputMode === 'FILE'
                         ? 'border-indigo-600 text-indigo-700'
                         : 'border-transparent text-slate-500 hover:text-slate-800'
-                    }`}
+                      }`}
                   >
                     Tải tệp Word (.docx) / Văn bản (.txt)
                   </button>
@@ -1151,11 +1141,10 @@ export const QuestionBankTab = ({ questions, onRefresh }: Props) => {
                                 `Tạo ${cnt} câu hỏi trắc nghiệm chuyên sâu về điện toán đám mây AWS (bao gồm EC2, S3, Lambda, DynamoDB, VPC). Mỗi câu có 4 phương án A, B, C, D và chỉ rõ đáp án đúng.`
                               );
                             }}
-                            className={`px-2.5 py-1 rounded-lg text-xs font-semibold transition cursor-pointer ${
-                              importCount === cnt
+                            className={`px-2.5 py-1 rounded-lg text-xs font-semibold transition cursor-pointer ${importCount === cnt
                                 ? 'bg-indigo-600 text-white shadow-2xs'
                                 : 'bg-white border border-slate-200 text-slate-700 hover:bg-slate-100'
-                            }`}
+                              }`}
                           >
                             {cnt} câu
                           </button>
