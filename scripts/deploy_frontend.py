@@ -49,7 +49,7 @@ def get_content_type_and_cache(filename: str):
 def get_aws_resources(region="ap-southeast-1"):
     """Lấy tên S3 Bucket và CloudFront Distribution ID"""
     s3_bucket = "cloudexam-frontend-dev"
-    dist_id = "E2X1GHBUQ8HDYL"
+    dist_id = "E3G69MO0PQNCIG"
     dist_domain = "cloudexam.id.vn"
 
     repo_root = os.path.abspath(os.path.join(os.path.dirname(__file__), ".."))

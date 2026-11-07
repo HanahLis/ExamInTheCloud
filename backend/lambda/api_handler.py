@@ -37,7 +37,7 @@ SNS_TOPIC_ARN = os.getenv("SNS_TOPIC_ARN", "")
 # Người dùng cung cấp key qua giao diện (payload.apiKey) hoặc biến môi trường GEMINI_API_KEY / SSM.
 DEFAULT_GEMINI_KEY = ""
 GEMINI_API_KEY = os.getenv("GEMINI_API_KEY", DEFAULT_GEMINI_KEY).strip()
-GEMINI_MODEL = os.getenv("GEMINI_MODEL", "gemini-3.8-flash").strip() or "gemini-3.8-flash"
+GEMINI_MODEL = os.getenv("GEMINI_MODEL", "gemini-2.0-flash").strip() or "gemini-2.0-flash"
 UPSTASH_REDIS_REST_URL = os.getenv("UPSTASH_REDIS_REST_URL", "").strip().rstrip("/")
 UPSTASH_REDIS_REST_TOKEN = os.getenv("UPSTASH_REDIS_REST_TOKEN", "").strip()
 CLOUDFLARE_TURNSTILE_SECRET_KEY = os.getenv("CLOUDFLARE_TURNSTILE_SECRET_KEY", "").strip()
@@ -651,19 +651,66 @@ def rule_based_parse_questions(raw_text: str, subject: str = "Điện toán đá
     return questions
 
 
+def normalize_gemini_model(model_name: str) -> str:
+    """Chuẩn hóa tên model Google Gemini sang model chính thức được hỗ trợ."""
+    cleaned = (model_name or "").strip().lower().replace(" ", "-")
+    if not cleaned or "3." in cleaned or "argon" in cleaned:
+        return "gemini-2.0-flash"
+    if cleaned in ["gemini-2.0-flash", "gemini-1.5-flash", "gemini-2.5-flash", "gemini-1.5-pro", "gemini-2.0-flash-lite"]:
+        return cleaned
+    return "gemini-2.0-flash"
+
+
+def clean_gemini_json_response(raw_text: str):
+    """Làm sạch và bóc tách an toàn chuỗi JSON từ phản hồi của Google Gemini AI."""
+    if not raw_text or not raw_text.strip():
+        return None
+    cleaned = raw_text.strip()
+
+    # Bóc tách nếu Gemini bao quanh bởi Markdown code block ```json ... ```
+    if "```" in cleaned:
+        block_match = re.search(r"```(?:json)?\s*([\s\S]*?)\s*```", cleaned, re.IGNORECASE)
+        if block_match:
+            cleaned = block_match.group(1).strip()
+
+    # Thử parse trực tiếp nếu chuỗi đã sạch
+    try:
+        return json.loads(cleaned)
+    except Exception:
+        pass
+
+    # Nếu chuỗi còn lẫn text hội thoại, tìm khối JSON {...} hoặc [...]
+    obj_match = re.search(r"(\{[\s\S]*\})", cleaned)
+    if obj_match:
+        try:
+            return json.loads(obj_match.group(1))
+        except Exception:
+            pass
+
+    array_match = re.search(r"(\[[\s\S]*\])", cleaned)
+    if array_match:
+        try:
+            return json.loads(array_match.group(1))
+        except Exception:
+            pass
+
+    return None
+
+
 def parse_questions_with_gemini(raw_text: str, subject: str = "Điện toán đám mây", topic: str = "Kiến trúc hệ thống", model: str = "", api_key: str = "") -> tuple:
-    """Gọi Google Gemini API (hỗ trợ gemini-3.8-flash, gemini-2.5-flash, gemini-2.0-flash, gemini-1.5-flash, v.v.) để phân tích đề thi sang JSON chuẩn."""
+    """Gọi Google Gemini API (hỗ trợ gemini-2.0-flash, gemini-1.5-flash, gemini-2.5-flash, gemini-1.5-pro, v.v.) để phân tích đề thi sang JSON chuẩn."""
     active_key = api_key.strip() if api_key else get_gemini_api_key()
     if not active_key:
         print("[WARN] GEMINI_API_KEY chưa cấu hình, sử dụng rule-based fallback parser.")
         return rule_based_parse_questions(raw_text, subject, topic), "Rule-based Fallback"
 
     primary_model = (model.strip() if model else GEMINI_MODEL).replace(" ", "-")
+    target_primary = normalize_gemini_model(primary_model)
 
     # Danh sách model kiểm chứng thực tế trên Google AI Studio
     # Ưu tiên các model Google Gemini chính thức hỗ trợ JSON Mode
-    models_to_try = [primary_model] if primary_model in ["gemini-3.8-flash", "gemini-1.5-flash", "gemini-2.0-flash", "gemini-1.5-pro", "gemini-2.0-flash-lite"] else []
-    for fb in ["gemini-3.8-flash", "gemini-1.5-flash", "gemini-2.0-flash", "gemini-1.5-pro", "gemini-2.0-flash-lite"]:
+    models_to_try = [target_primary]
+    for fb in ["gemini-2.0-flash", "gemini-1.5-flash", "gemini-2.5-flash", "gemini-1.5-pro", "gemini-2.0-flash-lite"]:
         if fb not in models_to_try:
             models_to_try.append(fb)
 
@@ -719,20 +766,26 @@ Nội dung đề thi / Yêu cầu:
             req = urllib.request.Request(
                 gemini_url,
                 data=req_data,
-                headers={"Content-Type": "application/json"},
+                headers={
+                    "Content-Type": "application/json",
+                    "x-goog-api-key": active_key,
+                },
                 method="POST"
             )
-            with urllib.request.urlopen(req, timeout=12) as resp:
+            with urllib.request.urlopen(req, timeout=10) as resp:
                 resp_body = json.loads(resp.read().decode("utf-8"))
                 candidates = resp_body.get("candidates", [])
                 if candidates:
                     text_out = candidates[0].get("content", {}).get("parts", [{}])[0].get("text", "")
-                    parsed = json.loads(text_out)
-                    questions_list = parsed if isinstance(parsed, list) else parsed.get("questions", [])
-                    if isinstance(questions_list, list) and len(questions_list) > 0:
-                        return questions_list, f"Google Gemini ({target_model})"
+                    parsed = clean_gemini_json_response(text_out)
+                    if parsed:
+                        questions_list = parsed if isinstance(parsed, list) else parsed.get("questions", [])
+                        if isinstance(questions_list, list) and len(questions_list) > 0:
+                            return questions_list, f"Google Gemini ({target_model})"
         except Exception as e:
             print(f"[WARN] Thử gọi Gemini AI model {target_model} không thành công: {str(e)}")
+            if any(k in str(e).lower() for k in ["401", "403", "unauthenticated", "invalid api key", "access_token_type_unsupported"]):
+                break
             continue
 
     return rule_based_parse_questions(raw_text, subject, topic), f"Rule-based Fallback ({primary_model} Error)"
@@ -771,8 +824,9 @@ YÊU CẦU:
 3. Đưa ra mẹo nhớ hoặc kết luận 1 câu ngắn gọn.
 """
 
-    models_to_try = [primary_model] if primary_model in ["gemini-3.8-flash", "gemini-1.5-flash", "gemini-2.0-flash", "gemini-1.5-pro", "gemini-2.0-flash-lite"] else []
-    for fb in ["gemini-3.8-flash", "gemini-1.5-flash", "gemini-2.0-flash", "gemini-1.5-pro", "gemini-2.0-flash-lite"]:
+    target_primary = normalize_gemini_model(primary_model)
+    models_to_try = [target_primary]
+    for fb in ["gemini-2.0-flash", "gemini-1.5-flash", "gemini-2.5-flash", "gemini-1.5-pro", "gemini-2.0-flash-lite"]:
         if fb not in models_to_try:
             models_to_try.append(fb)
 
@@ -792,10 +846,13 @@ YÊU CẦU:
             req = urllib.request.Request(
                 gemini_url,
                 data=req_data,
-                headers={"Content-Type": "application/json"},
+                headers={
+                    "Content-Type": "application/json",
+                    "x-goog-api-key": active_key,
+                },
                 method="POST"
             )
-            with urllib.request.urlopen(req, timeout=12) as resp:
+            with urllib.request.urlopen(req, timeout=10) as resp:
                 resp_body = json.loads(resp.read().decode("utf-8"))
                 candidates = resp_body.get("candidates", [])
                 if candidates:
@@ -804,6 +861,8 @@ YÊU CẦU:
                         return text_out.strip(), f"Google Gemini ({target_model})"
         except Exception as e:
             print(f"[WARN] Lỗi gọi Gemini AI ({target_model}) giải thích: {str(e)}")
+            if any(k in str(e).lower() for k in ["401", "403", "unauthenticated", "invalid api key", "access_token_type_unsupported"]):
+                break
             continue
 
     fallback_msg = (
