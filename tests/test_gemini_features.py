@@ -54,12 +54,14 @@ assert_test("Xử lý lỗi văn bản không phải JSON", res5 is None)
 
 # 2. Kiểm thử chuẩn hóa Model (normalize_gemini_model)
 print("\n2. Kiểm thử Chuẩn hóa tên mô hình (normalize_gemini_model):")
-assert_test("gemini-3.8-flash -> gemini-2.0-flash", normalize_gemini_model("gemini-3.8-flash") == "gemini-2.0-flash")
-assert_test("gemini-4-argon -> gemini-2.0-flash", normalize_gemini_model("gemini-4-argon") == "gemini-2.0-flash")
+assert_test("gemini-3.8-flash chuẩn xác", normalize_gemini_model("gemini-3.8-flash") == "gemini-3.8-flash")
+assert_test("gemini-3.7-flash chuẩn xác", normalize_gemini_model("gemini-3.7-flash") == "gemini-3.7-flash")
+assert_test("gemini-3.6-flash chuẩn xác", normalize_gemini_model("gemini-3.6-flash") == "gemini-3.6-flash")
+assert_test("gemini-2.0-flash giữ nguyên", normalize_gemini_model("gemini-2.0-flash") == "gemini-2.0-flash")
 assert_test("gemini-1.5-flash giữ nguyên", normalize_gemini_model("gemini-1.5-flash") == "gemini-1.5-flash")
 assert_test("gemini-1.5-pro giữ nguyên", normalize_gemini_model("gemini-1.5-pro") == "gemini-1.5-pro")
 assert_test("gemini-2.0-flash-lite giữ nguyên", normalize_gemini_model("gemini-2.0-flash-lite") == "gemini-2.0-flash-lite")
-assert_test("Chuỗi rỗng -> gemini-2.0-flash", normalize_gemini_model("") == "gemini-2.0-flash")
+assert_test("Chuỗi rỗng -> mặc định gemini-3.8-flash", normalize_gemini_model("") == "gemini-3.8-flash")
 
 
 # 3. Kiểm thử Tối ưu hóa độ trễ khi Key không hợp lệ (Fast-Failover < 1s)

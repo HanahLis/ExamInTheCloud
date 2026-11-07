@@ -1957,17 +1957,26 @@ export const generateTopicQuestions = (
 };
 
 /**
- * Chuẩn hóa tên model Google Gemini sang model chính thức được hỗ trợ
+ * Chuẩn hóa tên model Google Gemini sang model chính thức được hỗ trợ (bao gồm cả dòng Gemini 3.8/3.7/3.6 Flash)
  */
 export const normalizeGeminiModel = (modelName?: string): string => {
   const m = (modelName || '').trim().toLowerCase().replace(/\s+/g, '-');
-  if (!m || m.includes('3.') || m.includes('argon')) {
-    return 'gemini-2.0-flash';
+  if (!m) {
+    return 'gemini-3.8-flash';
   }
-  if (['gemini-2.0-flash', 'gemini-1.5-flash', 'gemini-2.5-flash', 'gemini-1.5-pro', 'gemini-2.0-flash-lite'].includes(m)) {
+  if ([
+    'gemini-3.8-flash',
+    'gemini-3.7-flash',
+    'gemini-3.6-flash',
+    'gemini-2.0-flash',
+    'gemini-1.5-flash',
+    'gemini-2.5-flash',
+    'gemini-1.5-pro',
+    'gemini-2.0-flash-lite',
+  ].includes(m)) {
     return m;
   }
-  return 'gemini-2.0-flash';
+  return m;
 };
 
 /**
@@ -1980,7 +1989,7 @@ export const generateQuestionsWithGeminiDirect = async (
   subject: string,
   topic: string,
   apiKey: string,
-  model = 'gemini-2.0-flash'
+  model = 'gemini-3.8-flash'
 ): Promise<{ questions: Question[]; modelUsed: string } | null> => {
   if (!apiKey || !apiKey.trim()) return null;
 
@@ -2023,6 +2032,9 @@ ${rawText.slice(0, 12000)}
   const modelsToTry = Array.from(
     new Set([
       normalized,
+      'gemini-3.8-flash',
+      'gemini-3.7-flash',
+      'gemini-3.6-flash',
       'gemini-2.0-flash',
       'gemini-1.5-flash',
       'gemini-2.5-flash',
@@ -2136,7 +2148,7 @@ ${rawText.slice(0, 12000)}
  */
 export const testGeminiApiKey = async (
   apiKey: string,
-  model = 'gemini-2.0-flash'
+  model = 'gemini-3.8-flash'
 ): Promise<{ ok: boolean; modelUsed: string; message: string }> => {
   const key = (apiKey || '').trim();
   if (!key) {
@@ -2150,6 +2162,9 @@ export const testGeminiApiKey = async (
   const modelsToTry = Array.from(
     new Set([
       normalized,
+      'gemini-3.8-flash',
+      'gemini-3.7-flash',
+      'gemini-3.6-flash',
       'gemini-2.0-flash',
       'gemini-1.5-flash',
       'gemini-2.5-flash',
@@ -2218,7 +2233,7 @@ export const parseQuestionsFromDoc = async (payload: ParseDocRequest): Promise<P
   const localStoredKey = typeof window !== 'undefined' ? localStorage.getItem('cloudexam_gemini_key') || '' : '';
   const localStoredModel = typeof window !== 'undefined' ? localStorage.getItem('cloudexam_gemini_model') || '' : '';
   const activeApiKey = payload.apiKey || localStoredKey || import.meta.env.VITE_GEMINI_API_KEY || '';
-  const activeModel = normalizeGeminiModel(payload.model || localStoredModel || import.meta.env.VITE_GEMINI_MODEL || 'gemini-2.0-flash');
+  const activeModel = normalizeGeminiModel(payload.model || localStoredModel || import.meta.env.VITE_GEMINI_MODEL || 'gemini-3.8-flash');
 
   // 1. Chế độ Mock
   if (isMockMode()) {
@@ -2379,7 +2394,7 @@ export const explainAnswerWithAI = async (payload: ExplainAnswerRequest): Promis
   const localStoredKey = typeof window !== 'undefined' ? localStorage.getItem('cloudexam_gemini_key') || '' : '';
   const localStoredModel = typeof window !== 'undefined' ? localStorage.getItem('cloudexam_gemini_model') || '' : '';
   const activeApiKey = payload.apiKey || localStoredKey || import.meta.env.VITE_GEMINI_API_KEY || '';
-  const activeModel = normalizeGeminiModel(payload.model || localStoredModel || import.meta.env.VITE_GEMINI_MODEL || 'gemini-2.0-flash');
+  const activeModel = normalizeGeminiModel(payload.model || localStoredModel || import.meta.env.VITE_GEMINI_MODEL || 'gemini-3.8-flash');
   const res = await api.post('/exam/explain-answers', {
     ...payload,
     apiKey: activeApiKey || undefined,

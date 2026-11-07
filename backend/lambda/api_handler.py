@@ -37,7 +37,7 @@ SNS_TOPIC_ARN = os.getenv("SNS_TOPIC_ARN", "")
 # Người dùng cung cấp key qua giao diện (payload.apiKey) hoặc biến môi trường GEMINI_API_KEY / SSM.
 DEFAULT_GEMINI_KEY = ""
 GEMINI_API_KEY = os.getenv("GEMINI_API_KEY", DEFAULT_GEMINI_KEY).strip()
-GEMINI_MODEL = os.getenv("GEMINI_MODEL", "gemini-2.0-flash").strip() or "gemini-2.0-flash"
+GEMINI_MODEL = os.getenv("GEMINI_MODEL", "gemini-3.8-flash").strip() or "gemini-3.8-flash"
 UPSTASH_REDIS_REST_URL = os.getenv("UPSTASH_REDIS_REST_URL", "").strip().rstrip("/")
 UPSTASH_REDIS_REST_TOKEN = os.getenv("UPSTASH_REDIS_REST_TOKEN", "").strip()
 CLOUDFLARE_TURNSTILE_SECRET_KEY = os.getenv("CLOUDFLARE_TURNSTILE_SECRET_KEY", "").strip()
@@ -652,13 +652,22 @@ def rule_based_parse_questions(raw_text: str, subject: str = "Điện toán đá
 
 
 def normalize_gemini_model(model_name: str) -> str:
-    """Chuẩn hóa tên model Google Gemini sang model chính thức được hỗ trợ."""
+    """Chuẩn hóa tên model Google Gemini sang model chính thức được hỗ trợ (bao gồm cả dòng Gemini 3.8/3.7/3.6 Flash)."""
     cleaned = (model_name or "").strip().lower().replace(" ", "-")
-    if not cleaned or "3." in cleaned or "argon" in cleaned:
-        return "gemini-2.0-flash"
-    if cleaned in ["gemini-2.0-flash", "gemini-1.5-flash", "gemini-2.5-flash", "gemini-1.5-pro", "gemini-2.0-flash-lite"]:
+    if not cleaned:
+        return "gemini-3.8-flash"
+    if cleaned in [
+        "gemini-3.8-flash",
+        "gemini-3.7-flash",
+        "gemini-3.6-flash",
+        "gemini-2.0-flash",
+        "gemini-1.5-flash",
+        "gemini-2.5-flash",
+        "gemini-1.5-pro",
+        "gemini-2.0-flash-lite",
+    ]:
         return cleaned
-    return "gemini-2.0-flash"
+    return cleaned
 
 
 def clean_gemini_json_response(raw_text: str):
@@ -708,9 +717,18 @@ def parse_questions_with_gemini(raw_text: str, subject: str = "Điện toán đ�
     target_primary = normalize_gemini_model(primary_model)
 
     # Danh sách model kiểm chứng thực tế trên Google AI Studio
-    # Ưu tiên các model Google Gemini chính thức hỗ trợ JSON Mode
+    # Ưu tiên dòng mô hình Gemini 3.8/3.7/3.6 Flash và thế hệ hỗ trợ JSON Mode
     models_to_try = [target_primary]
-    for fb in ["gemini-2.0-flash", "gemini-1.5-flash", "gemini-2.5-flash", "gemini-1.5-pro", "gemini-2.0-flash-lite"]:
+    for fb in [
+        "gemini-3.8-flash",
+        "gemini-3.7-flash",
+        "gemini-3.6-flash",
+        "gemini-2.0-flash",
+        "gemini-1.5-flash",
+        "gemini-2.5-flash",
+        "gemini-1.5-pro",
+        "gemini-2.0-flash-lite",
+    ]:
         if fb not in models_to_try:
             models_to_try.append(fb)
 
@@ -826,7 +844,16 @@ YÊU CẦU:
 
     target_primary = normalize_gemini_model(primary_model)
     models_to_try = [target_primary]
-    for fb in ["gemini-2.0-flash", "gemini-1.5-flash", "gemini-2.5-flash", "gemini-1.5-pro", "gemini-2.0-flash-lite"]:
+    for fb in [
+        "gemini-3.8-flash",
+        "gemini-3.7-flash",
+        "gemini-3.6-flash",
+        "gemini-2.0-flash",
+        "gemini-1.5-flash",
+        "gemini-2.5-flash",
+        "gemini-1.5-pro",
+        "gemini-2.0-flash-lite",
+    ]:
         if fb not in models_to_try:
             models_to_try.append(fb)
 
