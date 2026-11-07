@@ -71,13 +71,19 @@ variable "frontend_logout_urls" {
 }
 
 # ==============================================================================
-# CẤU HÌNH AWS WAFv2 & SECURITY
+# CẤU HÌNH AWS WAFv2 & SECURITY (FINOPS: MẶC ĐỊNH TẮT ĐỂ GIỮ CHI PHÍ $0.00)
 # ==============================================================================
 
 variable "enable_waf" {
-  description = "Bật/Tắt AWS WAFv2 Web ACL (FinOps: có thể tắt khi không thi để giữ chi phí $0)"
+  description = "Bật/Tắt AWS WAFv2 Web ACL (FinOps: Mặc định tắt để duy trì ngân sách $0, hệ thống dùng Cloudflare Turnstile)"
   type        = bool
-  default     = true
+  default     = false
+}
+
+variable "enable_rekognition_endpoint" {
+  description = "Bật/Tắt Interface VPC Endpoint cho Rekognition (FinOps: Mặc định tắt để tránh tốn ~$15/tháng vì Lambda chạy ngoài VPC)"
+  type        = bool
+  default     = false
 }
 
 variable "waf_rate_limit" {

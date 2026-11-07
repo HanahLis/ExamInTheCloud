@@ -88,7 +88,9 @@ resource "aws_vpc_endpoint" "dynamodb" {
 }
 
 # 5. Security Group cho Interface VPC Endpoint (Amazon Rekognition)
+# FinOps: Chỉ khởi tạo khi enable_rekognition_endpoint = true
 resource "aws_security_group" "rekognition_endpoint_sg" {
+  count       = var.enable_rekognition_endpoint ? 1 : 0
   name        = "${var.project_name}-sg-rekognition-endpoint-${var.environment}"
   description = "Cho phep traffic HTTPS tu VPC toi Amazon Rekognition Interface Endpoint"
   vpc_id      = aws_vpc.main.id
@@ -115,12 +117,14 @@ resource "aws_security_group" "rekognition_endpoint_sg" {
 }
 
 # 6. Interface VPC Endpoint (AWS PrivateLink) cho Amazon Rekognition
+# FinOps: ~$15/tháng nếu bật. Tắt mặc định vì Lambda Face Verify chạy ngoài VPC kết nối trực tiếp Rekognition API
 resource "aws_vpc_endpoint" "rekognition" {
+  count               = var.enable_rekognition_endpoint ? 1 : 0
   vpc_id              = aws_vpc.main.id
   service_name        = "com.amazonaws.${var.aws_region}.rekognition"
   vpc_endpoint_type   = "Interface"
   subnet_ids          = [aws_subnet.private_a.id, aws_subnet.private_b.id]
-  security_group_ids  = [aws_security_group.rekognition_endpoint_sg.id]
+  security_group_ids  = [aws_security_group.rekognition_endpoint_sg[count.index].id]
   private_dns_enabled = true
 
   tags = {

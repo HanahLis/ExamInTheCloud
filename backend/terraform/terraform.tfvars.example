@@ -29,8 +29,9 @@ frontend_logout_urls = [
   "http://localhost:3000/"
 ]
 
-# FinOps: Bật (true) hoặc Tắt (false) tường lửa AWS WAFv2 Web ACL để tiết kiệm chi phí
-enable_waf = true
+# FinOps: Tắt WAFv2 ($10/tháng) và Interface VPC Endpoint ($15/tháng) để duy trì ngân sách $0.00
+enable_waf                  = false
+enable_rekognition_endpoint = false
 
 # ==============================================================================
 # CẤU HÌNH VỆ TINH ĐA ĐÁM MÂY (MULTI-CLOUD - TÙY CHỌN, HOÀN TOÀN MIỄN PHÍ)
