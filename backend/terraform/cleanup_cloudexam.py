@@ -174,5 +174,82 @@ try:
 except Exception as e:
     print(f"[!] Loi khi don IAM Roles: {e}")
 
+# 10. VPC & NETWORK (Xoa VPC Endpoints, Subnets, Route Tables, Security Groups, VPCs cua CloudExam)
+ec2 = boto3.client("ec2", region_name=REGION)
+try:
+    vpcs = ec2.describe_vpcs(Filters=[{"Name": "isDefault", "Values": ["false"]}]).get("Vpcs", [])
+    for v in vpcs:
+        vpc_id = v["VpcId"]
+        v_tags = {t["Key"]: t["Value"] for t in v.get("Tags", [])}
+        v_name = v_tags.get("Name", "")
+        v_proj = v_tags.get("Project", "")
+        if "cloudexam" in v_name.lower() or "cloudexam" in v_proj.lower():
+            print(f"[-] Dang don dep VPC: {v_name} ({vpc_id})...")
+            # 10.1 Xoa VPC Endpoints
+            try:
+                eps = ec2.describe_vpc_endpoints(Filters=[{"Name": "vpc-id", "Values": [vpc_id]}]).get("VpcEndpoints", [])
+                ep_ids = [ep["VpcEndpointId"] for ep in eps if ep["State"] not in ["deleted", "deleting"]]
+                if ep_ids:
+                    print(f"    [-] Xoa VPC Endpoints: {ep_ids}")
+                    ec2.delete_vpc_endpoints(VpcEndpointIds=ep_ids)
+            except Exception as ep_err:
+                print(f"    [!] Loi khi xoa endpoints: {ep_err}")
+
+            # Cho ENI go bo
+            time.sleep(10)
+
+            # 10.2 Xoa Security Groups tuy bien
+            try:
+                sgs = ec2.describe_security_groups(Filters=[{"Name": "vpc-id", "Values": [vpc_id]}]).get("SecurityGroups", [])
+                for sg in sgs:
+                    if sg["GroupName"] != "default":
+                        try:
+                            ec2.delete_security_group(GroupId=sg["GroupId"])
+                            print(f"    [OK] Da xoa Security Group: {sg['GroupId']}")
+                        except Exception as sg_e:
+                            print(f"    [!] Khong the xoa SG {sg['GroupId']}: {sg_e}")
+            except Exception as sgs_err:
+                print(f"    [!] Loi khi xoa SGs: {sgs_err}")
+
+            # 10.3 Xoa Subnets
+            try:
+                subnets = ec2.describe_subnets(Filters=[{"Name": "vpc-id", "Values": [vpc_id]}]).get("Subnets", [])
+                for sub in subnets:
+                    try:
+                        ec2.delete_subnet(SubnetId=sub["SubnetId"])
+                        print(f"    [OK] Da xoa Subnet: {sub['SubnetId']}")
+                    except Exception as sub_e:
+                        print(f"    [!] Khong the xoa Subnet {sub['SubnetId']}: {sub_e}")
+            except Exception as sub_err:
+                print(f"    [!] Loi khi xoa subnets: {sub_err}")
+
+            # 10.4 Xoa Route Tables tuy bien
+            try:
+                rts = ec2.describe_route_tables(Filters=[{"Name": "vpc-id", "Values": [vpc_id]}]).get("RouteTables", [])
+                for rt in rts:
+                    is_main = any(assoc.get("Main", False) for assoc in rt.get("Associations", []))
+                    if not is_main:
+                        for assoc in rt.get("Associations", []):
+                            try:
+                                ec2.disassociate_route_table(AssociationId=assoc["RouteTableAssociationId"])
+                            except Exception:
+                                pass
+                        try:
+                            ec2.delete_route_table(RouteTableId=rt["RouteTableId"])
+                            print(f"    [OK] Da xoa Route Table: {rt['RouteTableId']}")
+                        except Exception as rt_e:
+                            print(f"    [!] Khong the xoa Route Table {rt['RouteTableId']}: {rt_e}")
+            except Exception as rt_err:
+                print(f"    [!] Loi khi xoa Route Tables: {rt_err}")
+
+            # 10.5 Xoa VPC
+            try:
+                ec2.delete_vpc(VpcId=vpc_id)
+                print(f"[OK] Da xoa VPC: {vpc_id}")
+            except Exception as vpc_err:
+                print(f"[!] Chua the xoa VPC {vpc_id} ngay: {vpc_err}")
+except Exception as e:
+    print(f"[!] Loi khi don VPC: {e}")
+
 print("\n[SUCCESS] Da don dep sach se toan bo tai nguyen CloudExam cu tren AWS!")
 print("[*] Bay gio ban co the chay: cd backend/terraform && terraform apply -auto-approve")
