@@ -1966,7 +1966,7 @@ export const generateQuestionsWithGeminiDirect = async (
   subject: string,
   topic: string,
   apiKey: string,
-  model = 'gemini-1.5-flash'
+  model = 'gemini-3.8-flash'
 ): Promise<{ questions: Question[]; modelUsed: string } | null> => {
   if (!apiKey || !apiKey.trim()) return null;
 
@@ -2007,6 +2007,7 @@ ${rawText.slice(0, 12000)}
   // Ưu tiên các model Google Gemini chính thức hỗ trợ JSON Mode
   const modelsToTry = [
     model,
+    'gemini-3.8-flash',
     'gemini-1.5-flash',
     'gemini-2.0-flash',
     'gemini-1.5-pro',
@@ -2102,6 +2103,75 @@ ${rawText.slice(0, 12000)}
   return null;
 };
 
+/**
+ * Kiểm tra nhanh API Key Gemini của người dùng (gọi 1 prompt siêu ngắn)
+ * Trả về { ok, modelUsed, message } để hiển thị trạng thái trong UI
+ */
+export const testGeminiApiKey = async (
+  apiKey: string,
+  model = 'gemini-3.8-flash'
+): Promise<{ ok: boolean; modelUsed: string; message: string }> => {
+  const key = (apiKey || '').trim();
+  if (!key) {
+    return { ok: false, modelUsed: '', message: 'key_empty' };
+  }
+  if (!/^[A-Za-z0-9._-]+$/.test(key)) {
+    return { ok: false, modelUsed: '', message: 'key_invalid_format' };
+  }
+
+  const modelsToTry = Array.from(
+    new Set([model, 'gemini-3.8-flash', 'gemini-2.0-flash', 'gemini-1.5-flash'].filter(Boolean))
+  );
+
+  for (const m of modelsToTry) {
+    try {
+      const url = `https://generativelanguage.googleapis.com/v1beta/models/${m}:generateContent?key=${key}`;
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), 20000);
+
+      const res = await fetch(url, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        signal: controller.signal,
+        body: JSON.stringify({
+          contents: [{ parts: [{ text: 'Reply with exactly: OK' }] }],
+          generationConfig: { maxOutputTokens: 8 },
+        }),
+      });
+      clearTimeout(timeoutId);
+
+      if (res.status === 401 || res.status === 403) {
+        return { ok: false, modelUsed: m, message: 'key_rejected' };
+      }
+      if (res.status === 400) {
+        // Google trả 400 INVALID_ARGUMENT với thông báo "API key not valid" khi key sai
+        try {
+          const errData = await res.json();
+          const errMsg = errData?.error?.message || '';
+          if (/key/i.test(errMsg)) {
+            return { ok: false, modelUsed: m, message: 'key_rejected' };
+          }
+        } catch {
+          /* body không parse được — xử lý như lỗi model, thử model khác */
+        }
+        continue;
+      }
+      if (!res.ok) continue;
+
+      const data = await res.json();
+      const textOut = data?.candidates?.[0]?.content?.parts?.[0]?.text || '';
+      if (textOut) {
+        return { ok: true, modelUsed: m, message: 'ok' };
+      }
+    } catch (err: any) {
+      if (err?.name === 'AbortError') continue;
+      console.warn(`[Gemini Test] Lỗi khi thử model ${m}:`, err);
+    }
+  }
+
+  return { ok: false, modelUsed: modelsToTry[0] || '', message: 'key_network_error' };
+};
+
 export const parseQuestionsFromDoc = async (payload: ParseDocRequest): Promise<ParseDocResponse> => {
   const bankId = payload.bankId || 'bank-se-arch-01';
   const subject = payload.subject || 'Kiến trúc hướng dịch vụ';
@@ -2110,7 +2180,7 @@ export const parseQuestionsFromDoc = async (payload: ParseDocRequest): Promise<P
   const localStoredKey = typeof window !== 'undefined' ? localStorage.getItem('cloudexam_gemini_key') || '' : '';
   const localStoredModel = typeof window !== 'undefined' ? localStorage.getItem('cloudexam_gemini_model') || '' : '';
   const activeApiKey = payload.apiKey || localStoredKey || import.meta.env.VITE_GEMINI_API_KEY || '';
-  const activeModel = payload.model || localStoredModel || import.meta.env.VITE_GEMINI_MODEL || 'gemini-1.5-flash';
+  const activeModel = payload.model || localStoredModel || import.meta.env.VITE_GEMINI_MODEL || 'gemini-3.8-flash';
 
   // 1. Chế độ Mock
   if (isMockMode()) {
@@ -2271,7 +2341,7 @@ export const explainAnswerWithAI = async (payload: ExplainAnswerRequest): Promis
   const localStoredKey = typeof window !== 'undefined' ? localStorage.getItem('cloudexam_gemini_key') || '' : '';
   const localStoredModel = typeof window !== 'undefined' ? localStorage.getItem('cloudexam_gemini_model') || '' : '';
   const activeApiKey = payload.apiKey || localStoredKey || import.meta.env.VITE_GEMINI_API_KEY || '';
-  const activeModel = payload.model || localStoredModel || import.meta.env.VITE_GEMINI_MODEL || 'gemini-1.5-flash';
+  const activeModel = payload.model || localStoredModel || import.meta.env.VITE_GEMINI_MODEL || 'gemini-3.8-flash';
   const res = await api.post('/exam/explain-answers', {
     ...payload,
     apiKey: activeApiKey || undefined,

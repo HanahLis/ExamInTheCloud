@@ -33,8 +33,10 @@ STATE_MACHINE_ARN = os.getenv("STATE_MACHINE_ARN", "")
 SNS_TOPIC_ARN = os.getenv("SNS_TOPIC_ARN", "")
 
 # Khởi tạo Cấu hình Multi-Cloud (Google Gemini, Upstash Redis, Cloudflare Turnstile)
-DEFAULT_GEMINI_KEY = "AQ.Ab8RN6IM7Z8gAyK5YaSv5ZntwjK2bUW4OMkZhSKLUbUd-N68hQ"
-GEMINI_API_KEY = os.getenv("GEMINI_API_KEY", DEFAULT_GEMINI_KEY).strip() or DEFAULT_GEMINI_KEY
+# Lưu ý: KHÔNG nhúng API key vào code — key bị lộ sẽ bị Google vô hiệu hóa.
+# Người dùng cung cấp key qua giao diện (payload.apiKey) hoặc biến môi trường GEMINI_API_KEY / SSM.
+DEFAULT_GEMINI_KEY = ""
+GEMINI_API_KEY = os.getenv("GEMINI_API_KEY", DEFAULT_GEMINI_KEY).strip()
 GEMINI_MODEL = os.getenv("GEMINI_MODEL", "gemini-3.8-flash").strip() or "gemini-3.8-flash"
 UPSTASH_REDIS_REST_URL = os.getenv("UPSTASH_REDIS_REST_URL", "").strip().rstrip("/")
 UPSTASH_REDIS_REST_TOKEN = os.getenv("UPSTASH_REDIS_REST_TOKEN", "").strip()
@@ -660,8 +662,8 @@ def parse_questions_with_gemini(raw_text: str, subject: str = "Điện toán đ�
 
     # Danh sách model kiểm chứng thực tế trên Google AI Studio
     # Ưu tiên các model Google Gemini chính thức hỗ trợ JSON Mode
-    models_to_try = [primary_model] if primary_model in ["gemini-1.5-flash", "gemini-2.0-flash", "gemini-1.5-pro", "gemini-2.0-flash-lite"] else []
-    for fb in ["gemini-1.5-flash", "gemini-2.0-flash", "gemini-1.5-pro", "gemini-2.0-flash-lite"]:
+    models_to_try = [primary_model] if primary_model in ["gemini-3.8-flash", "gemini-1.5-flash", "gemini-2.0-flash", "gemini-1.5-pro", "gemini-2.0-flash-lite"] else []
+    for fb in ["gemini-3.8-flash", "gemini-1.5-flash", "gemini-2.0-flash", "gemini-1.5-pro", "gemini-2.0-flash-lite"]:
         if fb not in models_to_try:
             models_to_try.append(fb)
 
@@ -769,8 +771,8 @@ YÊU CẦU:
 3. Đưa ra mẹo nhớ hoặc kết luận 1 câu ngắn gọn.
 """
 
-    models_to_try = [primary_model] if primary_model in ["gemini-1.5-flash", "gemini-2.0-flash", "gemini-1.5-pro", "gemini-2.0-flash-lite"] else []
-    for fb in ["gemini-1.5-flash", "gemini-2.0-flash", "gemini-1.5-pro", "gemini-2.0-flash-lite"]:
+    models_to_try = [primary_model] if primary_model in ["gemini-3.8-flash", "gemini-1.5-flash", "gemini-2.0-flash", "gemini-1.5-pro", "gemini-2.0-flash-lite"] else []
+    for fb in ["gemini-3.8-flash", "gemini-1.5-flash", "gemini-2.0-flash", "gemini-1.5-pro", "gemini-2.0-flash-lite"]:
         if fb not in models_to_try:
             models_to_try.append(fb)
 

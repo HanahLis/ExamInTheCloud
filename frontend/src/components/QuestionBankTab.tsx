@@ -11,6 +11,7 @@ import {
   getDeletedBankIds,
   parseQuestionsFromDoc,
   extractTextFromDocxFile,
+  testGeminiApiKey,
   type Question,
   type QuestionType,
   type QuestionBank,
@@ -89,12 +90,13 @@ export const QuestionBankTab = ({ questions, onRefresh }: Props) => {
     return (
       (typeof window !== 'undefined' ? localStorage.getItem('cloudexam_gemini_model') : '') ||
       (import.meta as any).env.VITE_GEMINI_MODEL ||
-      'gemini-1.5-flash'
+      'gemini-3.8-flash'
     );
   });
 
   const handleApiKeyChange = (val: string) => {
     setImportApiKey(val);
+    setGeminiKeyTestResult(null);
     if (typeof window !== 'undefined') {
       localStorage.setItem('cloudexam_gemini_key', val.trim());
     }
@@ -102,8 +104,30 @@ export const QuestionBankTab = ({ questions, onRefresh }: Props) => {
 
   const handleModelChange = (val: string) => {
     setImportModel(val);
+    setGeminiKeyTestResult(null);
     if (typeof window !== 'undefined') {
       localStorage.setItem('cloudexam_gemini_model', val.trim());
+    }
+  };
+
+  // Kiểm tra API Key Gemini
+  const [testingGeminiKey, setTestingGeminiKey] = useState(false);
+  const [geminiKeyTestResult, setGeminiKeyTestResult] = useState<{ ok: boolean; message: string } | null>(null);
+
+  const handleTestGeminiKey = async () => {
+    if (!importApiKey.trim()) {
+      setGeminiKeyTestResult({ ok: false, message: 'key_empty' });
+      return;
+    }
+    setTestingGeminiKey(true);
+    setGeminiKeyTestResult(null);
+    try {
+      const res = await testGeminiApiKey(importApiKey, importModel);
+      setGeminiKeyTestResult({ ok: res.ok, message: res.ok ? `ok:${res.modelUsed}` : res.message });
+    } catch (err: any) {
+      setGeminiKeyTestResult({ ok: false, message: 'key_network_error' });
+    } finally {
+      setTestingGeminiKey(false);
     }
   };
   const docFileInputRef = useRef<HTMLInputElement>(null);
@@ -1283,12 +1307,52 @@ export const QuestionBankTab = ({ questions, onRefresh }: Props) => {
                       onChange={(e) => handleModelChange(e.target.value)}
                       className="w-full p-2 border border-slate-200 rounded-xl text-xs bg-white text-slate-800 outline-none"
                     >
+                      <option value="gemini-3.8-flash">gemini-3.8-flash ({t('qb_model_latest')})</option>
                       <option value="gemini-1.5-flash">gemini-1.5-flash ({t('qb_model_standard')})</option>
-                      <option value="gemini-2.0-flash">gemini-2.0-flash ({t('qb_model_latest')})</option>
+                      <option value="gemini-2.0-flash">gemini-2.0-flash</option>
                       <option value="gemini-1.5-pro">gemini-1.5-pro ({t('qb_model_pro')})</option>
                     </select>
                   </div>
                 </div>
+
+                <div className="flex flex-wrap items-center gap-2">
+                  <button
+                    type="button"
+                    onClick={handleTestGeminiKey}
+                    disabled={testingGeminiKey}
+                    className="px-3.5 py-1.5 rounded-xl text-[11px] font-bold bg-purple-600 text-white hover:bg-purple-700 disabled:opacity-50 disabled:cursor-not-allowed transition flex items-center gap-1.5 cursor-pointer"
+                  >
+                    {testingGeminiKey ? (
+                      <>
+                        <svg className="w-3.5 h-3.5 animate-spin" fill="none" viewBox="0 0 24 24">
+                          <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+                          <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v4a4 4 0 00-4 4H4z" />
+                        </svg>
+                        {t('qb_gemini_testing')}
+                      </>
+                    ) : (
+                      <>
+                        <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M13 10V3L4 14h7v7l9-11h-7z" />
+                        </svg>
+                        {t('qb_gemini_test_btn')}
+                      </>
+                    )}
+                  </button>
+
+                  {geminiKeyTestResult && (
+                    <span
+                      className={`text-[11px] font-semibold flex items-center gap-1.5 ${
+                        geminiKeyTestResult.ok ? 'text-emerald-700' : 'text-rose-700'
+                      }`}
+                    >
+                      {geminiKeyTestResult.ok
+                        ? `✓ ${t('qb_gemini_test_ok', { model: geminiKeyTestResult.message.split(':')[1] || importModel })}`
+                        : `✕ ${t(`qb_gemini_${geminiKeyTestResult.message}`)}`}
+                    </span>
+                  )}
+                </div>
+
                 <p className="text-[10px] text-slate-500">
                   {importApiKey ? t('qb_gemini_active_hint') : t('qb_gemini_fallback_hint')}
                 </p>
