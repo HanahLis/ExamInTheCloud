@@ -19,12 +19,12 @@ if sys.stdout.encoding != 'utf-8':
 
 DOMAIN_NAME = "cloudexam.id.vn"
 CERT_ARN = "arn:aws:acm:us-east-1:409289618109:certificate/b01bb65b-1206-4100-b13f-c3732a99098f"
-HOSTED_ZONE_ID = "Z0783510VFB4B42GTHMH"
+HOSTED_ZONE_ID = "Z025443720S6YET5RLTSL"
 NAMESERVERS = [
-    "ns-1198.awsdns-21.org",
-    "ns-1768.awsdns-29.co.uk",
-    "ns-176.awsdns-22.com",
-    "ns-949.awsdns-54.net"
+    "ns-1082.awsdns-07.org",
+    "ns-1835.awsdns-37.co.uk",
+    "ns-262.awsdns-32.com",
+    "ns-536.awsdns-03.net"
 ]
 
 def check_and_attach():

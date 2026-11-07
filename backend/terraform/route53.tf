@@ -53,32 +53,43 @@ resource "aws_route53_record" "www_cname" {
   records = [aws_cloudfront_distribution.spa_distribution.domain_name]
 }
 
-# 5. DNS Records cho các Subdomain (Tùy chọn - Tắt mặc định để tránh xung đột Route 53 và lỗi SSL Cipher Mismatch)
-# resource "aws_route53_record" "regional_subdomains_a" {
-#   for_each        = var.custom_domain_name != "" ? toset(["vn", "us", "lao", "de", "*"]) : []
-#   zone_id         = aws_route53_zone.primary[0].zone_id
-#   name            = "${each.key}.${var.custom_domain_name}"
-#   type            = "A"
-#   allow_overwrite = true
-# 
-#   alias {
-#     name                   = aws_cloudfront_distribution.spa_distribution.domain_name
-#     zone_id                = aws_cloudfront_distribution.spa_distribution.hosted_zone_id
-#     evaluate_target_health = false
-#   }
-# }
-# 
-# resource "aws_route53_record" "regional_subdomains_aaaa" {
-#   for_each        = var.custom_domain_name != "" ? toset(["vn", "us", "lao", "de", "*"]) : []
-#   zone_id         = aws_route53_zone.primary[0].zone_id
-#   name            = "${each.key}.${var.custom_domain_name}"
-#   type            = "AAAA"
-#   allow_overwrite = true
-# 
-#   alias {
-#     name                   = aws_cloudfront_distribution.spa_distribution.domain_name
-#     zone_id                = aws_cloudfront_distribution.spa_distribution.hosted_zone_id
-#     evaluate_target_health = false
-#   }
-# }
+# 5. DNS Records cho các Subdomain (vn, us, lao, de, *)
+resource "aws_route53_record" "regional_subdomains_a" {
+  for_each        = var.custom_domain_name != "" ? toset(["vn", "us", "lao", "de", "*"]) : []
+  zone_id         = aws_route53_zone.primary[0].zone_id
+  name            = "${each.key}.${var.custom_domain_name}"
+  type            = "A"
+  allow_overwrite = true
+
+  alias {
+    name                   = aws_cloudfront_distribution.spa_distribution.domain_name
+    zone_id                = aws_cloudfront_distribution.spa_distribution.hosted_zone_id
+    evaluate_target_health = false
+  }
+}
+
+resource "aws_route53_record" "regional_subdomains_aaaa" {
+  for_each        = var.custom_domain_name != "" ? toset(["vn", "us", "lao", "de", "*"]) : []
+  zone_id         = aws_route53_zone.primary[0].zone_id
+  name            = "${each.key}.${var.custom_domain_name}"
+  type            = "AAAA"
+  allow_overwrite = true
+
+  alias {
+    name                   = aws_cloudfront_distribution.spa_distribution.domain_name
+    zone_id                = aws_cloudfront_distribution.spa_distribution.hosted_zone_id
+    evaluate_target_health = false
+  }
+}
+
+# 6. DNS Record CNAME cho ACM SSL Certificate Auto-Renewal
+resource "aws_route53_record" "acm_validation" {
+  count           = var.custom_domain_name != "" ? 1 : 0
+  zone_id         = aws_route53_zone.primary[0].zone_id
+  name            = "_732b31ed8613a2dd9a905170ee78afca.${var.custom_domain_name}"
+  type            = "CNAME"
+  ttl             = 300
+  records         = ["_885922d31f9f0e45505b32ecfd76b97a.wzccmgtwzk.acm-validations.aws."]
+  allow_overwrite = true
+}
 

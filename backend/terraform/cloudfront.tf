@@ -70,7 +70,12 @@ resource "aws_cloudfront_distribution" "spa_distribution" {
   # Tích hợp tên miền tùy chỉnh chuẩn hóa theo chứng chỉ SSL ACM
   aliases = var.custom_domain_name != "" ? [
     var.custom_domain_name,
-    "www.${var.custom_domain_name}"
+    "www.${var.custom_domain_name}",
+    "vn.${var.custom_domain_name}",
+    "us.${var.custom_domain_name}",
+    "lao.${var.custom_domain_name}",
+    "de.${var.custom_domain_name}",
+    "*.${var.custom_domain_name}"
   ] : []
 
   origin {
