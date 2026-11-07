@@ -510,14 +510,17 @@ export const resolveSessionStatus = (
   startTime?: string,
   endTime?: string
 ): SessionStatus => {
-  if (status === 'CLOSED') return 'CLOSED';
+  // Tôn trọng trạng thái rõ ràng do giảng viên/backend đặt (Tạm dừng/Kết thúc...)
+  if (status === 'CLOSED' || status === 'RUNNING' || status === 'SCHEDULED') {
+    return status;
+  }
 
   const now = Date.now();
   const start = startTime ? new Date(startTime).getTime() : 0;
   const end = endTime ? new Date(endTime).getTime() : Infinity;
 
   if (now > end) return 'CLOSED';
-  if (status === 'RUNNING' || (now >= start && now <= end)) {
+  if (now >= start && now <= end) {
     return 'RUNNING';
   }
   return 'SCHEDULED';

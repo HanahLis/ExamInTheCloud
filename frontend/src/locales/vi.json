@@ -293,6 +293,7 @@
   "results_kpi_pass": "Tỉ lệ đạt yêu cầu",
   "results_kpi_highest": "Điểm cao nhất",
   "results_completed_badge": "bài thi đã hoàn thành",
+  "res_empty": "Chưa có thí sinh nào nộp bài.",
   "sess_general_questions": "Câu hỏi chung",
   "sess_no_bank": "Chưa phân ngân hàng",
   "sess_bank_label": "Ngân hàng đề",

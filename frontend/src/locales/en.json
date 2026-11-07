@@ -293,6 +293,7 @@
   "results_kpi_pass": "Pass Rate",
   "results_kpi_highest": "Highest Score",
   "results_completed_badge": "completed submissions",
+  "res_empty": "No submissions yet.",
   "sess_general_questions": "General Questions",
   "sess_no_bank": "Unassigned Bank",
   "sess_bank_label": "Question Bank",

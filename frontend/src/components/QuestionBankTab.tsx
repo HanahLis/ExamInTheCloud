@@ -1287,7 +1287,7 @@ export const QuestionBankTab = ({ questions, onRefresh }: Props) => {
                       ? 'bg-emerald-50 text-emerald-700 border-emerald-200'
                       : 'bg-indigo-50 text-indigo-700 border-indigo-200'
                   }`}>
-                    {importApiKey ? t('qb_gemini_connected') : t('qb_gemini_builtin_mode')}
+                    {geminiKeyTestResult?.ok ? t('qb_gemini_connected') : t('qb_gemini_builtin_mode')}
                   </span>
                 </div>
 

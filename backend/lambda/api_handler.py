@@ -1642,7 +1642,25 @@ def lambda_handler(event, context):
                     
                     owners_lower = [o.lower() for o in owners]
                     if user_email in owners_lower or existing_cand.get("ownerEmail", "").lower() == user_email:
-                        return build_response(409, {"error": f"Thí sinh '{candidate_email}' đã có trong danh sách của bạn."})
+                        # Idempotent khi đồng bộ: cập nhật thông tin mới nhất thay vì báo lỗi trùng
+                        upd_expr, upd_vals, upd_names = [], {}, {}
+                        for field in ("name", "studentCode", "className", "faceImageUrl"):
+                            val = body.get(field)
+                            if val:
+                                upd_expr.append(f"#{field} = :{field}")
+                                upd_vals[f":{field}"] = val
+                                upd_names[f"#{field}"] = field
+                        if upd_expr:
+                            candidates_table.update_item(
+                                Key={"email": candidate_email},
+                                UpdateExpression="SET " + ", ".join(upd_expr),
+                                ExpressionAttributeNames=upd_names,
+                                ExpressionAttributeValues=upd_vals,
+                            )
+                            for field in ("name", "studentCode", "className", "faceImageUrl"):
+                                if body.get(field):
+                                    existing_cand[field] = body.get(field)
+                        return build_response(200, existing_cand)
                     
                     # Nếu thí sinh do giảng viên khác tạo nhưng giảng viên này muốn đưa vào danh sách lớp của mình
                     if user_email and user_email not in owners_lower:
@@ -1672,6 +1690,14 @@ def lambda_handler(event, context):
                         items_found = sc_result.get("Items", [])
 
                     for it in items_found:
+                        # Cùng tên = cùng một người (một thí sinh có thể có nhiều email),
+                        # cho phép trùng mã sinh viên trong trường hợp này
+                        same_person = (
+                            (it.get("name") or "").strip().lower()
+                            == (body.get("name") or "").strip().lower()
+                        )
+                        if same_person:
+                            continue
                         it_owners = [o.lower() for o in it.get("ownerEmails", [])]
                         if it.get("ownerEmail", "").lower() == user_email or user_email in it_owners:
                             return build_response(409, {"error": f"Mã sinh viên '{student_code}' đã tồn tại trong danh sách của bạn."})
@@ -1744,14 +1770,16 @@ def lambda_handler(event, context):
                         continue
 
                     cur_st = s.get("status")
-                    if cur_st != "CLOSED":
+                    if not cur_st:
+                        # Chỉ suy luận trạng thái khi chưa có status rõ ràng
+                        # (nếu suy luận theo giờ sẽ ghi đè trạng thái "Tạm dừng"/"Kết thúc" của giảng viên)
                         start_dt = parse_iso_datetime(s.get("startTime", ""))
                         end_dt = parse_iso_datetime(s.get("endTime", ""))
                         if now_utc > end_dt:
                             s["status"] = "CLOSED"
-                        elif start_dt <= now_utc <= end_dt or cur_st == "RUNNING":
+                        elif start_dt <= now_utc <= end_dt:
                             s["status"] = "RUNNING"
-                        elif not cur_st:
+                        else:
                             s["status"] = "SCHEDULED"
 
                     clean_items.append(s)
@@ -1839,14 +1867,15 @@ def lambda_handler(event, context):
 
                 now_utc = datetime.now(timezone.utc)
                 cur_st = item.get("status")
-                if cur_st != "CLOSED":
+                if not cur_st:
+                    # Chỉ suy luận trạng thái khi chưa có status rõ ràng
                     start_dt = parse_iso_datetime(item.get("startTime", ""))
                     end_dt = parse_iso_datetime(item.get("endTime", ""))
                     if now_utc > end_dt:
                         item["status"] = "CLOSED"
-                    elif start_dt <= now_utc <= end_dt or cur_st == "RUNNING":
+                    elif start_dt <= now_utc <= end_dt:
                         item["status"] = "RUNNING"
-                    elif not cur_st:
+                    else:
                         item["status"] = "SCHEDULED"
 
                 return build_response(200, item)
@@ -2144,6 +2173,14 @@ def lambda_handler(event, context):
             if not s_id or not c_email:
                 return build_response(400, {"error": "Thiếu sessionId hoặc candidateEmail."})
 
+            # Ưu tiên email thí sinh trong body nếu thuộc danh sách ca thi (Giảng viên xem trước/chấm hộ)
+            body_email = (body.get("candidateEmail") or "").strip().lower()
+            if body_email:
+                sess_check = sessions_table.get_item(Key={"id": s_id}).get("Item") or {}
+                sess_emails = [e.lower() for e in sess_check.get("candidateEmails", [])]
+                if body_email in sess_emails:
+                    c_email = body_email
+
             now_iso = datetime.now(timezone.utc).isoformat()
             draft_payload = {
                 "answers": answers,
@@ -2204,6 +2241,13 @@ def lambda_handler(event, context):
             sess_item = session_check.get("Item")
             if sess_item and sess_item.get("status") == "CLOSED":
                 return build_response(400, {"error": "Ca thi đã kết thúc. Không thể nộp bài thêm."})
+
+            # Ưu tiên email thí sinh trong body nếu hợp lệ (Giảng viên xem trước/chấm hộ thí sinh),
+            # nếu không thì dùng email từ token (thí sinh tự nộp bài)
+            body_email = (body.get("candidateEmail") or "").strip().lower()
+            session_emails = [e.lower() for e in (sess_item or {}).get("candidateEmails", [])]
+            if body_email and body_email in session_emails:
+                user_email_sub = body_email
 
             submitted_at = datetime.now(timezone.utc).isoformat()
             submission_id = str(uuid.uuid4())

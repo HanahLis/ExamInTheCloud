@@ -293,6 +293,7 @@
   "results_kpi_pass": "ອັດຕາຜ່ານ",
   "results_kpi_highest": "ຄະແນນສູງສຸດ",
   "results_completed_badge": "ບົດສອບເສັງທີ່ສຳເລັດ",
+  "res_empty": "ຍັງບໍ່ມີບົດສົ່ງເທື່ອ.",
   "sess_general_questions": "ຄຳຖາມທົ່ວໄປ",
   "sess_no_bank": "ບໍ່ໄດ້ຈັດໝວດຄັງ",
   "sess_bank_label": "ຄັງຂໍ້ສອບ",

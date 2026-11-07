@@ -44,14 +44,17 @@ export default function SessionResultsModal({ isOpen, onClose, sessionId }: Resu
     };
   }, [isOpen, sessionId, t]);
 
-  // Thống kê nhanh
+  // Thống kê nhanh (quy đổi về thang điểm 10)
   const stats = useMemo(() => {
     if (results.length === 0) return { avg: 0, passRate: 0, highest: 0 };
     const totalScore = results.reduce((acc, r) => acc + (r.score || 0), 0);
-    const avg = Number((totalScore / results.length).toFixed(1));
+    const totalMax = results.reduce((acc, r) => acc + (r.maxScore || 1), 0);
+    const avg = Number(((totalScore / totalMax) * 10).toFixed(1));
     const passCount = results.filter((r) => r.score >= (r.maxScore / 2)).length;
     const passRate = Math.round((passCount / results.length) * 100);
-    const highest = Math.max(...results.map((r) => r.score || 0));
+    const highest = Number(
+      Math.max(...results.map((r) => ((r.score || 0) / (r.maxScore || 1)) * 10)).toFixed(1)
+    );
     return { avg, passRate, highest };
   }, [results]);
 
@@ -180,7 +183,7 @@ export default function SessionResultsModal({ isOpen, onClose, sessionId }: Resu
             </div>
             <div className="p-3.5 bg-sky-50/60 rounded-2xl border border-sky-100/80 text-center space-y-1">
               <span className="text-[11px] font-semibold text-slate-500 uppercase tracking-wider block">{t('results_kpi_highest')}</span>
-              <p className="text-xl font-bold text-sky-700">{stats.highest}</p>
+              <p className="text-xl font-bold text-sky-700">{stats.highest} <span className="text-xs font-normal text-slate-400">/ 10</span></p>
             </div>
           </div>
         )}
@@ -213,7 +216,7 @@ export default function SessionResultsModal({ isOpen, onClose, sessionId }: Resu
                   {results.length === 0 ? (
                     <tr>
                       <td colSpan={6} className="p-8 text-center text-slate-400 italic">
-                        {t('sess_empty')}
+                        {t('res_empty')}
                       </td>
                     </tr>
                   ) : (

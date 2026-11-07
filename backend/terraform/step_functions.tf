@@ -147,7 +147,10 @@ resource "aws_sfn_state_machine" "exam_lifecycle" {
               "S.$" = "$.sessionId"
             }
           }
-          UpdateExpression = "SET #st = :running, #actualStart = :now"
+          # Chỉ tự động chuyển RUNNING khi ca thi vẫn ở trạng thái SCHEDULED,
+          # tránh ghi đè trạng thái "Tạm dừng"/"Kết thúc" do giảng viên đặt thủ công
+          UpdateExpression    = "SET #st = :running, #actualStart = :now"
+          ConditionExpression = "#st = :scheduled"
           ExpressionAttributeNames = {
             "#st"          = "status"
             "#actualStart" = "actualStartTime"
@@ -156,6 +159,9 @@ resource "aws_sfn_state_machine" "exam_lifecycle" {
             ":running" = {
               S = "RUNNING"
             }
+            ":scheduled" = {
+              S = "SCHEDULED"
+            }
             ":now" = {
               "S.$" = "$$.Execution.StartTime"
             }
@@ -163,6 +169,12 @@ resource "aws_sfn_state_machine" "exam_lifecycle" {
         }
         ResultPath = "$.startResult"
         Next       = "WaitForExamDuration"
+        Catch = [
+          {
+            ErrorEquals = ["DynamoDb.ConditionalCheckFailedException"]
+            Next        = "ExamCompleted"
+          }
+        ]
       }
 
       WaitForExamDuration = {
@@ -181,7 +193,10 @@ resource "aws_sfn_state_machine" "exam_lifecycle" {
               "S.$" = "$.sessionId"
             }
           }
-          UpdateExpression = "SET #st = :closed, #actualEnd = :now"
+          # Chỉ tự động đóng ca thi khi vẫn đang RUNNING,
+          # tránh ghi đè trạng thái "Tạm dừng"/"Kết thúc" do giảng viên đặt thủ công
+          UpdateExpression    = "SET #st = :closed, #actualEnd = :now"
+          ConditionExpression = "#st = :running"
           ExpressionAttributeNames = {
             "#st"        = "status"
             "#actualEnd" = "actualEndTime"
@@ -190,6 +205,9 @@ resource "aws_sfn_state_machine" "exam_lifecycle" {
             ":closed" = {
               S = "CLOSED"
             }
+            ":running" = {
+              S = "RUNNING"
+            }
             ":now" = {
               "S.$" = "$$.State.EnteredTime"
             }
@@ -197,6 +215,12 @@ resource "aws_sfn_state_machine" "exam_lifecycle" {
         }
         ResultPath = "$.closeResult"
         Next       = "AutoFinalizeTask"
+        Catch = [
+          {
+            ErrorEquals = ["DynamoDb.ConditionalCheckFailedException"]
+            Next        = "ExamCompleted"
+          }
+        ]
       }
 
       AutoFinalizeTask = {

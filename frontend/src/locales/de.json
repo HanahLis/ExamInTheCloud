@@ -293,6 +293,7 @@
   "results_kpi_pass": "Bestehensquote",
   "results_kpi_highest": "Höchste Punktzahl",
   "results_completed_badge": "abgeschlossene Prüfungen",
+  "res_empty": "Noch keine Einreichungen.",
   "sess_general_questions": "Allgemeine Fragen",
   "sess_no_bank": "Keine Fragenbank zugewiesen",
   "sess_bank_label": "Fragenbank",

@@ -230,19 +230,8 @@ export const loginWithCognitoPassword = async (email: string, password: string):
   const cleanEmail = email.trim().toLowerCase();
   const cleanPassword = password.trim();
 
-  // 1. Kiểm tra tài khoản trong danh mục Database local / Giảng viên / Thí sinh
+  // Tài khoản demo nằm trong danh mục Database local (chỉ dùng khi Cognito không kết nối được)
   const fallback = DATABASE_ACCOUNTS_MAP[cleanEmail];
-
-  // Nếu là tài khoản hệ thống demo
-  if (fallback) {
-    if (cleanPassword === '12345678' || cleanPassword === 'CloudExam@2026') {
-      loginWithDatabaseAccount(fallback.email, [fallback.role], fallback.name, fallback.studentCode);
-      return;
-    }
-    // Nếu người dùng cố tình nhập sai mật khẩu cho tài khoản demo:
-    // Tuyệt đối không cho phép đăng nhập lung tung! Báo lỗi rõ ràng!
-    throw new Error('Mật khẩu không chính xác. Mật khẩu mặc định: 12345678');
-  }
 
   // Danh sách mật khẩu tương thích cho tài khoản quản trị viên demo
   const passwordsToTry = [cleanPassword];
@@ -251,6 +240,7 @@ export const loginWithCognitoPassword = async (email: string, password: string):
   }
 
   let lastError = '';
+  let networkFailed = false;
 
   for (const pwd of passwordsToTry) {
     try {
@@ -292,6 +282,11 @@ export const loginWithCognitoPassword = async (email: string, password: string):
       }
 
       if (data.__type === 'UserNotFoundException') {
+        // Tài khoản demo chưa tồn tại trong Cognito: dùng phiên local resilient
+        if (fallback && (cleanPassword === '12345678' || cleanPassword === 'CloudExam@2026')) {
+          loginWithDatabaseAccount(fallback.email, [fallback.role], fallback.name, fallback.studentCode);
+          return;
+        }
         throw new Error('Tài khoản không tồn tại trong hệ thống.');
       }
 
@@ -305,8 +300,15 @@ export const loginWithCognitoPassword = async (email: string, password: string):
       ) {
         throw e;
       }
+      networkFailed = true;
       lastError = e?.message || 'Không thể kết nối đến máy chủ xác thực.';
     }
+  }
+
+  // Chỉ khi Cognito hoàn toàn không kết nối được mới dùng phiên local resilient cho tài khoản demo
+  if (networkFailed && fallback && (cleanPassword === '12345678' || cleanPassword === 'CloudExam@2026')) {
+    loginWithDatabaseAccount(fallback.email, [fallback.role], fallback.name, fallback.studentCode);
+    return;
   }
 
   throw new Error(
@@ -498,6 +500,10 @@ export const getCurrentUser = (): AuthUser => {
 // 6. Đăng xuất an toàn và chuyển về trang đăng nhập (giữ nguyên dữ liệu thí sinh/ca thi/ngôn ngữ đã tạo)
 export const logout = () => {
   const authKeys = [
+    'id_token',
+    'access_token',
+    'refresh_token',
+    'auth_mode',
     'cloudexam_jwt',
     'cloudexam_id_token',
     'cloudexam_refresh_token',

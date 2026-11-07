@@ -17,6 +17,7 @@ import {
   updateSessionStatus,
   updateSessionCandidates,
   syncLocalDataToCloud,
+  resolveSessionStatus,
   type Question,
   type QuestionBank,
   type Candidate,
@@ -728,12 +729,10 @@ export default function App() {
             ) : (
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4 pt-1">
                 {mySessions.map((s) => {
-                  const now = Date.now();
-                  const start = new Date(s.startTime).getTime();
-                  const end = new Date(s.endTime).getTime();
-                  const isRunning = now >= start && now <= end;
-                  const isUpcoming = now < start;
-                  const isClosed = now > end;
+                  const status = resolveSessionStatus(s.status, s.startTime, s.endTime);
+                  const isRunning = status === 'RUNNING';
+                  const isUpcoming = status === 'SCHEDULED';
+                  const isClosed = status === 'CLOSED';
 
                   return (
                     <div
