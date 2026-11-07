@@ -29,6 +29,7 @@ import { QuestionBankTab } from './components/QuestionBankTab';
 import { CandidatesTab } from './components/CandidatesTab';
 import { ExamSessionTab } from './components/ExamSessionTab';
 import { ExamRoom } from './components/ExamRoom';
+import { CandidateRoomLogin } from './components/CandidateRoomLogin';
 import { useTheme } from './themes/themeContext';
 import { useTranslation, type Language } from './locales/i18nContext';
 import {
@@ -238,6 +239,14 @@ export default function App() {
 
   // ID ca thi đang mở (nếu đang ở trong phòng thi)
   const [activeExamSessionId, setActiveExamSessionId] = useState<string | null>(initialRoute.examId);
+  const [candidateAuthEmail, setCandidateAuthEmail] = useState<string>(() => {
+    const eid = initialRoute.examId;
+    if (eid) {
+      return sessionStorage.getItem(`cloudexam_auth_${eid}`) || '';
+    }
+    return '';
+  });
+  const [showOrganizerLogin, setShowOrganizerLogin] = useState(false);
 
   const navigateToTab = (tab: Tab) => {
     setActiveTab(tab);
@@ -262,6 +271,10 @@ export default function App() {
   };
 
   const exitExamRoom = () => {
+    if (activeExamSessionId) {
+      sessionStorage.removeItem(`cloudexam_auth_${activeExamSessionId}`);
+    }
+    setCandidateAuthEmail('');
     setActiveExamSessionId(null);
     const u = getCurrentUser();
     const isOrg = u?.groups?.includes('Organizer') ?? false;
@@ -271,7 +284,7 @@ export default function App() {
         : activeTab === 'session'
         ? '/sessions'
         : `/${activeTab}`
-      : '/sessions';
+      : '/questions';
     window.history.pushState({}, '', targetPath);
   };
 
@@ -372,6 +385,44 @@ export default function App() {
   };
 
   if (window.location.pathname === '/callback') return <Callback />;
+
+  // XỬ LÝ PHÒNG THI KHI TRUY CẬP LIÊN KẾT CA THI (?exam=... HOẶC activeExamSessionId)
+  if (activeExamSessionId) {
+    const currentUser = loggedIn ? getCurrentUser() : null;
+    const isOrgUser = currentUser?.groups?.some((g: string) => ['Admin', 'Organizer'].includes(g)) ?? false;
+
+    // Nếu chưa xác thực phòng thi bằng email thí sinh VÀ (không phải Giảng viên hoặc chưa đăng nhập)
+    if (!candidateAuthEmail && (!isOrgUser || !loggedIn)) {
+      if (!showOrganizerLogin) {
+        return (
+          <CandidateRoomLogin
+            sessionId={activeExamSessionId}
+            onSuccess={(candEmail) => {
+              sessionStorage.setItem(`cloudexam_auth_${activeExamSessionId}`, candEmail);
+              setCandidateAuthEmail(candEmail);
+            }}
+            onSwitchToOrganizer={() => setShowOrganizerLogin(true)}
+            countryLanguageBar={<CountryLanguageBar />}
+          />
+        );
+      }
+    } else {
+      // Đã xác thực phòng thi hoặc Giảng viên mở phòng thi
+      const emailForRoom = candidateAuthEmail || currentUser?.email || '';
+      const isOrgForRoom = isOrgUser && !candidateAuthEmail;
+
+      return (
+        <div className="min-h-screen bg-slate-50 py-6 px-4">
+          <ExamRoom
+            sessionId={activeExamSessionId}
+            currentUserEmail={emailForRoom}
+            isOrganizer={isOrgForRoom}
+            onExit={exitExamRoom}
+          />
+        </div>
+      );
+    }
+  }
 
   // MÀN HÌNH ĐĂNG NHẬP (EDUCATIONAL PASTEL PORTAL)
   if (!loggedIn) {
@@ -569,11 +620,20 @@ export default function App() {
                 )}
               </button>
 
-              <div className="pt-2 text-center border-t border-slate-100">
+              <div className="pt-2 text-center border-t border-slate-100 flex flex-col gap-1.5">
+                {activeExamSessionId && showOrganizerLogin && (
+                  <button
+                    type="button"
+                    onClick={() => setShowOrganizerLogin(false)}
+                    className="text-xs text-emerald-600 hover:text-emerald-800 cursor-pointer font-bold inline-flex items-center justify-center gap-1"
+                  >
+                    <span>{t('switch_to_candidate_login')}</span>
+                  </button>
+                )}
                 <button
                   type="button"
                   onClick={() => redirectToCognitoLogin(false)}
-                  className="text-xs text-indigo-600 hover:text-indigo-800 cursor-pointer font-medium hover:underline inline-flex items-center gap-1"
+                  className="text-xs text-indigo-600 hover:text-indigo-800 cursor-pointer font-medium hover:underline inline-flex items-center justify-center gap-1"
                 >
                   <span>{t('login_candidate_portal')}</span>
                 </button>
@@ -627,19 +687,6 @@ export default function App() {
     );
   };
 
-  // PHÒNG THI
-  if (activeExamSessionId) {
-    return (
-      <div className="min-h-screen bg-slate-50 py-6 px-4">
-        <ExamRoom
-          sessionId={activeExamSessionId}
-          currentUserEmail={user.email}
-          isOrganizer={isAdminOrOrganizer}
-          onExit={exitExamRoom}
-        />
-      </div>
-    );
-  }
 
   // CỔNG THÍ SINH
   if (isCandidateOnly) {

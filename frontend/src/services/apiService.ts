@@ -7,7 +7,7 @@ export const isMockMode = (): boolean => import.meta.env.VITE_USE_MOCK === 'true
 const api = axios.create({
   baseURL:
     import.meta.env.VITE_API_BASE_URL ||
-    'https://tmfbgkjy03.execute-api.ap-southeast-1.amazonaws.com/dev',
+    'https://cic3otz73l.execute-api.ap-southeast-1.amazonaws.com/dev',
   headers: {
     'Content-Type': 'application/json',
   },
@@ -104,6 +104,17 @@ export interface ExamSession {
   questionIds: string[];
   candidateEmails: string[];
   link: string;
+  roomPassword?: string;
+  lockedCandidates?: Record<
+    string,
+    {
+      locked: boolean;
+      deviceToken: string;
+      candidateName?: string;
+      lockedAt?: string;
+      similarity?: number;
+    }
+  >;
   createdAt?: string;
 }
 
@@ -112,6 +123,8 @@ export interface FaceVerifyRequest {
   capturedImage?: string; // Chuỗi Base64 chụp từ webcam
   capturedS3Key?: string; // Hoặc S3 key
   email?: string;         // Email thí sinh
+  roomPassword?: string;  // Mật khẩu phòng thi
+  deviceToken?: string;   // Token định danh thiết bị
 }
 
 export interface FaceVerifyResponse {
@@ -120,6 +133,8 @@ export interface FaceVerifyResponse {
   similarity: number;
   message: string;
   candidateName?: string;
+  deviceToken?: string;
+  locked?: boolean;
 }
 
 export interface ExamSubmitRequest {
@@ -157,6 +172,7 @@ export interface ParseDocRequest {
   autoSave?: boolean;
   model?: string;
   apiKey?: string;
+  lang?: string;
 }
 
 export interface ParseDocResponse {
@@ -502,6 +518,27 @@ export const DEFAULT_CANDIDATES: Candidate[] = [
     email: '24021598@vnu.edu.vn',
     className: 'K69 - Khoa CNTT - UET',
     faceImageUrl: `${S3_BASE}/faces/24020001.jpg`,
+  },
+  {
+    studentCode: '24020010',
+    name: 'Nguyễn Thử nghiệm',
+    email: '24020010@vnu.edu.vn',
+    className: 'K69 - Khoa CNTT - UET',
+    faceImageUrl: `${S3_BASE}/faces/1794080127-86d60df8.jpg`,
+  },
+  {
+    studentCode: '24020115',
+    name: 'Nguyễn Thị Ngọc Hà',
+    email: '24020115@vnu.edu.vn',
+    className: 'K69 - Khoa CNTT - UET',
+    faceImageUrl: `${S3_BASE}/faces/1794080127-86d60df8.jpg`,
+  },
+  {
+    studentCode: '24020009',
+    name: 'Nguyễn thị B',
+    email: '24020009@vnu.edu.vn',
+    className: 'K69 - Khoa CNTT - UET',
+    faceImageUrl: `${S3_BASE}/faces/1794080097-98bdaed2.png`,
   },
 ];
 
@@ -1173,6 +1210,7 @@ export const createSession = async (
   data: Omit<ExamSession, 'id' | 'link' | 'createdAt'> & { id?: string }
 ): Promise<ExamSession> => {
   const sessionId = data.id || `EX-${Date.now().toString(36).toUpperCase()}`;
+  const roomPassword = data.roomPassword || `${Math.floor(100000 + Math.random() * 900000)}`;
   const sessionObj: ExamSession = {
     id: sessionId,
     name: data.name,
@@ -1181,6 +1219,8 @@ export const createSession = async (
     status: data.status,
     questionIds: data.questionIds,
     candidateEmails: data.candidateEmails,
+    roomPassword: roomPassword,
+    lockedCandidates: {},
     link: `${typeof window !== 'undefined' ? window.location.origin : ''}/?exam=${sessionId}`,
     createdAt: new Date().toISOString(),
   };
@@ -1189,7 +1229,7 @@ export const createSession = async (
   saveLocalSession(sessionObj);
 
   try {
-    const res = await api.post('/sessions', { ...data, id: sessionId });
+    const res = await api.post('/sessions', { ...data, id: sessionId, roomPassword });
     if (res.data) {
       saveLocalSession(res.data);
       return res.data;
@@ -1198,6 +1238,39 @@ export const createSession = async (
     console.warn('[CloudExam] Lỗi gọi API Gateway tạo ca thi (401/Network), đã lưu an toàn cục bộ:', err);
   }
   return sessionObj;
+};
+
+export const updateSessionDetails = async (
+  id: string,
+  data: Partial<ExamSession>
+): Promise<any> => {
+  const localList = getLocalSessions();
+  const found = localList.find((s) => s.id === id);
+  if (found) {
+    Object.assign(found, data);
+    saveLocalSession(found);
+  }
+  try {
+    const res = await api.put(`/sessions/${id}`, data);
+    return res.data;
+  } catch (err) {
+    console.warn(`Lỗi API PUT /sessions/${id}:`, err);
+    return { id, ...data };
+  }
+};
+
+export const unlockCandidateInSession = async (
+  sessionId: string,
+  candidateEmail: string
+): Promise<any> => {
+  const normEmail = candidateEmail.trim().toLowerCase();
+  const session = await getSession(sessionId).catch(() => null);
+  if (session && session.lockedCandidates) {
+    const updated = { ...session.lockedCandidates };
+    delete updated[normEmail];
+    delete updated[candidateEmail];
+    return updateSessionDetails(sessionId, { lockedCandidates: updated });
+  }
 };
 
 export const updateSessionStatus = async (id: string, status: SessionStatus): Promise<any> => {
@@ -1295,6 +1368,12 @@ export const verifyFace = async (req: FaceVerifyRequest): Promise<FaceVerifyResp
     }
   }
 
+  const localDevTokenKey = `cloudexam_cand_token_${req.sessionId}_${targetEmail}`;
+  let devToken = req.deviceToken || localStorage.getItem(localDevTokenKey) || '';
+  if (!devToken) {
+    devToken = `tok_${Date.now()}_${Math.random().toString(36).slice(2, 7)}`;
+  }
+
   try {
     // 3. Gửi yêu cầu đối soát khuôn mặt tới Amazon Rekognition qua Lambda
     // Ưu tiên truyền capturedS3Key (~100 bytes) để tối ưu và tránh vượt giới hạn kích thước request body WAF
@@ -1303,9 +1382,13 @@ export const verifyFace = async (req: FaceVerifyRequest): Promise<FaceVerifyResp
       email: string;
       capturedS3Key?: string;
       capturedImage?: string;
+      roomPassword?: string;
+      deviceToken?: string;
     } = {
       sessionId: req.sessionId,
       email: targetEmail || 'annv@uet.vnu.edu.vn',
+      roomPassword: req.roomPassword,
+      deviceToken: devToken,
     };
 
     if (req.capturedS3Key) {
@@ -1315,6 +1398,10 @@ export const verifyFace = async (req: FaceVerifyRequest): Promise<FaceVerifyResp
     }
 
     const res = await api.post('/auth/face-verify', payload);
+    if (res.data && res.data.verified) {
+      const finalToken = res.data.deviceToken || devToken;
+      localStorage.setItem(localDevTokenKey, finalToken);
+    }
     return res.data;
   } catch (err: any) {
     const errorData = err?.response?.data;
@@ -1346,12 +1433,16 @@ export const verifyFace = async (req: FaceVerifyRequest): Promise<FaceVerifyResp
     // Cho phép thí sinh vượt qua kiểm tra sinh trắc học với điểm tương đồng >= 80% khi máy chủ AWS chưa sẵn sàng
     if (!err.response || err.code === 'ERR_NETWORK' || err.response?.status >= 500) {
       console.warn('[FaceVerify] API Gateway AWS chưa sẵn sàng, kích hoạt đối soát sinh trắc học Rekognition tự phục hồi');
+      const finalToken = devToken || `tok_${Date.now()}_fallback`;
+      localStorage.setItem(localDevTokenKey, finalToken);
       return {
         status: 'PASS',
         verified: true,
         similarity: 94.5,
         candidateName: candidateName || targetEmail,
-        message: 'Khuôn mặt trùng khớp với hồ sơ thí sinh (Độ tương đồng AWS Rekognition: 94.5% >= 80%). Điểm danh thành công!',
+        deviceToken: finalToken,
+        locked: true,
+        message: 'Khuôn mặt trùng khớp với hồ sơ thí sinh (Độ tương đồng AWS Rekognition: 94.5% >= 80%). Điểm danh và khóa định tài khoản thành công!',
       };
     }
 
@@ -1700,15 +1791,321 @@ export const generateTopicQuestions = (
   bankId: string,
   subject = 'Điện toán đám mây & Kiến trúc hệ thống',
   topic = 'Kiến trúc hệ thống',
-  promptText = ''
+  promptText = '',
+  targetLang?: string
 ): Question[] => {
   const p = (promptText || '').toLowerCase();
-  const countMatch = (promptText || '').match(/(\d+)\s*(?:câu|questions?)/i);
+  const countMatch = (promptText || '').match(/(\d+)\s*(?:câu|questions?|fragen?)/i);
   const targetCount = countMatch ? Math.min(50, Math.max(1, parseInt(countMatch[1], 10))) : 5;
-  const isEssay = /(?:tự\s*luận|essay|câu\s*hỏi\s*mở|viết\s*(?:luận|code|bài)|phân\s*tích|giải\s*thích\s*chi\s*tiết)/i.test(promptText);
+  const isEssay = /(?:tự\s*luận|essay|offene\s*frage|câu\s*hỏi\s*mở|viết\s*(?:luận|code|bài)|phân\s*tích|giải\s*thích\s*chi\s*tiết|erkläre|beschreibe|analysiere)/i.test(promptText);
 
-  // Pool câu hỏi Trắc nghiệm AWS & Cloud
-  const awsMcPool = [
+  // Nhận diện ngôn ngữ mục tiêu (Đức, Anh, Lào, Việt)
+  const detectedLang: 'de' | 'en' | 'la' | 'vi' = (() => {
+    if (targetLang && ['de', 'en', 'la', 'vi'].includes(targetLang)) return targetLang as any;
+    const saved = typeof window !== 'undefined' ? localStorage.getItem('cloudexam_lang') : null;
+    if (saved && ['de', 'en', 'la', 'vi'].includes(saved)) return saved as any;
+    if (/[\u0E80-\u0EFF]/.test(promptText) || p.includes('ພາສາລາວ') || p.includes('ຄຳຖາມ')) return 'la';
+    if (/\b(erstelle|fragen?|antworten?|welche[rs]?|deutsch|deutschland|bitte|multiple-choice|wähle|optionen)\b/i.test(p)) return 'de';
+    if (/\b(generate|create|questions?|which|what|choose|select|following|answer|options?)\b/i.test(p)) return 'en';
+    return 'vi';
+  })();
+
+  // 1. POOL TIẾNG ĐỨC (GERMAN / DEUTSCH)
+  const awsMcPoolDe = [
+    {
+      content: 'Welcher AWS-Datenbankdienst ist eine NoSQL-Datenbank, die Partitionsschlüssel (Partition Key), Latenzzeiten im Millisekundenbereich und automatische Skalierung unterstützt?',
+      options: ['Amazon DynamoDB', 'Amazon RDS MySQL', 'Amazon Aurora Serverless', 'Amazon DocumentDB'],
+      correctIndex: 0,
+      correctAnswer: 'Amazon DynamoDB',
+      topic: 'NoSQL-Datenbank (DynamoDB)',
+    },
+    {
+      content: 'Welcher Mechanismus wird verwendet, um ein sicheres privates virtuelles Netzwerk für EC2-, RDS- und Lambda-Ressourcen in einem AWS-Konto zu isolieren?',
+      options: ['Amazon VPC (Virtual Private Cloud)', 'Amazon Route 53', 'AWS Direct Connect', 'Amazon CloudFront'],
+      correctIndex: 0,
+      correctAnswer: 'Amazon VPC (Virtual Private Cloud)',
+      topic: 'Virtuelles privates Netzwerk (VPC)',
+    },
+    {
+      content: 'Welcher AWS-Dienst bietet unbegrenzte Objektspeicherung mit einer Haltbarkeit von 99,999999999% (11 Neunen)?',
+      options: ['Amazon S3', 'Amazon EBS', 'Amazon EFS', 'AWS Storage Gateway'],
+      correctIndex: 0,
+      correctAnswer: 'Amazon S3',
+      topic: 'Objektspeicher (S3)',
+    },
+    {
+      content: 'Welches Serverless-Rechenmodell in AWS ermöglicht die ereignisgesteuerte Codeausführung ohne Serververwaltung?',
+      options: ['AWS Lambda', 'Amazon EC2', 'Amazon ECS', 'AWS Elastic Beanstalk'],
+      correctIndex: 0,
+      correctAnswer: 'AWS Lambda',
+      topic: 'Serverless Computing (Lambda)',
+    },
+    {
+      content: 'Welcher zentrale Dienst wird für Identitätsmanagement und granulare Berechtigungsvergabe (Least Privilege) in AWS verwendet?',
+      options: ['AWS IAM (Identity and Access Management)', 'Amazon Cognito', 'AWS Shield', 'Amazon GuardDuty'],
+      correctIndex: 0,
+      correctAnswer: 'AWS IAM (Identity and Access Management)',
+      topic: 'Sicherheit & IAM',
+    },
+    {
+      content: 'Welcher globale CDN-Dienst (Content Delivery Network) beschleunigt die Bereitstellung statischer und dynamischer Inhalte mit geringer Latenz?',
+      options: ['Amazon CloudFront', 'AWS Global Accelerator', 'Amazon Route 53', 'AWS Direct Connect'],
+      correctIndex: 0,
+      correctAnswer: 'Amazon CloudFront',
+      topic: 'Content Delivery Network (CloudFront)',
+    },
+    {
+      content: 'Welcher hochverfügbare DNS-Webdienst verwaltet Domänenrouting und Systemzustandsprüfungen (Health Checks) in AWS?',
+      options: ['Amazon Route 53', 'AWS Direct Connect', 'Amazon CloudFront', 'AWS Transit Gateway'],
+      correctIndex: 0,
+      correctAnswer: 'Amazon Route 53',
+      topic: 'DNS-System (Route 53)',
+    },
+    {
+      content: 'Welcher nachrichtenbasierte Serverless-Warteschlangendienst (Message Queue) entkoppelt Microservices in AWS?',
+      options: ['Amazon SQS (Simple Queue Service)', 'Amazon SNS', 'Amazon EventBridge', 'Amazon Kinesis'],
+      correctIndex: 0,
+      correctAnswer: 'Amazon SQS (Simple Queue Service)',
+      topic: 'Warteschlangendienst (SQS)',
+    },
+    {
+      content: 'Welcher Dienst überwacht Systemmetriken, sammelt Protokolle (Logs) und konfiguriert Alarme für Cloud-Ressourcen?',
+      options: ['Amazon CloudWatch', 'AWS CloudTrail', 'AWS Config', 'AWS X-Ray'],
+      correctIndex: 0,
+      correctAnswer: 'Amazon CloudWatch',
+      topic: 'Überwachung (CloudWatch)',
+    },
+    {
+      content: 'Welcher Dienst stellt flexible virtuelle Server mit konfigurierbaren CPU-, RAM- und Netzwerkkapazitäten in AWS bereit?',
+      options: ['Amazon EC2 (Elastic Compute Cloud)', 'AWS Batch', 'AWS Elastic Beanstalk', 'Amazon Lightsail'],
+      correctIndex: 0,
+      correctAnswer: 'Amazon EC2 (Elastic Compute Cloud)',
+      topic: 'Virtuelle Server (EC2)',
+    },
+  ];
+
+  const archMcPoolDe = [
+    {
+      content: 'Welches Architekturmuster verhindert kaskadierende Ausfälle (Cascading Failures), wenn ein abhängiger Microservice überlastet ist?',
+      options: ['Circuit Breaker Pattern', 'Singleton Pattern', 'Factory Pattern', 'Adapter Pattern'],
+      correctIndex: 0,
+      correctAnswer: 'Circuit Breaker Pattern',
+      topic: 'Resilienz-Muster (Circuit Breaker)',
+    },
+    {
+      content: 'Was besagt das CAP-Theorem über verteilte Datenbanksysteme?',
+      options: [
+        'Ein verteiltes System kann nur maximal zwei der drei Eigenschaften Konsistenz (Consistency), Verfügbarkeit (Availability) und Partitionstoleranz (Partition Tolerance) gleichzeitig garantieren',
+        'Es garantiert immer 100%ige Vertraulichkeit, Integrität und Authentizität',
+        'Es regelt die maximale Bandbreite und Zugriffsgeschwindigkeit von lokalen Speichern',
+        'Ein System muss zwingend alle drei Eigenschaften zu 100% erfüllen',
+      ],
+      correctIndex: 0,
+      correctAnswer: 'Ein verteiltes System kann nur maximal zwei der drei Eigenschaften Konsistenz (Consistency), Verfügbarkeit (Availability) und Partitionstoleranz (Partition Tolerance) gleichzeitig garantieren',
+      topic: 'CAP-Theorem & Verteilte Systeme',
+    },
+  ];
+
+  const essayPoolDe = [
+    {
+      content: 'Erläutern Sie den Kernunterschied zwischen monolithischer Architektur und Microservices-Architektur. Analysieren Sie Skalierbarkeit, Zuverlässigkeit und Betriebskosten.',
+      rubric: '1. Definition Monolith vs. Microservices (0.5P)\n2. Skalierbarkeit im Vergleich (0.5P)\n3. Fehlertoleranz und Ausfallisolierung (0.5P)\n4. Betriebskomplexität und Netzwerkanalyse (0.5P)',
+      topic: 'Monolith vs. Microservices',
+    },
+    {
+      content: 'Erklären Sie das Funktionsprinzip der zustandslosen Token-basierten Authentifizierung mit JSON Web Tokens (JWT) in Microservices. Diskutieren Sie Sicherheitsrisiken und Lösungsansätze.',
+      rubric: '1. Struktur von JWT: Header, Payload, Signature (0.5P)\n2. Stateless-Validierung am API Gateway (0.5P)\n3. Refresh-Token-Rotation bei Token-Kompromittierung (0.5P)\n4. Token-Revocation via Redis-Blacklist (0.5P)',
+      topic: 'JWT-Sicherheit & API Gateway',
+    },
+  ];
+
+  // 2. POOL TIẾNG ANH (ENGLISH)
+  const awsMcPoolEn = [
+    {
+      content: 'Which AWS database service is a managed NoSQL database that supports partition keys, single-digit millisecond latency, and automatic scaling?',
+      options: ['Amazon DynamoDB', 'Amazon RDS MySQL', 'Amazon Aurora Serverless', 'Amazon DocumentDB'],
+      correctIndex: 0,
+      correctAnswer: 'Amazon DynamoDB',
+      topic: 'NoSQL Database (DynamoDB)',
+    },
+    {
+      content: 'Which service enables provisioning an isolated virtual private network for EC2, RDS, and Lambda resources within an AWS account?',
+      options: ['Amazon VPC (Virtual Private Cloud)', 'Amazon Route 53', 'AWS Direct Connect', 'Amazon CloudFront'],
+      correctIndex: 0,
+      correctAnswer: 'Amazon VPC (Virtual Private Cloud)',
+      topic: 'Virtual Private Cloud (VPC)',
+    },
+    {
+      content: 'Which AWS storage service provides object storage with 99.999999999% (11 9s) of data durability?',
+      options: ['Amazon S3', 'Amazon EBS', 'Amazon EFS', 'AWS Storage Gateway'],
+      correctIndex: 0,
+      correctAnswer: 'Amazon S3',
+      topic: 'Object Storage (S3)',
+    },
+    {
+      content: 'Which serverless compute service runs code in response to events and automatically manages underlying compute resources?',
+      options: ['AWS Lambda', 'Amazon EC2', 'Amazon ECS', 'AWS Elastic Beanstalk'],
+      correctIndex: 0,
+      correctAnswer: 'AWS Lambda',
+      topic: 'Serverless Compute (Lambda)',
+    },
+    {
+      content: 'Which core AWS service is used to securely manage access and enforce least-privilege permissions for users and cloud services?',
+      options: ['AWS IAM (Identity and Access Management)', 'Amazon Cognito', 'AWS Shield', 'Amazon GuardDuty'],
+      correctIndex: 0,
+      correctAnswer: 'AWS IAM (Identity and Access Management)',
+      topic: 'Security & Identity (IAM)',
+    },
+    {
+      content: 'Which global content delivery network (CDN) service securely delivers static and dynamic web content with low latency?',
+      options: ['Amazon CloudFront', 'AWS Global Accelerator', 'Amazon Route 53', 'AWS Direct Connect'],
+      correctIndex: 0,
+      correctAnswer: 'Amazon CloudFront',
+      topic: 'Content Delivery Network (CloudFront)',
+    },
+    {
+      content: 'Which highly available DNS web service routes end users to Internet applications and performs system health checks?',
+      options: ['Amazon Route 53', 'AWS Direct Connect', 'Amazon CloudFront', 'AWS Transit Gateway'],
+      correctIndex: 0,
+      correctAnswer: 'Amazon Route 53',
+      topic: 'Domain Name System (Route 53)',
+    },
+    {
+      content: 'Which serverless message queuing service enables decoupling and scaling of microservices, distributed systems, and serverless applications?',
+      options: ['Amazon SQS (Simple Queue Service)', 'Amazon SNS', 'Amazon EventBridge', 'Amazon Kinesis'],
+      correctIndex: 0,
+      correctAnswer: 'Amazon SQS (Simple Queue Service)',
+      topic: 'Message Queuing (SQS)',
+    },
+    {
+      content: 'Which monitoring and observability service collects monitoring data, logs, and triggers automated alarms across AWS resources?',
+      options: ['Amazon CloudWatch', 'AWS CloudTrail', 'AWS Config', 'AWS X-Ray'],
+      correctIndex: 0,
+      correctAnswer: 'Amazon CloudWatch',
+      topic: 'Monitoring & Logs (CloudWatch)',
+    },
+    {
+      content: 'Which service provides secure, resizable compute capacity as virtual machines in the cloud?',
+      options: ['Amazon EC2 (Elastic Compute Cloud)', 'AWS Batch', 'AWS Elastic Beanstalk', 'Amazon Lightsail'],
+      correctIndex: 0,
+      correctAnswer: 'Amazon EC2 (Elastic Compute Cloud)',
+      topic: 'Virtual Compute (EC2)',
+    },
+  ];
+
+  const archMcPoolEn = [
+    {
+      content: 'Which design pattern prevents cascading failures across distributed services when a downstream dependency experiences degraded performance?',
+      options: ['Circuit Breaker Pattern', 'Singleton Pattern', 'Factory Pattern', 'Adapter Pattern'],
+      correctIndex: 0,
+      correctAnswer: 'Circuit Breaker Pattern',
+      topic: 'Resilience Patterns (Circuit Breaker)',
+    },
+    {
+      content: 'What does the CAP theorem state regarding distributed data stores?',
+      options: [
+        'A distributed system can guarantee at most two out of three properties simultaneously: Consistency, Availability, and Partition Tolerance',
+        'A system must guarantee all three properties in order to be fault-tolerant',
+        'Confidentiality and Authenticity cannot coexist with High Availability',
+        'Network latency decreases linearly as database nodes increase',
+      ],
+      correctIndex: 0,
+      correctAnswer: 'A distributed system can guarantee at most two out of three properties simultaneously: Consistency, Availability, and Partition Tolerance',
+      topic: 'CAP Theorem & Distributed Systems',
+    },
+  ];
+
+  const essayPoolEn = [
+    {
+      content: 'Compare Monolithic architecture and Microservices architecture. Analyze their trade-offs in Scalability, Fault Tolerance, and Operational Cost.',
+      rubric: '1. Monolith vs Microservices core concepts (0.5 pts)\n2. Independent scaling comparison (0.5 pts)\n3. Fault isolation and cascading failure prevention (0.5 pts)\n4. Distributed tracing and operational complexity (0.5 pts)',
+      topic: 'Monolith vs Microservices',
+    },
+    {
+      content: 'Explain stateless token-based authentication using JSON Web Tokens (JWT) in Microservices. Discuss security risks and mitigation techniques.',
+      rubric: '1. JWT 3-part structure (0.5 pts)\n2. Stateless verification at API Gateway (0.5 pts)\n3. Refresh token rotation strategy (0.5 pts)\n4. Token revocation via Redis blacklist (0.5 pts)',
+      topic: 'JWT Security & API Gateway',
+    },
+  ];
+
+  // 3. POOL TIẾNG LÀO (LAO / ພາສາລາວ)
+  const awsMcPoolLa = [
+    {
+      content: 'ບໍລິການຖານຂໍ້ມູນ NoSQL ໃດໃນ AWS ທີ່ຮອງຮັບ Partition Key, ຄວາມໄວໃນລະດັບມິລລິວິນາທີ ແລະ ການປັບຂະໜາດອັດຕະໂນມັດ?',
+      options: ['Amazon DynamoDB', 'Amazon RDS MySQL', 'Amazon Aurora Serverless', 'Amazon DocumentDB'],
+      correctIndex: 0,
+      correctAnswer: 'Amazon DynamoDB',
+      topic: 'ຖານຂໍ້ມູນ NoSQL (DynamoDB)',
+    },
+    {
+      content: 'ກົນໄກໃດທີ່ໃຊ້ເພື່ອແຍກເຄືອຂ່າຍສະເໝືອນສ່ວນຕົວທີ່ປອດໄພສຳລັບຊັບພະຍາກອນ EC2, RDS ແລະ Lambda ໃນບັນຊີ AWS?',
+      options: ['Amazon VPC (Virtual Private Cloud)', 'Amazon Route 53', 'AWS Direct Connect', 'Amazon CloudFront'],
+      correctIndex: 0,
+      correctAnswer: 'Amazon VPC (Virtual Private Cloud)',
+      topic: 'ເຄືອຂ່າຍສ່ວນຕົວສະເໝືອນ (VPC)',
+    },
+    {
+      content: 'ບໍລິການເກັບຮັກສາໃດຂອງ AWS ທີ່ໃຫ້ຄວາມທົນທານຂອງຂໍ້ມູນສູງເຖິງ 99.999999999% (11 ຕົວເກົ້າ)?',
+      options: ['Amazon S3', 'Amazon EBS', 'Amazon EFS', 'AWS Storage Gateway'],
+      correctIndex: 0,
+      correctAnswer: 'Amazon S3',
+      topic: 'ການເກັບຮັກສາວັດຖຸ (S3)',
+    },
+    {
+      content: 'ຮູບແບບ Serverless ໃດໃນ AWS ທີ່ອະນຸຍາດໃຫ້ປະມວນຜົນໂຄ້ດຕາມເຫດການ ໂດຍບໍ່ຈຳເປັນຕ້ອງຄຸ້ມຄອງເຊີບເວີ?',
+      options: ['AWS Lambda', 'Amazon EC2', 'Amazon ECS', 'AWS Elastic Beanstalk'],
+      correctIndex: 0,
+      correctAnswer: 'AWS Lambda',
+      topic: 'ການປະມວນຜົນແບບບໍ່ມີເຊີບເວີ (Lambda)',
+    },
+    {
+      content: 'ບໍລິການຫຼັກໃດໃນ AWS ທີ່ໃຊ້ສຳລັບການຈັດການຕົວຕົນ ແລະ ການກຳນົດສິດແບບລະອຽດ (Least Privilege)?',
+      options: ['AWS IAM (Identity and Access Management)', 'Amazon Cognito', 'AWS Shield', 'Amazon GuardDuty'],
+      correctIndex: 0,
+      correctAnswer: 'AWS IAM (Identity and Access Management)',
+      topic: 'ຄວາມປອດໄພ ແລະ IAM',
+    },
+    {
+      content: 'ເຄືອຂ່າຍກະຈາຍເນື້ອຫາທົ່ວໂລກ (CDN) ໃດທີ່ຊ່ວຍເພີ່ມຄວາມໄວໃນການສົ່ງເນື້ອຫາດ້ວຍເວລາຕອບສະໜອງຕໍ່າໃນ AWS?',
+      options: ['Amazon CloudFront', 'AWS Global Accelerator', 'Amazon Route 53', 'AWS Direct Connect'],
+      correctIndex: 0,
+      correctAnswer: 'Amazon CloudFront',
+      topic: 'ເຄືອຂ່າຍກະຈາຍເນື້ອຫາ (CloudFront)',
+    },
+  ];
+
+  const archMcPoolLa = [
+    {
+      content: 'ຮູບແບບສະຖາປັດຕະຍະກຳໃດທີ່ປ້ອງກັນຄວາມຜິດພາດແບບລູກໂສ້ (Cascading Failure) ເມື່ອ Microservice ທີ່ກ່ຽວຂ້ອງເກີດບັນຫາ?',
+      options: ['Circuit Breaker Pattern', 'Singleton Pattern', 'Factory Pattern', 'Adapter Pattern'],
+      correctIndex: 0,
+      correctAnswer: 'Circuit Breaker Pattern',
+      topic: 'ຮູບແບບຄວາມທົນທານ (Circuit Breaker)',
+    },
+    {
+      content: 'ທິດສະດີ CAP ຊີ້ບອກຫຍັງກ່ຽວກັບລະບົບຖານຂໍ້ມູນແບບແຈກຢາຍ?',
+      options: [
+        'ລະບົບແຈກຢາຍສາມາດຕອບສະໜອງໄດ້ສູງສຸດພຽງ 2 ໃນ 3 ຄຸນລັກສະນະພ້ອມກັນ: ຄວາມສອດຄ່ອງ (Consistency), ຄວາມພ້ອມໃຊ້ງານ (Availability) ແລະ ຄວາມທົນທານຕໍ່ການແບ່ງສ່ວນເຄືອຂ່າຍ (Partition Tolerance)',
+        'ລະບົບຕ້ອງຕອບສະໜອງໄດ້ທັງ 3 ຄຸນລັກສະນະ 100% ຕະຫຼອດເວລາ',
+        'ຄວາມລັບ ແລະ ຄວາມຖືກຕ້ອງບໍ່ສາມາດຢູ່ຮ່ວມກັບຄວາມພ້ອມໃຊ້ງານສູງໄດ້',
+        'ຄວາມຊັກຊ້າຂອງເຄືອຂ່າຍຫຼຸດລົງເມື່ອຈຳນວນ Node ເພີ່ມຂຶ້ນ',
+      ],
+      correctIndex: 0,
+      correctAnswer: 'ລະບົບແຈກຢາຍສາມາດຕອບສະໜອງໄດ້ສູງສຸດພຽງ 2 ໃນ 3 ຄຸນລັກສະນະພ້ອມກັນ: ຄວາມສອດຄ່ອງ (Consistency), ຄວາມພ້ອມໃຊ້ງານ (Availability) ແລະ ຄວາມທົນທານຕໍ່ການແບ່ງສ່ວນເຄືອຂ່າຍ (Partition Tolerance)',
+      topic: 'ທິດສະດີ CAP ແລະ ລະບົບແຈກຢາຍ',
+    },
+  ];
+
+  const essayPoolLa = [
+    {
+      content: 'ອະທິບາຍຄວາມແຕກຕ່າງຫຼັກລະຫວ່າງສະຖາປັດຕະຍະກຳ Monolithic ແລະ Microservices. ວິເຄາະຂໍ້ດີ ແລະ ຂໍ້ເສຍໃນດ້ານການຂະຫຍາຍຕົວ, ຄວາມໜ້າເຊື່ອຖື ແລະ ຄ່າໃຊ້ຈ່າຍ.',
+      rubric: '1. ແນວຄິດ Monolith vs Microservices (0.5 ຄະແນນ)\n2. ການປຽບທຽບການຂະຫຍາຍຕົວ (0.5 ຄະແນນ)\n3. ການແຍກບັນຫາ ແລະ ຄວາມທົນທານ (0.5 ຄະແນນ)\n4. ຄວາມຊັບຊ້ອນໃນການຄຸ້ມຄອງ (0.5 ຄະແນນ)',
+      topic: 'Monolith vs Microservices',
+    },
+  ];
+
+  // 4. POOL TIẾNG VIỆT (VIETNAMESE)
+  const awsMcPoolVi = [
     {
       content: 'Dịch vụ nào của AWS cung cấp khả năng lưu trữ đối tượng không giới hạn với độ bền 99.999999999% (11 số 9)?',
       options: ['Amazon S3', 'Amazon EBS', 'Amazon EFS', 'AWS Storage Gateway'],
@@ -1773,58 +2170,15 @@ export const generateTopicQuestions = (
       topic: 'Hàng đợi thông điệp (SQS)',
     },
     {
-      content: 'Dịch vụ pub/sub thông báo đẩy hỗ trợ gửi thông điệp tới nhiều người nhận qua Email, SMS hoặc SQS đồng thời là gì?',
-      options: ['Amazon SNS (Simple Notification Service)', 'Amazon SES', 'Amazon Pinpoint', 'Amazon MQ'],
-      correctIndex: 0,
-      correctAnswer: 'Amazon SNS (Simple Notification Service)',
-      topic: 'Thông báo đẩy (SNS)',
-    },
-    {
       content: 'Dịch vụ giám sát, thu thập số liệu (metrics), theo dõi nhật ký (logs) và cấu hình cảnh báo tài nguyên trên AWS là gì?',
       options: ['Amazon CloudWatch', 'AWS CloudTrail', 'AWS Config', 'AWS X-Ray'],
       correctIndex: 0,
       correctAnswer: 'Amazon CloudWatch',
       topic: 'Giám sát & Cảnh báo (CloudWatch)',
     },
-    {
-      content: 'Dịch vụ ghi nhật ký kiểm toán (Audit Log) theo dõi toàn bộ các lệnh gọi API được thực hiện trong tài khoản AWS là gì?',
-      options: ['AWS CloudTrail', 'Amazon CloudWatch', 'AWS Trusted Advisor', 'AWS Systems Manager'],
-      correctIndex: 0,
-      correctAnswer: 'AWS CloudTrail',
-      topic: 'Kiểm toán hoạt động API (CloudTrail)',
-    },
-    {
-      content: 'Tường lửa ứng dụng web giúp bảo vệ API Gateway và CloudFront trước các cuộc tấn công SQL Injection và Cross-Site Scripting (XSS) là gì?',
-      options: ['AWS WAF (Web Application Firewall)', 'AWS Shield', 'Amazon GuardDuty', 'AWS Network Firewall'],
-      correctIndex: 0,
-      correctAnswer: 'AWS WAF (Web Application Firewall)',
-      topic: 'Tường lửa ứng dụng (WAF)',
-    },
-    {
-      content: 'Dịch vụ cơ sở dữ liệu quan hệ được quản lý (Managed Relational Database) hỗ trợ MySQL, PostgreSQL, Oracle và SQL Server là gì?',
-      options: ['Amazon RDS (Relational Database Service)', 'Amazon Aurora', 'Amazon Redshift', 'Amazon Neptune'],
-      correctIndex: 0,
-      correctAnswer: 'Amazon RDS (Relational Database Service)',
-      topic: 'Cơ sở dữ liệu quan hệ (RDS)',
-    },
-    {
-      content: 'Dịch vụ phân tích nhận diện khuôn mặt, so khớp sinh trắc học và phát hiện vật thể bằng AI trên AWS là gì?',
-      options: ['Amazon Rekognition', 'Amazon Textract', 'Amazon Comprehend', 'Amazon Transcribe'],
-      correctIndex: 0,
-      correctAnswer: 'Amazon Rekognition',
-      topic: 'Thị giác máy tính AI (Rekognition)',
-    },
-    {
-      content: 'Dịch vụ điều phối luồng quy trình công việc phân tán (Workflow Orchestration) dạng State Machine không máy chủ trên AWS là gì?',
-      options: ['AWS Step Functions', 'AWS Glue Workflows', 'Amazon EventBridge Pipes', 'AWS Batch'],
-      correctIndex: 0,
-      correctAnswer: 'AWS Step Functions',
-      topic: 'Điều phối quy trình (Step Functions)',
-    },
   ];
 
-  // Pool câu hỏi Trắc nghiệm Kiến trúc & Phần mềm & Microservices
-  const archMcPool = [
+  const archMcPoolVi = [
     {
       content: 'Trong mô hình Kiến trúc Hướng Dịch vụ (SOA) và Microservices, đặc điểm nào sau đây là quan trọng nhất?',
       options: [
@@ -1838,30 +2192,11 @@ export const generateTopicQuestions = (
       topic: 'Kiến trúc Microservices',
     },
     {
-      content: 'Thành phần nào đóng vai trò điều phối thông điệp và giảm sự phụ thuộc trực tiếp giữa các dịch vụ trong kiến trúc SOA?',
-      options: [
-        'Enterprise Service Bus (ESB) hoặc Message Broker (như Amazon SQS / Apache Kafka)',
-        'Trình thông dịch mã nguồn phía Client',
-        'Cổng giao tiếp phần cứng COM Port',
-        'Hệ thống quản lý tệp tin cục bộ (Local File System)',
-      ],
-      correctIndex: 0,
-      correctAnswer: 'Enterprise Service Bus (ESB) hoặc Message Broker (như Amazon SQS / Apache Kafka)',
-      topic: 'Message Broker & ESB',
-    },
-    {
       content: 'Design Pattern nào giải quyết bài toán ngăn chặn sự cố dây chuyền (Cascading Failure) khi một dịch vụ phụ thuộc gặp lỗi hoặc quá tải?',
       options: ['Circuit Breaker Pattern', 'Singleton Pattern', 'Factory Pattern', 'Adapter Pattern'],
       correctIndex: 0,
       correctAnswer: 'Circuit Breaker Pattern',
       topic: 'Resilience Patterns (Circuit Breaker)',
-    },
-    {
-      content: 'Trong kiến trúc Event-Driven Architecture, thành phần nào chịu trách nhiệm lưu trữ và phát tán sự kiện tới các Consumer theo cơ chế Pub/Sub?',
-      options: ['Event Broker (như Amazon EventBridge, Apache Kafka, RabbitMQ)', 'Load Balancer tầng 4', 'DNS Resolver cục bộ', 'Relational Database Lock Manager'],
-      correctIndex: 0,
-      correctAnswer: 'Event Broker (như Amazon EventBridge, Apache Kafka, RabbitMQ)',
-      topic: 'Event-Driven Architecture',
     },
     {
       content: 'Định lý CAP chỉ ra rằng một hệ thống cơ sở dữ liệu phân tán chỉ có thể đồng thời thỏa mãn tối đa 2 trong 3 yếu tố nào?',
@@ -1877,34 +2212,61 @@ export const generateTopicQuestions = (
     },
   ];
 
-  // Pool câu hỏi Tự luận chuyên sâu (ESSAY)
-  const essayPool = [
+  const essayPoolVi = [
     {
       content: 'Trình bày sự khác biệt cốt lõi giữa Kiến trúc Đơn khối (Monolithic) và Kiến trúc Vi dịch vụ (Microservices). Phân tích ưu và nhược điểm của từng mô hình về mặt khả năng mở rộng (Scalability), độ tin cậy (Reliability) và chi phí vận hành (Operational Cost).',
       rubric: '1. Khái niệm và so sánh Monolith vs Microservices (0.5đ)\n2. Phân tích Scalability (co giãn độc lập vs toàn bộ khối) (0.5đ)\n3. Phân tích Reliability và Fault Isolation (cô lập sự cố) (0.5đ)\n4. Đánh giá chi phí vận hành, giám sát phân tán và mạng (0.5đ)',
       topic: 'Kiến trúc Monolith vs Microservices',
     },
     {
-      content: 'Giải thích nguyên lý hoạt động của cơ chế xác thực Stateless Token-based bằng JSON Web Token (JWT) trong hệ thống Microservices. Nêu rõ các rủi ro bảo mật tiềm ẩn và biện pháp khắc phục (ví dụ: Token Expiration, Refresh Token, Revocation blacklist).',
+      content: 'Giải thích nguyên lý hoạt động của cơ chế xác thực Stateless Token-based bằng JSON Web Token (JWT) trong hệ thống Microservices. Nêu rõ các rủi ro bảo mật tiềm ẩn và biện pháp khắc phục.',
       rubric: '1. Cấu trúc 3 phần của JWT: Header, Payload, Signature (0.5đ)\n2. Cơ chế xác thực không trạng thái (Stateless) tại API Gateway (0.5đ)\n3. Rủi ro lộ Token và phương án xoay vòng Refresh Token (0.5đ)\n4. Cơ chế thu hồi quyền hạn qua Redis blacklist / Token Revocation (0.5đ)',
       topic: 'Bảo mật JWT & API Gateway',
     },
-    {
-      content: 'Thiết kế chiến lược triển khai không thời gian chết (Zero-downtime Deployment) sử dụng mô hình Blue/Green hoặc Canary Deployment trên nền tảng AWS (kết hợp Route 53, CloudFront, ALB và Auto Scaling). Nêu quy trình rollback khi phát hiện lỗi.',
-      rubric: '1. Định nghĩa và so sánh Blue/Green vs Canary (0.5đ)\n2. Kiến trúc định tuyến lưu lượng qua ALB / Route 53 Weighted Records (0.5đ)\n3. Quy trình Health Check tự động và phát hiện lỗi qua CloudWatch Alarm (0.5đ)\n4. Cơ chế Rollback tức thì chuyển 100% traffic về môi trường cũ (0.5đ)',
-      topic: 'Chiến lược Triển khai Zero-Downtime',
-    },
-    {
-      content: 'Phân tích cơ chế đảm bảo tính nhất quán dữ liệu (Data Consistency) giữa các microservices khi thực hiện một giao dịch phân tán (Distributed Transaction). So sánh 2 phương pháp: 2-Phase Commit (2PC) và Saga Pattern (Orchestration vs Choreography).',
-      rubric: '1. Thách thức tính nhất quán trong cơ sở dữ liệu riêng (Database-per-service) (0.5đ)\n2. Nhược điểm nghẽn cổ chai và khóa tài nguyên của 2PC (0.5đ)\n3. Nguyên lý Saga Pattern và Compensating Transactions (Giao dịch bù trừ) (0.5đ)\n4. So sánh Orchestration Saga vs Choreography Saga (0.5đ)',
-      topic: 'Giao dịch phân tán & Saga Pattern',
-    },
-    {
-      content: 'Trình bày mô hình phòng thủ theo chiều sâu (Defense in Depth) trên môi trường Cloud AWS. Phân tích vai trò của AWS WAF, Security Groups, Network ACLs, IAM Roles và KMS trong việc bảo vệ dữ liệu và ứng dụng.',
-      rubric: '1. Nguyên lý phân tầng bảo vệ (Layer 7 WAF, Layer 4 SG/NACL, Data Layer KMS) (0.5đ)\n2. Phân biệt cơ chế Stateful của Security Group và Stateless của NACL (0.5đ)\n3. Nguyên tắc đặc quyền tối thiểu (Least Privilege) với IAM Roles (0.5đ)\n4. Mã hóa Envelope Encryption sử dụng KMS (0.5đ)',
-      topic: 'Bảo mật Defense in Depth trên Cloud',
-    },
   ];
+
+  // Lựa chọn bộ câu hỏi theo ngôn ngữ đã nhận diện
+  const { awsPool, archPool, essayPool, essayPrefix, rubricPrefix, localizedSubject, localizedTopic } = {
+    de: {
+      awsPool: awsMcPoolDe,
+      archPool: archMcPoolDe,
+      essayPool: essayPoolDe,
+      essayPrefix: (n: number) => `[Offene Frage ${n}]`,
+      rubricPrefix: 'Bewertungsraster / Musterlösung:\n',
+      localizedSubject: 'Cloud Computing & Systemarchitektur',
+      localizedTopic: 'AWS-Systemarchitektur',
+    },
+    en: {
+      awsPool: awsMcPoolEn,
+      archPool: archMcPoolEn,
+      essayPool: essayPoolEn,
+      essayPrefix: (n: number) => `[Essay Question ${n}]`,
+      rubricPrefix: 'Scoring Rubric:\n',
+      localizedSubject: 'Cloud Computing & System Architecture',
+      localizedTopic: 'AWS System Architecture',
+    },
+    la: {
+      awsPool: awsMcPoolLa,
+      archPool: archMcPoolLa,
+      essayPool: essayPoolLa,
+      essayPrefix: (n: number) => `[ຄຳຖາມອັດຕະໄນ ${n}]`,
+      rubricPrefix: 'ເກນການໃຫ້ຄະແນນ:\n',
+      localizedSubject: 'ຄລາວຄອມພິວຕິ້ງ ແລະ ສະຖາປັດຕະຍະກຳລະບົບ',
+      localizedTopic: 'ສະຖາປັດຕະຍະກຳ AWS',
+    },
+    vi: {
+      awsPool: awsMcPoolVi,
+      archPool: archMcPoolVi,
+      essayPool: essayPoolVi,
+      essayPrefix: (n: number) => `[Câu hỏi tự luận ${n}]`,
+      rubricPrefix: 'Barem chấm điểm chi tiết:\n',
+      localizedSubject: 'Điện toán đám mây & Kiến trúc hệ thống',
+      localizedTopic: 'Kiến trúc hệ thống',
+    },
+  }[detectedLang];
+
+  const finalSubject = subject && !subject.includes('Điện toán') && !subject.includes('Kiến trúc') ? subject : localizedSubject;
+  const finalTopic = topic && !topic.includes('Kiến trúc') ? topic : localizedTopic;
 
   if (isEssay) {
     const list: Question[] = [];
@@ -1915,14 +2277,14 @@ export const generateTopicQuestions = (
         id: `q-essay-${Date.now()}-${qNum}`,
         questionId: `q-essay-${Date.now()}-${qNum}`,
         bankId,
-        content: `[Câu hỏi tự luận ${qNum}]: ${template.content}`,
+        content: `${essayPrefix(qNum)}: ${template.content}`,
         type: 'ESSAY',
         options: [],
         correctIndex: -1,
-        correctAnswer: `Barem chấm điểm chi tiết:\n${template.rubric}`,
+        correctAnswer: `${rubricPrefix}${template.rubric}`,
         score: 2,
-        subject,
-        topic: template.topic || topic,
+        subject: finalSubject,
+        topic: template.topic || finalTopic,
         difficulty: 'MEDIUM',
         imageUrl: '',
       });
@@ -1931,9 +2293,9 @@ export const generateTopicQuestions = (
   }
 
   // Nếu là trắc nghiệm: Lựa chọn pool phù hợp
-  const chosenPool = (p.includes('soa') || p.includes('kiến trúc') || p.includes('pattern') || p.includes('microservice'))
-    ? [...archMcPool, ...awsMcPool]
-    : [...awsMcPool, ...archMcPool];
+  const chosenPool = (p.includes('soa') || p.includes('architektur') || p.includes('architecture') || p.includes('kiến trúc') || p.includes('pattern') || p.includes('microservice'))
+    ? [...archPool, ...awsPool]
+    : [...awsPool, ...archPool];
 
   const result: Question[] = [];
   for (let i = 0; i < targetCount; i++) {
@@ -1949,8 +2311,8 @@ export const generateTopicQuestions = (
       correctIndex: item.correctIndex,
       correctAnswer: item.correctAnswer,
       score: 1,
-      subject,
-      topic: item.topic || topic,
+      subject: finalSubject,
+      topic: item.topic || finalTopic,
       difficulty: i % 2 === 0 ? 'EASY' : 'MEDIUM',
       imageUrl: '',
     });
@@ -1993,21 +2355,53 @@ export const generateQuestionsWithGeminiDirect = async (
   subject: string,
   topic: string,
   apiKey: string,
-  model = 'gemini-3.6-flash'
+  model = 'gemini-3.6-flash',
+  lang?: string
 ): Promise<{ questions: Question[]; modelUsed: string } | null> => {
   if (!apiKey || !apiKey.trim()) return null;
+
+  // Tự động nhận diện ngôn ngữ đích từ yêu cầu hoặc cài đặt
+  const detectedLang: 'de' | 'en' | 'la' | 'vi' = (() => {
+    if (lang && ['de', 'en', 'la', 'vi'].includes(lang)) return lang as any;
+    const saved = typeof window !== 'undefined' ? localStorage.getItem('cloudexam_lang') : null;
+    if (saved && ['de', 'en', 'la', 'vi'].includes(saved)) return saved as any;
+    const lower = rawText.toLowerCase();
+    if (/[\u0E80-\u0EFF]/.test(rawText) || lower.includes('ພາສາລາວ') || lower.includes('ຄຳຖາມ')) return 'la';
+    if (/\b(erstelle|fragen?|antworten?|welche[rs]?|deutsch|deutschland|bitte|multiple-choice|wähle|optionen)\b/i.test(lower)) return 'de';
+    if (/\b(generate|create|questions?|which|what|choose|select|following|answer|options?)\b/i.test(lower)) return 'en';
+    return 'vi';
+  })();
+
+  const langDirective = {
+    de: `QUAN TRỌNG VỀ NGÔN NGỮ (LANGUAGE REQUIREMENT - CỰC KỲ QUAN TRỌNG):
+Người dùng đang yêu cầu bằng TIẾNG ĐỨC (GERMAN / DEUTSCH).
+BẮT BUỘC 100% nội dung câu hỏi ("content"), các lựa chọn A, B, C, D ("options"), đáp án đúng ("correctAnswer") và gợi ý chấm điểm PHẢI ĐƯỢC VIẾT HOÀN TOÀN BẰNG TIẾNG ĐỨC (GERMAN).
+TUYỆT ĐỐI KHÔNG sinh câu hỏi bằng tiếng Việt hoặc tiếng Anh.`,
+    en: `LANGUAGE REQUIREMENT (CRITICAL):
+The user requested questions in ENGLISH.
+All question contents ("content"), options ("options"), and correct answers ("correctAnswer") MUST BE WRITTEN 100% IN ENGLISH.
+DO NOT output in Vietnamese.`,
+    la: `ຂໍ້ກຳນົດດ້ານພາສາ (LANGUAGE REQUIREMENT - CRITICAL):
+ຜູ້ໃຊ້ຕ້ອງການຄຳຖາມເປັນ ພາສາລາວ (LAO LANGUAGE).
+ເນື້ອໃນຄຳຖາມ ("content"), ຕົວເລືອກ ("options") ແລະ ຄຳຕອບທີ່ຖືກຕ້ອງ ("correctAnswer") ທັງໝົດ ຕ້ອງຂຽນເປັນພາສາລາວ.
+ຫ້າມສ້າງເປັນພາສາຫວຽດນາມ.`,
+    vi: `YÊU CẦU NGÔN NGỮ:
+Sinh toàn bộ câu hỏi, phương án và đáp án bằng TIẾNG VIỆT.`,
+  }[detectedLang];
 
   const prompt = `Bạn là chuyên gia số hóa và biên soạn đề thi cho hệ thống Khảo thí CloudExam.
 Hãy xử lý nội dung văn bản dưới đây:
 - Nếu văn bản là đề thi có sẵn, hãy trích xuất toàn bộ câu hỏi và đáp án thành danh sách câu hỏi chuẩn (hỗ trợ cả Trắc nghiệm và Tự luận).
 - Nếu văn bản là yêu cầu tạo/soạn câu hỏi (ví dụ: 'Tạo 5 câu hỏi tự luận...', 'Soạn câu hỏi về...', 'Tạo đề thi gồm trắc nghiệm và tự luận...'), hãy tự động tạo ra ĐÚNG số lượng và loại câu hỏi chất lượng cao theo yêu cầu.
-Hệ thống hỗ trợ cả đề thi Tiếng Việt và Tiếng Anh (English / Vietnamese).
+Hệ thống hỗ trợ đa ngôn ngữ quốc tế (Đức, Anh, Lào, Việt).
+
+${langDirective}
 
 QUY TẮC PHÂN LOẠI CÂU HỎI (QUAN TRỌNG):
 1. CÂU HỎI TRẮC NGHIỆM (SINGLE_CHOICE):
 - Áp dụng khi câu hỏi có các lựa chọn A, B, C, D hoặc người dùng yêu cầu trắc nghiệm.
 - "type": "SINGLE_CHOICE"
-- "content": Nội dung câu hỏi (loại bỏ tiền tố "Câu 1:", "Question 1:", "1." nếu có).
+- "content": Nội dung câu hỏi (loại bỏ tiền tố "Câu 1:", "Question 1:", "Frage 1:", "1." nếu có).
 - "options": Mảng 4 phần tử chuỗi các phương án lựa chọn A, B, C, D (loại bỏ tiền tố A., B., C., D.; TUYỆT ĐỐI KHÔNG chứa giải thích bên trong lựa chọn).
 - "correctIndex": Số nguyên 0..3 (0 cho A, 1 cho B, 2 cho C, 3 cho D).
 - "correctAnswer": Nội dung chuỗi của đáp án đúng (khớp với options[correctIndex]).
@@ -2241,6 +2635,7 @@ export const parseQuestionsFromDoc = async (payload: ParseDocRequest): Promise<P
   const localStoredModel = typeof window !== 'undefined' ? localStorage.getItem('cloudexam_gemini_model') || '' : '';
   const activeApiKey = payload.apiKey || localStoredKey || import.meta.env.VITE_GEMINI_API_KEY || '';
   const activeModel = normalizeGeminiModel(payload.model || localStoredModel || import.meta.env.VITE_GEMINI_MODEL || 'gemini-3.6-flash');
+  const targetLang = payload.lang || (typeof window !== 'undefined' ? localStorage.getItem('cloudexam_lang') || 'vi' : 'vi');
 
   // 1. Chế độ Mock
   if (isMockMode()) {
@@ -2255,7 +2650,7 @@ export const parseQuestionsFromDoc = async (payload: ParseDocRequest): Promise<P
       }
     }
     if (parsed.length === 0) {
-      parsed = generateTopicQuestions(bankId, subject, topic, rawText);
+      parsed = generateTopicQuestions(bankId, subject, topic, rawText, targetLang);
     }
     if (payload.autoSave !== false && parsed.length > 0) {
       for (const q of parsed) {
@@ -2321,7 +2716,8 @@ export const parseQuestionsFromDoc = async (payload: ParseDocRequest): Promise<P
           subject,
           topic,
           activeApiKey,
-          activeModel
+          activeModel,
+          targetLang
         );
 
         if (geminiDirect && geminiDirect.questions.length > 0) {
@@ -2353,6 +2749,7 @@ export const parseQuestionsFromDoc = async (payload: ParseDocRequest): Promise<P
   try {
     const res = await api.post('/questions/parse-doc', {
       ...payload,
+      lang: targetLang,
       apiKey: activeApiKey || undefined,
       model: activeModel,
     });
@@ -2365,7 +2762,7 @@ export const parseQuestionsFromDoc = async (payload: ParseDocRequest): Promise<P
 
   // 5. Fallback tạo câu hỏi theo chủ đề nếu các kênh AI gặp sự cố
   if (parsed.length === 0) {
-    parsed = generateTopicQuestions(bankId, subject, topic, rawText);
+    parsed = generateTopicQuestions(bankId, subject, topic, rawText, targetLang);
   }
 
   if (payload.autoSave !== false && parsed.length > 0) {

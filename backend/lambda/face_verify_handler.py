@@ -180,17 +180,48 @@ def lambda_handler(event, context):
     start_dt = parse_iso_datetime(session_item.get("startTime", ""))
     end_dt = parse_iso_datetime(session_item.get("endTime", ""))
 
-    is_time_valid = (start_dt <= now_utc <= end_dt)
-    is_running = (session_status == "RUNNING") or (is_time_valid and session_status != "CLOSED")
-
-    if not is_running:
+    is_closed = (session_status == "CLOSED") or (end_dt and now_utc > end_dt)
+    if is_closed:
         return build_response(400, {
             "status": "FAIL",
             "verified": False,
             "similarity": 0.0,
-            "errorCode": "SESSION_NOT_RUNNING",
-            "message": f"Ca thi chưa bắt đầu hoặc đã kết thúc (Trạng thái hiện tại: {session_status}). Yêu cầu ca thi phải ở trạng thái RUNNING."
+            "errorCode": "SESSION_CLOSED",
+            "message": f"Ca thi đã kết thúc (Trạng thái: {session_status}). Không thể điểm danh vào phòng thi."
         })
+
+    # =========================================================================
+    # BƯỚC 1.1: Kiểm tra Mật khẩu phòng thi (Room Password) nếu được cung cấp
+    # =========================================================================
+    req_room_pwd = (body.get("roomPassword") or body.get("password") or "").strip()
+    session_room_pwd = (session_item.get("roomPassword") or "").strip()
+    if session_room_pwd and req_room_pwd:
+        if req_room_pwd.lower() != session_room_pwd.lower():
+            return build_response(403, {
+                "status": "FAIL",
+                "verified": False,
+                "similarity": 0.0,
+                "errorCode": "INCORRECT_ROOM_PASSWORD",
+                "message": "Mật khẩu phòng thi không chính xác. Vui lòng kiểm tra lại mật khẩu do Giảng viên cung cấp."
+            })
+
+    # =========================================================================
+    # BƯỚC 1.2: Kiểm tra khóa định tài khoản (Chống đăng nhập trùng lặp thiết bị)
+    # =========================================================================
+    locked_cands = session_item.get("lockedCandidates") or {}
+    device_token = body.get("deviceToken") or ""
+    if user_email in locked_cands:
+        existing_lock = locked_cands.get(user_email)
+        if isinstance(existing_lock, dict) and existing_lock.get("locked"):
+            saved_token = existing_lock.get("deviceToken", "")
+            if saved_token and device_token and saved_token != device_token:
+                return build_response(403, {
+                    "status": "FAIL",
+                    "verified": False,
+                    "similarity": 0.0,
+                    "errorCode": "ACCOUNT_ALREADY_LOCKED",
+                    "message": f"Tài khoản thí sinh ({user_email}) đã được xác thực danh tính và đang có người vào làm bài trong phòng thi! Không thể truy cập từ thiết bị khác."
+                })
 
     # =========================================================================
     # BƯỚC 2: Kiểm tra Candidate có thuộc danh sách Session không
@@ -359,7 +390,7 @@ def lambda_handler(event, context):
                 "durationMs": duration_ms
             })
 
-            # Task 10 & Quy trình B Bước 7: Cập nhật trạng thái CHECKED_IN vào DynamoDB
+            # Task 10 & Quy trình B Bước 7: Cập nhật trạng thái CHECKED_IN vào DynamoDB Submissions
             try:
                 submissions_table.update_item(
                     Key={"id": f"{session_id}#{user_email}"},
@@ -376,12 +407,36 @@ def lambda_handler(event, context):
             except Exception as update_err:
                 print(f"[WARN] Không thể cập nhật trạng thái CHECKED_IN vào DynamoDB Submissions: {update_err}")
 
+            # Khóa định tài khoản thí sinh vào ca thi (DynamoDB Sessions table)
+            if not device_token:
+                device_token = f"tok_{int(time.time()*1000)}_{user_email.split('@')[0]}"
+
+            try:
+                sessions_table.update_item(
+                    Key={"id": session_id},
+                    UpdateExpression="SET lockedCandidates.#em = :lock_info",
+                    ExpressionAttributeNames={"#em": user_email},
+                    ExpressionAttributeValues={
+                        ":lock_info": {
+                            "locked": True,
+                            "deviceToken": device_token,
+                            "candidateName": candidate_name,
+                            "similarity": Decimal(str(similarity)),
+                            "lockedAt": datetime.now(timezone.utc).isoformat()
+                        }
+                    }
+                )
+            except Exception as lock_err:
+                print(f"[WARN] Không thể cập nhật lockedCandidates vào DynamoDB Sessions: {lock_err}")
+
             return build_response(200, {
                 "status": "PASS",
                 "verified": True,
                 "similarity": similarity,
                 "candidateName": candidate_name,
-                "message": f"Xác thực khuôn mặt thành công ({similarity:.1f}% >= {SIMILARITY_THRESHOLD}%). Chào mừng thí sinh {candidate_name} vào phòng thi!"
+                "deviceToken": device_token,
+                "locked": True,
+                "message": f"Xác thực khuôn mặt thành công ({similarity:.1f}% >= {SIMILARITY_THRESHOLD}%). Tài khoản {candidate_name} đã được khóa định an toàn cho ca thi!"
             })
         else:
             log_structured_metric("FACE_VERIFICATION_ATTEMPT", {

@@ -250,15 +250,28 @@ def extract_text_from_doc_payload(body: dict) -> str:
     return ""
 
 
-def rule_based_parse_questions(raw_text: str, subject: str = "Điện toán đám mây", topic: str = "Kiến trúc hệ thống") -> list:
-    """Bộ bóc tách thông minh song ngữ Anh - Việt (State Machine) bóc tách toàn bộ câu hỏi và loại bỏ tiêu đề/ký tự thừa."""
+def rule_based_parse_questions(raw_text: str, subject: str = "Điện toán đám mây", topic: str = "Kiến trúc hệ thống", lang: str = "") -> list:
+    """Bộ bóc tách thông minh đa ngôn ngữ (Đức, Anh, Lào, Việt) bóc tách toàn bộ câu hỏi và loại bỏ tiêu đề/ký tự thừa."""
     questions = []
     lines = [line.strip() for line in raw_text.splitlines() if line.strip()]
     cur_q = None
 
-    is_english = bool(re.search(r'\b(question|which|what|choose|select|following|answer|marks?|points?)\b', raw_text, re.IGNORECASE))
-    default_opt_prefix = "Option" if is_english else "Phương án"
-    default_content = "Multiple Choice Question" if is_english else "Câu hỏi trắc nghiệm"
+    is_german = bool(re.search(r'\b(frage|antwort|welche[rs]?|bitte|optionen|wähle)\b', raw_text, re.IGNORECASE)) or lang == "de"
+    is_lao = bool(re.search(r'[\u0E80-\u0EFF]', raw_text)) or lang == "la"
+    is_english = bool(re.search(r'\b(question|which|what|choose|select|following|answer|marks?|points?)\b', raw_text, re.IGNORECASE)) or lang == "en"
+
+    if is_german:
+        default_opt_prefix = "Option"
+        default_content = "Multiple-Choice-Frage"
+    elif is_lao:
+        default_opt_prefix = "ຕົວເລືອກ"
+        default_content = "ຄຳຖາມປາລະໄນ"
+    elif is_english:
+        default_opt_prefix = "Option"
+        default_content = "Multiple Choice Question"
+    else:
+        default_opt_prefix = "Phương án"
+        default_content = "Câu hỏi trắc nghiệm"
 
     def push_question(q):
         if not q or len(q.get("options", [])) < 2:
@@ -283,7 +296,7 @@ def rule_based_parse_questions(raw_text: str, subject: str = "Điện toán đá
 
     for line in lines:
         q_match = re.match(
-            r'^(?:câu\s*\d+|question\s*\d+|q\s*\.?\s*\d+|\d+[\.:\)]|\[(?:câu|question|q)\s*\.?\s*\d+\])(?:\s*\([^)]*\))?[:\.\-]?\s*(.*)',
+            r'^(?:câu\s*\d+|question\s*\d+|frage\s*\d+|q\s*\.?\s*\d+|\d+[\.:\)]|\[(?:câu|question|frage|q)\s*\.?\s*\d+\])(?:\s*\([^)]*\))?[:\.\-]?\s*(.*)',
             line,
             re.IGNORECASE
         )
@@ -291,7 +304,7 @@ def rule_based_parse_questions(raw_text: str, subject: str = "Điện toán đá
             push_question(cur_q)
             content = q_match.group(1).strip()
             content = re.sub(r'^\([^)]*\)\s*[:\.\-]?\s*', '', content).strip()
-            content = re.sub(r'\s*\(\s*\d+(?:[\.,]\d+)?\s*(?:điểm|pts?|points?|marks?)\s*\)\s*$', '', content, flags=re.IGNORECASE).strip()
+            content = re.sub(r'\s*\(\s*\d+(?:[\.,]\d+)?\s*(?:điểm|pts?|points?|marks?|punkte)\s*\)\s*$', '', content, flags=re.IGNORECASE).strip()
             cur_q = {
                 "content": content,
                 "options": [],
@@ -306,7 +319,7 @@ def rule_based_parse_questions(raw_text: str, subject: str = "Điện toán đá
         if opt_match:
             opt_text = (opt_match.group(4) or opt_match.group(2) or '').strip()
             opt_text = re.sub(
-                r'(?i)(?:đáp\s*án(?:\s*đúng)?|giải\s*thích|correct\s*(?:answer|option)|answer(?:\s*is)?|right\s*answer|ans|key|explanation|explain|rationale|reason).*',
+                r'(?i)(?:đáp\s*án(?:\s*đúng)?|giải\s*thích|correct\s*(?:answer|option)|answer(?:\s*is)?|right\s*answer|ans|key|explanation|explain|rationale|reason|richtige\s*antwort|antwort|lösung).*',
                 '',
                 opt_text
             ).strip()
@@ -314,7 +327,7 @@ def rule_based_parse_questions(raw_text: str, subject: str = "Điện toán đá
             continue
 
         ans_match = re.search(
-            r'(?:đáp\s*án(?:\s*đúng)?|đ\/a|correct\s*(?:answer|option)|answer(?:\s*is)?|right\s*answer|ans|key)[:\s]*\(?([A-F])\)?',
+            r'(?:đáp\s*án(?:\s*đúng)?|đ\/a|correct\s*(?:answer|option)|answer(?:\s*is)?|right\s*answer|ans|key|richtige\s*antwort|antwort|lösung)[:\s]*\(?([A-F])\)?',
             line,
             re.IGNORECASE
         )
@@ -709,12 +722,12 @@ def clean_gemini_json_response(raw_text: str):
     return None
 
 
-def parse_questions_with_gemini(raw_text: str, subject: str = "Điện toán đám mây", topic: str = "Kiến trúc hệ thống", model: str = "", api_key: str = "") -> tuple:
+def parse_questions_with_gemini(raw_text: str, subject: str = "Điện toán đám mây", topic: str = "Kiến trúc hệ thống", model: str = "", api_key: str = "", lang: str = "") -> tuple:
     """Gọi Google Gemini API (hỗ trợ gemini-2.0-flash, gemini-1.5-flash, gemini-2.5-flash, gemini-1.5-pro, v.v.) để phân tích đề thi sang JSON chuẩn."""
     active_key = api_key.strip() if api_key else get_gemini_api_key()
     if not active_key:
         print("[WARN] GEMINI_API_KEY chưa cấu hình, sử dụng rule-based fallback parser.")
-        return rule_based_parse_questions(raw_text, subject, topic), "Rule-based Fallback"
+        return rule_based_parse_questions(raw_text, subject, topic, lang=lang), "Rule-based Fallback"
 
     primary_model = (model.strip() if model else GEMINI_MODEL).replace(" ", "-")
     target_primary = normalize_gemini_model(primary_model)
@@ -735,17 +748,47 @@ def parse_questions_with_gemini(raw_text: str, subject: str = "Điện toán đ�
         if fb not in models_to_try:
             models_to_try.append(fb)
 
+    detected_lang = (lang or "").strip().lower()
+    if detected_lang not in ["de", "en", "la", "vi"]:
+        if re.search(r'[\u0E80-\u0EFF]', raw_text) or "ພາສາລາວ" in raw_text:
+            detected_lang = "la"
+        elif re.search(r'\b(erstelle|fragen?|antworten?|welche[rs]?|deutsch|deutschland|bitte|multiple-choice|wähle|optionen)\b', raw_text, re.IGNORECASE):
+            detected_lang = "de"
+        elif re.search(r'\b(generate|create|questions?|which|what|choose|select|following|answer|options?)\b', raw_text, re.IGNORECASE):
+            detected_lang = "en"
+        else:
+            detected_lang = "vi"
+
+    lang_instructions = {
+        "de": """QUAN TRỌNG VỀ NGÔN NGỮ (LANGUAGE REQUIREMENT - CỰC KỲ QUAN TRỌNG):
+Người dùng yêu cầu soạn đề bằng TIẾNG ĐỨC (GERMAN / DEUTSCH).
+BẮT BUỘC 100% nội dung câu hỏi ("content"), các lựa chọn A, B, C, D ("options"), đáp án đúng ("correctAnswer") và gợi ý chấm điểm PHẢI ĐƯỢC VIẾT HOÀN TOÀN BẰNG TIẾNG ĐỨC (GERMAN).
+TUYỆT ĐỐI KHÔNG ĐƯỢC sinh nội dung bằng tiếng Việt hoặc tiếng Anh.""",
+        "en": """LANGUAGE REQUIREMENT (CRITICAL):
+The user requested questions in ENGLISH.
+All question contents ("content"), options ("options"), and correct answers ("correctAnswer") MUST BE WRITTEN 100% IN ENGLISH.
+DO NOT output in Vietnamese.""",
+        "la": """ຂໍ້ກຳນົດດ້ານພາສາ (LANGUAGE REQUIREMENT - CRITICAL):
+ຜູ້ໃຊ້ຕ້ອງການຄຳຖາມເປັນ ພາສາລາວ (LAO LANGUAGE).
+ເນື້ອໃນຄຳຖາມ ("content"), ຕົວເລືອກ ("options") ແລະ ຄຳຕອບທີ່ຖືກຕ້ອງ ("correctAnswer") ທັງໝົດ ຕ້ອງຂຽນເປັນພາສາລາວ.
+ຫ້າມສ້າງເປັນພາສາຫວຽດນາມ.""",
+        "vi": """YÊU CẦU NGÔN NGỮ:
+Sinh toàn bộ câu hỏi, phương án và đáp án bằng TIẾNG VIỆT."""
+    }.get(detected_lang, "")
+
     prompt = f"""Bạn là chuyên gia số hóa và biên soạn đề thi cho hệ thống Khảo thí CloudExam.
 Hãy xử lý nội dung văn bản dưới đây:
 - Nếu văn bản là đề thi có sẵn, hãy trích xuất toàn bộ câu hỏi và đáp án thành danh sách câu hỏi chuẩn (hỗ trợ cả Trắc nghiệm và Tự luận).
 - Nếu văn bản là yêu cầu tạo/soạn câu hỏi (ví dụ: 'Tạo 5 câu hỏi tự luận...', 'Soạn câu hỏi về...', 'Tạo đề thi gồm trắc nghiệm và tự luận...'), hãy sử dụng tri thức chuyên môn để tự động sinh ra ĐÚNG 100% số lượng và loại câu hỏi chất lượng cao tương ứng.
-Hệ thống hỗ trợ cả đề thi Tiếng Việt và Tiếng Anh (Bilingual English / Vietnamese).
+Hệ thống hỗ trợ đa ngôn ngữ quốc tế (Đức, Anh, Lào, Việt).
+
+{lang_instructions}
 
 QUY TẮC PHÂN LOẠI CÂU HỎI (QUAN TRỌNG):
 1. CÂU HỎI TRẮC NGHIỆM (SINGLE_CHOICE):
 - Áp dụng khi câu hỏi có các lựa chọn A, B, C, D hoặc người dùng yêu cầu trắc nghiệm.
 - "type": "SINGLE_CHOICE"
-- "content": Nội dung câu hỏi (loại bỏ tiền tố "Câu 1:", "Question 1:", "1." nếu có).
+- "content": Nội dung câu hỏi (loại bỏ tiền tố "Câu 1:", "Question 1:", "Frage 1:", "1." nếu có).
 - "options": Mảng 4 phần tử chuỗi các phương án lựa chọn A, B, C, D (loại bỏ tiền tố A., B., C., D.; TUYỆT ĐỐI KHÔNG chứa đáp án hoặc giải thích bên trong lựa chọn).
 - "correctIndex": Số nguyên 0..n (0 cho A, 1 cho B, 2 cho C, 3 cho D).
 - "correctAnswer": Nội dung chuỗi của đáp án đúng (khớp với options[correctIndex]).
@@ -809,40 +852,80 @@ Nội dung đề thi / Yêu cầu:
                 break
             continue
 
-    return rule_based_parse_questions(raw_text, subject, topic), f"Rule-based Fallback ({primary_model} Error)"
+    return rule_based_parse_questions(raw_text, subject, topic, lang=lang), f"Rule-based Fallback ({primary_model} Error)"
 
 
-def explain_answer_with_gemini(content: str, options: list, chosen_idx: int, correct_idx: int, chosen_answer: str, correct_answer: str, subject: str = "", model: str = "", api_key: str = "") -> tuple:
-    """Tạo lời giải thích chi tiết cho câu hỏi từ Google Gemini AI."""
-    status_label = "CHÍNH XÁC" if chosen_idx == correct_idx else "CHƯA ĐÚNG"
+def explain_answer_with_gemini(content: str, options: list, chosen_idx: int, correct_idx: int, chosen_answer: str, correct_answer: str, subject: str = "", model: str = "", api_key: str = "", lang: str = "") -> tuple:
+    """Tạo lời giải thích chi tiết cho câu hỏi từ Google Gemini AI theo đúng ngôn ngữ người dùng."""
+    detected_lang = (lang or "").strip().lower()
+    if detected_lang not in ["de", "en", "la", "vi"]:
+        combined_text = f"{content} {' '.join(options)}"
+        if re.search(r'[\u0E80-\u0EFF]', combined_text):
+            detected_lang = "la"
+        elif re.search(r'\b(welche[rs]?|frage|antwort|lösung|deutsch)\b', combined_text, re.IGNORECASE):
+            detected_lang = "de"
+        elif re.search(r'\b(which|what|question|answer|correct|option)\b', combined_text, re.IGNORECASE):
+            detected_lang = "en"
+        else:
+            detected_lang = "vi"
+
+    status_label = {
+        "de": "RICHTIG" if chosen_idx == correct_idx else "FALSCH",
+        "en": "CORRECT" if chosen_idx == correct_idx else "INCORRECT",
+        "la": "ຖືກຕ້ອງ" if chosen_idx == correct_idx else "ບໍ່ຖືກຕ້ອງ",
+        "vi": "CHÍNH XÁC" if chosen_idx == correct_idx else "CHƯA ĐÚNG",
+    }.get(detected_lang, "CHÍNH XÁC" if chosen_idx == correct_idx else "CHƯA ĐÚNG")
+
     primary_model = (model.strip() if model else GEMINI_MODEL).replace(" ", "-")
     active_key = api_key.strip() if api_key else get_gemini_api_key()
     if not active_key:
-        fallback_msg = (
-            f"Đáp án chính xác là: {correct_answer} (Phương án {chr(ord('A') + correct_idx) if 0 <= correct_idx < 4 else ''}).\n"
-            f"Lựa chọn của bạn: {chosen_answer} ({status_label}).\n"
-            f"Phân tích: {correct_answer} đáp ứng đầy đủ yêu cầu của câu hỏi trong môn học {subject or 'hệ thống'}. "
-            f"Hãy xem lại lý thuyết chuyên đề để củng cố kiến thức này."
-        )
+        fallback_msg = {
+            "de": (
+                f"Die richtige Antwort ist: {correct_answer} (Option {chr(ord('A') + correct_idx) if 0 <= correct_idx < 4 else ''}).\n"
+                f"Ihre Auswahl: {chosen_answer} ({status_label}).\n"
+                f"Erklärung: {correct_answer} erfüllt die Anforderungen der Frage in {subject or 'dem Thema'} vollständig."
+            ),
+            "en": (
+                f"The correct answer is: {correct_answer} (Option {chr(ord('A') + correct_idx) if 0 <= correct_idx < 4 else ''}).\n"
+                f"Your choice: {chosen_answer} ({status_label}).\n"
+                f"Explanation: {correct_answer} accurately answers the question within {subject or 'the system'}."
+            ),
+            "la": (
+                f"ຄຳຕອບທີ່ຖືກຕ້ອງແມ່ນ: {correct_answer} (ຕົວເລືອກ {chr(ord('A') + correct_idx) if 0 <= correct_idx < 4 else ''}).\n"
+                f"ຕົວເລືອກຂອງທ່ານ: {chosen_answer} ({status_label})."
+            ),
+            "vi": (
+                f"Đáp án chính xác là: {correct_answer} (Phương án {chr(ord('A') + correct_idx) if 0 <= correct_idx < 4 else ''}).\n"
+                f"Lựa chọn của bạn: {chosen_answer} ({status_label}).\n"
+                f"Phân tích: {correct_answer} đáp ứng đầy đủ yêu cầu của câu hỏi trong môn học {subject or 'hệ thống'}."
+            ),
+        }.get(detected_lang, f"Đáp án đúng là: {correct_answer}")
         return fallback_msg, "Deterministic Fallback"
 
-    prompt = f"""Bạn là Trợ lý Gia sư ảo AI của hệ thống thi trắc nghiệm CloudExam.
-Hãy giải thích ngắn gọn, xúc tích, sư phạm bằng tiếng Việt câu trắc nghiệm sau cho thí sinh:
+    lang_prompt_map = {
+        "de": "Bitte erkläre die folgende Multiple-Choice-Frage kurz, prägnant und didaktisch auf DEUTSCH:",
+        "en": "Please explain the following multiple-choice question concisely and pedagogically in ENGLISH:",
+        "la": "ກະລຸນາອະທິບາຍຄຳຖາມປາລະໄນຕໍ່ໄປນີ້ຢ່າງກະທັດຮັດ ແລະ ເຂົ້າໃຈງ່າຍ ເປັນພາສາລາວ:",
+        "vi": "Hãy giải thích ngắn gọn, xúc tích, sư phạm bằng TIẾNG VIỆT câu trắc nghiệm sau cho thí sinh:",
+    }
 
-Câu hỏi: {content}
-Các phương án:
+    prompt = f"""Bạn là Trợ lý Gia sư ảo AI của hệ thống thi trắc nghiệm CloudExam.
+{lang_prompt_map.get(detected_lang, lang_prompt_map['vi'])}
+
+Câu hỏi / Question: {content}
+Các phương án / Options:
 A. {options[0] if len(options) > 0 else ''}
 B. {options[1] if len(options) > 1 else ''}
 C. {options[2] if len(options) > 2 else ''}
 D. {options[3] if len(options) > 3 else ''}
 
-Thí sinh đã chọn: {chosen_answer} ({status_label})
-Đáp án đúng: {correct_answer}
+Thí sinh đã chọn / Selected: {chosen_answer} ({status_label})
+Đáp án đúng / Correct Answer: {correct_answer}
 
 YÊU CẦU:
-1. Giải thích vì sao đáp án đúng '{correct_answer}' là chuẩn xác.
-2. Nếu thí sinh chọn sai, phân tích điểm sai hoặc bẫy nhận thức trong lựa chọn '{chosen_answer}'.
-3. Đưa ra mẹo nhớ hoặc kết luận 1 câu ngắn gọn.
+1. Giải thích lý do đáp án đúng là chuẩn xác bằng đúng ngôn ngữ {detected_lang}.
+2. Nếu thí sinh chọn sai, chỉ ra bẫy nhận thức trong lựa chọn '{chosen_answer}'.
+3. Đưa ra mẹo ghi nhớ ngắn gọn (1-2 câu).
 """
 
     target_primary = normalize_gemini_model(primary_model)
@@ -1232,7 +1315,8 @@ def lambda_handler(event, context):
 
             req_model = body.get("model") or ""
             req_key = body.get("apiKey") or body.get("geminiApiKey") or body.get("api_key") or ""
-            extracted_questions, source = parse_questions_with_gemini(raw_text, subject=subject, topic=topic, model=req_model, api_key=req_key)
+            req_lang = body.get("lang") or ""
+            extracted_questions, source = parse_questions_with_gemini(raw_text, subject=subject, topic=topic, model=req_model, api_key=req_key, lang=req_lang)
             saved_questions = []
 
             for q in extracted_questions:
@@ -1785,6 +1869,11 @@ def lambda_handler(event, context):
                         else:
                             s["status"] = "SCHEDULED"
 
+                    if not s.get("roomPassword"):
+                        s["roomPassword"] = "123456"
+                    if "lockedCandidates" not in s:
+                        s["lockedCandidates"] = {}
+
                     clean_items.append(s)
 
                 if is_admin:
@@ -1824,6 +1913,11 @@ def lambda_handler(event, context):
                 wait_seconds = max(0, int((start_dt - now_utc).total_seconds()))
                 duration_seconds = max(60, int((end_dt - start_dt).total_seconds()))
 
+                import random
+                room_pwd = body.get("roomPassword") or body.get("password")
+                if not room_pwd:
+                    room_pwd = f"{random.randint(100000, 999999)}"
+
                 item = {
                     "id": session_id,
                     "name": body.get("name", "Ca thi trực tuyến"),
@@ -1834,6 +1928,8 @@ def lambda_handler(event, context):
                     "candidateEmails": body.get("candidateEmails", []),
                     "ownerEmail": user_email,
                     "createdBy": user_email,
+                    "roomPassword": str(room_pwd),
+                    "lockedCandidates": body.get("lockedCandidates", {}),
                     "link": f"https://cloudexam.vn/exam/{session_id}",
                     "createdAt": now_utc.isoformat(),
                     "submissions": {},
@@ -1881,6 +1977,31 @@ def lambda_handler(event, context):
                     else:
                         item["status"] = "SCHEDULED"
 
+                if not item.get("roomPassword"):
+                    item["roomPassword"] = "123456"
+                if "lockedCandidates" not in item:
+                    item["lockedCandidates"] = {}
+
+                # Đính kèm hồ sơ chi tiết của thí sinh trong ca thi
+                cand_emails = item.get("candidateEmails", [])
+                candidates_list = []
+                for email_cand in cand_emails:
+                    try:
+                        clean_e = str(email_cand).strip().lower()
+                        c_res = candidates_table.get_item(Key={"email": clean_e})
+                        if c_res.get("Item"):
+                            ci = c_res["Item"]
+                            candidates_list.append({
+                                "studentCode": ci.get("studentCode", ""),
+                                "name": ci.get("name", clean_e),
+                                "email": clean_e,
+                                "className": ci.get("className", ""),
+                                "faceImageUrl": ci.get("faceImageUrl", "")
+                            })
+                    except Exception as ce:
+                        print(f"Error enriching candidate {email_cand}: {ce}")
+                item["candidates"] = candidates_list
+
                 return build_response(200, item)
 
             elif http_method == "PUT":
@@ -1906,6 +2027,8 @@ def lambda_handler(event, context):
                 name = body.get("name")
                 start_time = body.get("startTime")
                 end_time = body.get("endTime")
+                room_pwd = body.get("roomPassword")
+                locked_candidates = body.get("lockedCandidates")
 
                 update_parts = []
                 expr_vals = {}
@@ -1931,6 +2054,12 @@ def lambda_handler(event, context):
                 if end_time:
                     update_parts.append("endTime = :edt")
                     expr_vals[":edt"] = end_time
+                if room_pwd:
+                    update_parts.append("roomPassword = :rp")
+                    expr_vals[":rp"] = str(room_pwd)
+                if locked_candidates is not None:
+                    update_parts.append("lockedCandidates = :lc")
+                    expr_vals[":lc"] = locked_candidates
 
                 if update_parts:
                     kwargs = {
@@ -2409,6 +2538,7 @@ def lambda_handler(event, context):
 
             req_model = body.get("model") or ""
             req_key = body.get("apiKey") or body.get("geminiApiKey") or body.get("api_key") or ""
+            req_lang = body.get("lang") or ""
             explanation_text, source = explain_answer_with_gemini(
                 content=content or "Câu hỏi trắc nghiệm",
                 options=options,
@@ -2418,7 +2548,8 @@ def lambda_handler(event, context):
                 correct_answer=correct_answer,
                 subject=subject,
                 model=req_model,
-                api_key=req_key
+                api_key=req_key,
+                lang=req_lang
             )
 
             return build_response(200, {

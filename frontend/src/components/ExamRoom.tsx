@@ -11,6 +11,7 @@ import {
   requestPresignedUploadUrl,
   uploadBinaryToS3,
   resolveSessionStatus,
+  DEFAULT_CANDIDATES,
   type ExamSession,
   type Question,
   type Candidate,
@@ -301,19 +302,6 @@ export const ExamRoom = ({ sessionId, currentUserEmail = '', isOrganizer = false
     }
   };
 
-  const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (file) {
-      setCapturedBlob(file);
-      const reader = new FileReader();
-      reader.onloadend = () => {
-        setCapturedImage(reader.result as string);
-        stopCamera();
-      };
-      reader.readAsDataURL(file);
-    }
-  };
-
   const handleVerifyFace = async () => {
     if (!capturedImage) return alert(t('alert_capture_face_required'));
     if (!candidateEmail) return alert(t('alert_select_candidate_required'));
@@ -321,12 +309,16 @@ export const ExamRoom = ({ sessionId, currentUserEmail = '', isOrganizer = false
     setIsVerifying(true);
     setVerifyResult(null);
     try {
+      const localTokenKey = `cloudexam_cand_token_${sessionId}_${candidateEmail.toLowerCase()}`;
+      const existingDevToken = localStorage.getItem(localTokenKey) || '';
+
       let s3Key = '';
       if (capturedBlob) {
         try {
-          const matchedCand = candidates.find(
-            (c) => c.email.toLowerCase() === candidateEmail.toLowerCase()
-          );
+          const matchedCand =
+            candidates.find((c) => c.email.toLowerCase() === candidateEmail.toLowerCase()) ||
+            (session as any)?.candidates?.find((c: any) => c.email.toLowerCase() === candidateEmail.toLowerCase()) ||
+            DEFAULT_CANDIDATES.find((c) => c.email.toLowerCase() === candidateEmail.toLowerCase());
           const studentCode = matchedCand?.studentCode || candidateEmail.split('@')[0];
           const facePresign = await requestFacePresignedUrl(sessionId, studentCode);
           if (facePresign && facePresign.uploadUrl) {
@@ -356,12 +348,35 @@ export const ExamRoom = ({ sessionId, currentUserEmail = '', isOrganizer = false
         capturedImage: s3Key ? undefined : capturedImage,
         capturedS3Key: s3Key || undefined,
         email: candidateEmail,
+        roomPassword: session?.roomPassword || '123456',
+        deviceToken: existingDevToken || undefined,
       });
+
+      if (result.verified) {
+        const finalToken = result.deviceToken || existingDevToken || `tok_${Date.now()}`;
+        localStorage.setItem(localTokenKey, finalToken);
+        setSession((prev) => {
+          if (!prev) return prev;
+          return {
+            ...prev,
+            lockedCandidates: {
+              ...(prev.lockedCandidates || {}),
+              [candidateEmail.toLowerCase()]: {
+                locked: true,
+                deviceToken: finalToken,
+                candidateName: currentCandidateObj?.name || candidateEmail,
+                lockedAt: new Date().toISOString(),
+              },
+            },
+          };
+        });
+      }
+
       setVerifyResult(result);
     } catch (err: any) {
       let msg = err?.response?.data?.message || err?.response?.data?.error || err?.message || t('face_verify_failed');
       if (msg === 'Forbidden' || err?.response?.status === 403) {
-        msg = t('face_mismatch_desc');
+        msg = err?.response?.data?.message || t('face_mismatch_desc');
       }
       setVerifyResult({
         status: 'FAIL',
@@ -411,9 +426,12 @@ export const ExamRoom = ({ sessionId, currentUserEmail = '', isOrganizer = false
     return `${m.toString().padStart(2, '0')}:${s.toString().padStart(2, '0')}`;
   };
 
-  const currentCandidateObj = candidates.find(
-    (c) => c.email.toLowerCase() === candidateEmail.toLowerCase()
-  );
+  const currentCandidateObj =
+    candidates.find((c) => c.email.toLowerCase() === candidateEmail.toLowerCase()) ||
+    (session as any)?.candidates?.find(
+      (c: any) => c.email.toLowerCase() === candidateEmail.toLowerCase()
+    ) ||
+    DEFAULT_CANDIDATES.find((c) => c.email.toLowerCase() === candidateEmail.toLowerCase());
 
   if (loadingSession) {
     return (
@@ -723,11 +741,12 @@ export const ExamRoom = ({ sessionId, currentUserEmail = '', isOrganizer = false
                   <span>{t('exam_camera_flip')}</span>
                   <span className="text-[10px] text-indigo-600 font-bold font-mono">({isMirrored ? t('exam_camera_mirror') : t('exam_camera_normal')})</span>
                 </button>
+              </div>
 
-                <label className="py-1.5 px-3.5 bg-white border border-slate-200 text-slate-700 rounded-xl text-xs font-medium hover:bg-slate-50 cursor-pointer transition">
-                  {t('exam_upload_file')}
-                  <input type="file" accept="image/*" onChange={handleFileUpload} className="hidden" />
-                </label>
+              {/* Thông báo bắt buộc chụp trực tiếp từ camera (không cho up ảnh từ máy) */}
+              <div className="p-2.5 bg-amber-50/80 border border-amber-200/80 rounded-xl text-[11px] text-amber-800 flex items-center justify-center gap-1.5 font-medium">
+                <span className="text-amber-600">📸</span>
+                <span>{t('exam_camera_only_notice')}</span>
               </div>
             </div>
           </div>
@@ -762,6 +781,12 @@ export const ExamRoom = ({ sessionId, currentUserEmail = '', isOrganizer = false
                   </span>
                   <span>{verifyResult.verified ? t('exam_camera_success') : t('exam_camera_failed')}</span>
                 </div>
+                {verifyResult.verified && (
+                  <div className="px-3 py-1.5 bg-emerald-100/70 border border-emerald-300 rounded-xl text-emerald-900 font-semibold text-[11px] flex items-center gap-1.5">
+                    <span>🔒</span>
+                    <span>{t('exam_account_locked_success')}</span>
+                  </div>
+                )}
                 <p className="leading-relaxed text-slate-600">{verifyResult.message}</p>
                 {verifyResult.similarity > 0 && (
                   <div className="space-y-1">

@@ -27,7 +27,7 @@ interface Props {
 }
 
 export const QuestionBankTab = ({ questions, onRefresh }: Props) => {
-  const { t } = useTranslation();
+  const { t, lang } = useTranslation();
   const currentUser = getCurrentUser();
   const lecturerEmail = (currentUser.email || 'annv@uet.vnu.edu.vn').toLowerCase().trim();
   const lecturerName =
@@ -451,6 +451,11 @@ export const QuestionBankTab = ({ questions, onRefresh }: Props) => {
     }
   };
 
+  // Cập nhật câu prompt gợi ý mỗi khi đổi ngôn ngữ hệ thống
+  useEffect(() => {
+    setImportText(t('qb_ai_default_prompt', { count: importCount }));
+  }, [lang]);
+
   const handleOpenImportModal = () => {
     const target =
       selectedBankFilter !== 'ALL'
@@ -458,8 +463,23 @@ export const QuestionBankTab = ({ questions, onRefresh }: Props) => {
         : bankId || lecturerBanks[0]?.id || '';
     setImportBankId(target);
     const found = lecturerBanks.find((b) => b.id === target);
-    setImportSubject(found?.subject || 'Điện toán đám mây');
-    setImportTopic('Kiến trúc hệ thống AWS');
+
+    const defaultSubjectByLang: Record<string, string> = {
+      de: 'Cloud Computing & Systemarchitektur',
+      en: 'Cloud Computing & System Architecture',
+      la: 'ຄລາວຄອມພິວຕິ້ງ ແລະ ສະຖາປັດຕະຍະກຳລະບົບ',
+      vi: 'Điện toán đám mây & Kiến trúc hệ thống',
+    };
+    const defaultTopicByLang: Record<string, string> = {
+      de: 'AWS-Systemarchitektur',
+      en: 'AWS System Architecture',
+      la: 'ສະຖາປັດຕະຍະກຳ AWS',
+      vi: 'Kiến trúc hệ thống AWS',
+    };
+
+    setImportSubject(found?.subject || defaultSubjectByLang[lang] || defaultSubjectByLang.vi);
+    setImportTopic(defaultTopicByLang[lang] || defaultTopicByLang.vi);
+    setImportText(t('qb_ai_default_prompt', { count: importCount }));
     setImportError('');
     setImportSuccessMessage('');
     setExtractedQuestions([]);
@@ -514,14 +534,15 @@ export const QuestionBankTab = ({ questions, onRefresh }: Props) => {
 
       const res: ParseDocResponse = await parseQuestionsFromDoc({
         bankId: importBankId || bankId || '',
-        subject: importSubject.trim() || subject || 'Điện toán đám mây',
-        topic: importTopic.trim() || topic || 'Kiến trúc đám mây',
+        subject: importSubject.trim() || subject || (lang === 'de' ? 'Cloud Computing' : 'Điện toán đám mây'),
+        topic: importTopic.trim() || topic || (lang === 'de' ? 'AWS-Systemarchitektur' : 'Kiến trúc đám mây'),
         fileBase64,
         docText,
         text: docText,
         autoSave: importAutoSave,
         model: importModel.trim() || undefined,
         apiKey: importApiKey.trim() || undefined,
+        lang,
       });
 
       setImportSuccessMessage(
