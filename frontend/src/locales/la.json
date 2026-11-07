@@ -390,6 +390,7 @@
   "qb_model_gemini_38": "Gemini 3.8 Flash (ຮຸ່ນທຸງ)",
   "qb_model_gemini_37": "Gemini 3.7 Flash (ໄວ ແລະ ສົມດຸນ)",
   "qb_model_gemini_36": "Gemini 3.6 Flash",
+  "qb_model_gemini_35": "Gemini 3.5 Flash (ເບົາ ແລະ ໄວ)",
   "qb_model_default": "ຄ່າເລີ່ມຕົ້ນ / ໄວທີ່ສຸດ",
   "qb_model_standard": "ມາດຕະຖານ",
   "qb_model_latest": "ໃໝ່ລ່າສຸດ",

@@ -390,6 +390,7 @@
   "qb_model_gemini_38": "Gemini 3.8 Flash (Thế hệ Flagship)",
   "qb_model_gemini_37": "Gemini 3.7 Flash (Cân bằng & Tốc độ)",
   "qb_model_gemini_36": "Gemini 3.6 Flash",
+  "qb_model_gemini_35": "Gemini 3.5 Flash (Nhẹ & Nhanh)",
   "qb_model_default": "Mặc định / Siêu tốc",
   "qb_model_standard": "Tiêu chuẩn",
   "qb_model_latest": "Mới nhất",

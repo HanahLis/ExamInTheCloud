@@ -90,7 +90,7 @@ export const QuestionBankTab = ({ questions, onRefresh }: Props) => {
     return (
       (typeof window !== 'undefined' ? localStorage.getItem('cloudexam_gemini_model') : '') ||
       (import.meta as any).env.VITE_GEMINI_MODEL ||
-      'gemini-3.8-flash'
+      'gemini-3.6-flash'
     );
   });
 
@@ -1310,6 +1310,7 @@ export const QuestionBankTab = ({ questions, onRefresh }: Props) => {
                       <option value="gemini-3.8-flash">gemini-3.8-flash ({t('qb_model_gemini_38')})</option>
                       <option value="gemini-3.7-flash">gemini-3.7-flash ({t('qb_model_gemini_37')})</option>
                       <option value="gemini-3.6-flash">gemini-3.6-flash ({t('qb_model_gemini_36')})</option>
+                      <option value="gemini-3.5-flash">gemini-3.5-flash ({t('qb_model_gemini_35')})</option>
                       <option value="gemini-2.0-flash">gemini-2.0-flash ({t('qb_model_default')})</option>
                       <option value="gemini-1.5-flash">gemini-1.5-flash ({t('qb_model_standard')})</option>
                       <option value="gemini-2.5-flash">gemini-2.5-flash ({t('qb_model_preview')})</option>

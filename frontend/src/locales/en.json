@@ -390,6 +390,7 @@
   "qb_model_gemini_38": "Gemini 3.8 Flash (Flagship)",
   "qb_model_gemini_37": "Gemini 3.7 Flash (Balanced Speed)",
   "qb_model_gemini_36": "Gemini 3.6 Flash",
+  "qb_model_gemini_35": "Gemini 3.5 Flash (Light & Fast)",
   "qb_model_default": "Default / Ultra-fast",
   "qb_model_standard": "Standard",
   "qb_model_latest": "Latest",

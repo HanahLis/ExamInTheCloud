@@ -37,7 +37,7 @@ SNS_TOPIC_ARN = os.getenv("SNS_TOPIC_ARN", "")
 # Người dùng cung cấp key qua giao diện (payload.apiKey) hoặc biến môi trường GEMINI_API_KEY / SSM.
 DEFAULT_GEMINI_KEY = ""
 GEMINI_API_KEY = os.getenv("GEMINI_API_KEY", DEFAULT_GEMINI_KEY).strip()
-GEMINI_MODEL = os.getenv("GEMINI_MODEL", "gemini-3.8-flash").strip() or "gemini-3.8-flash"
+GEMINI_MODEL = os.getenv("GEMINI_MODEL", "gemini-3.6-flash").strip() or "gemini-3.6-flash"
 UPSTASH_REDIS_REST_URL = os.getenv("UPSTASH_REDIS_REST_URL", "").strip().rstrip("/")
 UPSTASH_REDIS_REST_TOKEN = os.getenv("UPSTASH_REDIS_REST_TOKEN", "").strip()
 CLOUDFLARE_TURNSTILE_SECRET_KEY = os.getenv("CLOUDFLARE_TURNSTILE_SECRET_KEY", "").strip()
@@ -717,15 +717,15 @@ def parse_questions_with_gemini(raw_text: str, subject: str = "Điện toán đ�
     target_primary = normalize_gemini_model(primary_model)
 
     # Danh sách model kiểm chứng thực tế trên Google AI Studio
-    # Ưu tiên dòng mô hình Gemini 3.8/3.7/3.6 Flash và thế hệ hỗ trợ JSON Mode
+    # 3.8/3.7-flash có thể treo rất lâu với một số key → xếp sau model phản hồi nhanh (3.6/3.5)
     models_to_try = [target_primary]
     for fb in [
+        "gemini-3.6-flash",
+        "gemini-3.5-flash",
         "gemini-3.8-flash",
         "gemini-3.7-flash",
-        "gemini-3.6-flash",
-        "gemini-2.0-flash",
-        "gemini-1.5-flash",
         "gemini-2.5-flash",
+        "gemini-1.5-flash",
         "gemini-1.5-pro",
         "gemini-2.0-flash-lite",
     ]:
@@ -790,7 +790,7 @@ Nội dung đề thi / Yêu cầu:
                 },
                 method="POST"
             )
-            with urllib.request.urlopen(req, timeout=10) as resp:
+            with urllib.request.urlopen(req, timeout=12) as resp:
                 resp_body = json.loads(resp.read().decode("utf-8"))
                 candidates = resp_body.get("candidates", [])
                 if candidates:
@@ -845,12 +845,12 @@ YÊU CẦU:
     target_primary = normalize_gemini_model(primary_model)
     models_to_try = [target_primary]
     for fb in [
+        "gemini-3.6-flash",
+        "gemini-3.5-flash",
         "gemini-3.8-flash",
         "gemini-3.7-flash",
-        "gemini-3.6-flash",
-        "gemini-2.0-flash",
-        "gemini-1.5-flash",
         "gemini-2.5-flash",
+        "gemini-1.5-flash",
         "gemini-1.5-pro",
         "gemini-2.0-flash-lite",
     ]:
@@ -879,7 +879,7 @@ YÊU CẦU:
                 },
                 method="POST"
             )
-            with urllib.request.urlopen(req, timeout=10) as resp:
+            with urllib.request.urlopen(req, timeout=12) as resp:
                 resp_body = json.loads(resp.read().decode("utf-8"))
                 candidates = resp_body.get("candidates", [])
                 if candidates:
