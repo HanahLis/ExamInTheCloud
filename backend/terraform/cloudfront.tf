@@ -200,7 +200,7 @@ resource "terraform_data" "frontend_build_deploy" {
   ]
 
   provisioner "local-exec" {
-    command = "aws s3 sync ${path.module}/../../frontend/dist s3://${aws_s3_bucket.frontend_hosting.id} --delete && aws cloudfront create-invalidation --distribution-id ${aws_cloudfront_distribution.spa_distribution.id} --paths '/*' || (python3 ${path.module}/../../scripts/deploy_frontend.py || true)"
+    command = "aws s3 sync ${path.module}/../../frontend/dist s3://${aws_s3_bucket.frontend_hosting.id} --delete && aws cloudfront create-invalidation --distribution-id ${aws_cloudfront_distribution.spa_distribution.id} --paths /* || (python3 ${path.module}/../../scripts/deploy_frontend.py || echo FRONTEND_FALLBACK_DEPLOY_FAILED)"
   }
 
   depends_on = [
