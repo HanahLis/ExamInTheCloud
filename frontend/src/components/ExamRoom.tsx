@@ -18,6 +18,11 @@ import {
   type ExamSubmitResult,
 } from '../services/apiService';
 import { useTranslation } from '../locales/i18nContext';
+import { TurnstileCaptcha } from './TurnstileCaptcha';
+import { LiveLeaderboard } from './LiveLeaderboard';
+
+const TURNSTILE_SITE_KEY = (import.meta.env.VITE_TURNSTILE_SITE_KEY || '').trim();
+const TURNSTILE_DEV_TOKEN = '1x0000000000000000000000000000000AA';
 
 interface Props {
   sessionId: string;
@@ -64,6 +69,8 @@ export const ExamRoom = ({ sessionId, currentUserEmail = '', isOrganizer = false
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [submitResult, setSubmitResult] = useState<ExamSubmitResult | null>(null);
   const [timeLeft, setTimeLeft] = useState<number>(45 * 60);
+  const [turnstileToken, setTurnstileToken] = useState('');
+  const [turnstileResetKey, setTurnstileResetKey] = useState(0);
 
   // Tải đề thi an toàn và nạp lại bài nháp
   useEffect(() => {
@@ -368,6 +375,12 @@ export const ExamRoom = ({ sessionId, currentUserEmail = '', isOrganizer = false
   };
 
   const handleSubmitExam = async (isAutoSubmit = false) => {
+    if (TURNSTILE_SITE_KEY && !turnstileToken) {
+      if (!isAutoSubmit) {
+        alert(t('exam_turnstile_required'));
+        return;
+      }
+    }
     if (!isAutoSubmit && !confirm(t('exam_submit_confirm'))) return;
     setIsSubmitting(true);
     try {
@@ -376,7 +389,7 @@ export const ExamRoom = ({ sessionId, currentUserEmail = '', isOrganizer = false
         sessionId,
         answers: answersRef.current || answers,
         candidateEmail,
-        turnstileToken: '1x0000000000000000000000000000000AA',
+        turnstileToken: turnstileToken || (TURNSTILE_SITE_KEY ? '' : TURNSTILE_DEV_TOKEN),
       });
       setSubmitResult(res.result);
       setStep('COMPLETED');
@@ -385,6 +398,8 @@ export const ExamRoom = ({ sessionId, currentUserEmail = '', isOrganizer = false
       }
     } catch (err: any) {
       alert(`${t('alert_submit_exam_error')} ${err?.response?.data?.error || err?.message || err}`);
+      setTurnstileToken('');
+      setTurnstileResetKey((k) => k + 1);
     } finally {
       setIsSubmitting(false);
     }
@@ -885,16 +900,37 @@ export const ExamRoom = ({ sessionId, currentUserEmail = '', isOrganizer = false
             })}
           </div>
 
-          <div className="pt-4 border-t border-slate-100 flex justify-end">
-            <button
-              onClick={() => handleSubmitExam(false)}
-              disabled={isSubmitting}
-              className="py-3 px-8 bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-500 hover:to-teal-500 text-white font-semibold rounded-2xl text-xs shadow-md shadow-emerald-200 disabled:opacity-40 transition cursor-pointer active:scale-[0.99]"
-            >
-              {isSubmitting ? t('exam_submitting_btn') : t('exam_submit_btn')}
-            </button>
+          <div className="pt-4 border-t border-slate-100 space-y-4">
+            {TURNSTILE_SITE_KEY && (
+              <div className="flex flex-col items-center gap-2 p-4 bg-slate-50/70 border border-slate-200/80 rounded-2xl">
+                <p className="text-xs font-semibold text-slate-700">{t('exam_turnstile_verify_label')}</p>
+                <TurnstileCaptcha
+                  siteKey={TURNSTILE_SITE_KEY}
+                  onVerify={setTurnstileToken}
+                  onExpire={() => setTurnstileToken('')}
+                  resetKey={turnstileResetKey}
+                />
+                <p className={`text-[11px] font-medium ${turnstileToken ? 'text-emerald-600' : 'text-slate-400'}`}>
+                  {turnstileToken ? `✓ ${t('exam_turnstile_verified')}` : t('exam_turnstile_protected')}
+                </p>
+              </div>
+            )}
+            <div className="flex justify-end">
+              <button
+                onClick={() => handleSubmitExam(false)}
+                disabled={isSubmitting || (Boolean(TURNSTILE_SITE_KEY) && !turnstileToken)}
+                className="py-3 px-8 bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-500 hover:to-teal-500 text-white font-semibold rounded-2xl text-xs shadow-md shadow-emerald-200 disabled:opacity-40 transition cursor-pointer active:scale-[0.99]"
+              >
+                {isSubmitting ? t('exam_submitting_btn') : t('exam_submit_btn')}
+              </button>
+            </div>
           </div>
         </div>
+      )}
+
+      {/* BẢNG XẾP HẠNG TRỰC TIẾP (Upstash Serverless Redis / DynamoDB Fallback) */}
+      {(step === 'IN_EXAM' || step === 'COMPLETED') && (
+        <LiveLeaderboard sessionId={sessionId} currentEmail={candidateEmail} />
       )}
 
       {/* BƯỚC 3: HOÀN THÀNH */}

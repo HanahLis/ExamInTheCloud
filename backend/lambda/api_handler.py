@@ -175,13 +175,9 @@ def verify_turnstile(token: str, remote_ip: str = "") -> bool:
     if not token:
         return False
 
-    # Hỗ trợ dummy / test keys của Cloudflare theo quy ước chính thức
-    if token.startswith("XXXX.DUMMY") or token in ["test-token-passed", "1x0000000000000000000000000000000AA"]:
-        return True
-    if token in ["test-token-failed", "2x0000000000000000000000000000000AA"]:
-        return False
-
     if not CLOUDFLARE_TURNSTILE_SECRET_KEY:
+        if token in ["test-token-failed", "2x0000000000000000000000000000000AA"]:
+            return False
         print("[WARN] CLOUDFLARE_TURNSTILE_SECRET_KEY chưa được cấu hình, bỏ qua kiểm tra Turnstile.")
         return True
 

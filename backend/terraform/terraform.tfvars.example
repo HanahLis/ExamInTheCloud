@@ -46,6 +46,7 @@ enable_rekognition_endpoint = false
 # upstash_redis_rest_url   = "https://xxxx.upstash.io"
 # upstash_redis_rest_token = "AXxxxx..."
 
-# 3. Cloudflare Turnstile (Xác thực CAPTCHA tàng hình chống bot nộp bài)
-# Lấy Secret Key miễn phí tại: https://dash.cloudflare.com/
+# 3. Cloudflare Turnstile (Xác thực CAPTCHA chống bot nộp bài)
+# Lấy Site Key & Secret Key miễn phí tại: https://dash.cloudflare.com/
+# turnstile_site_key             = "0x4AAAAAA..."
 # cloudflare_turnstile_secret_key = "0x4AAAAAA..."

@@ -122,6 +122,12 @@ variable "upstash_redis_rest_token" {
   sensitive   = true
 }
 
+variable "turnstile_site_key" {
+  description = "Cloudflare Turnstile Site Key để hiển thị CAPTCHA trong phòng thi"
+  type        = string
+  default     = ""
+}
+
 variable "cloudflare_turnstile_secret_key" {
   description = "Cloudflare Turnstile Secret Key để xác thực chống bot tại Lambda"
   type        = string
