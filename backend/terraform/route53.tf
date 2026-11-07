@@ -5,9 +5,8 @@
 
 # 1. Route 53 Hosted Zone cho cloudexam.id.vn
 resource "aws_route53_zone" "primary" {
-  count         = var.custom_domain_name != "" ? 1 : 0
-  name          = var.custom_domain_name
-  force_destroy = true
+  count = var.custom_domain_name != "" ? 1 : 0
+  name  = var.custom_domain_name
 
   tags = {
     Name        = "${var.project_name}-hosted-zone"
