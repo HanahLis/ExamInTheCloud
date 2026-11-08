@@ -15,6 +15,11 @@ output "s3_bucket_arn" {
   value       = aws_s3_bucket.image_storage.arn
 }
 
+output "frontend_hosting_bucket_name" {
+  description = "Tên S3 Bucket chứa bản build Frontend (dùng cho deploy script)"
+  value       = aws_s3_bucket.frontend_hosting.id
+}
+
 output "dynamodb_questions_table" {
   description = "Tên bảng DynamoDB Questions"
   value       = aws_dynamodb_table.questions.name

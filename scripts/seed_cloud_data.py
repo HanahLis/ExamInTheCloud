@@ -621,11 +621,11 @@ def seed_dynamodb_data(dynamodb_resource, bucket_name: str):
     print("[OK] Nạp dữ liệu DynamoDB hoàn tất!")
 
 def update_frontend_env_file(frontend_dir: Path, outputs: dict, cognito_client=None, user_pool_id: str = ""):
-    """Cập nhật tự động tệp frontend/.env với các output mới nhất từ AWS"""
-    env_file = frontend_dir / ".env"
-    print(f"\n[+] 4. CẬP NHẬT TỆP CẤU HÌNH FRONTEND (.env)...")
-    
-    # 1. Đọc các giá trị đang có trong file .env (được tạo bởi local_file.frontend_env của Terraform)
+    """Cập nhật tự động frontend/.env.local với các output mới nhất từ AWS"""
+    env_file = frontend_dir / ".env.local"
+    print(f"\n[+] 4. CẬP NHẬT TỆP CẤU HÌNH FRONTEND (.env.local)...")
+
+    # Đọc các giá trị đang có trong file .env.local (được tạo bởi local_file.frontend_env của Terraform)
     existing_env = {}
     if env_file.exists():
         try:
@@ -638,9 +638,9 @@ def update_frontend_env_file(frontend_dir: Path, outputs: dict, cognito_client=N
         except Exception:
             pass
 
-    api_url = outputs.get("api_gateway_base_url") or existing_env.get("VITE_API_BASE_URL") or "https://de4nmzai6f.execute-api.ap-southeast-1.amazonaws.com/dev"
-    user_pool_id = outputs.get("cognito_user_pool_id") or user_pool_id or existing_env.get("VITE_COGNITO_USER_POOL_ID") or "ap-southeast-1_VpTwkt2il"
-    app_client_id = outputs.get("cognito_app_client_id") or existing_env.get("VITE_COGNITO_CLIENT_ID")
+    api_url = outputs.get("api_gateway_base_url") or existing_env.get("VITE_API_BASE_URL", "")
+    user_pool_id = outputs.get("cognito_user_pool_id") or user_pool_id or existing_env.get("VITE_COGNITO_USER_POOL_ID", "")
+    app_client_id = outputs.get("cognito_app_client_id") or existing_env.get("VITE_COGNITO_CLIENT_ID", "")
 
     # Dò tìm App Client ID thực tế từ AWS nếu outputs và existing_env chưa có
     if not app_client_id and cognito_client and user_pool_id:
@@ -655,23 +655,23 @@ def update_frontend_env_file(frontend_dir: Path, outputs: dict, cognito_client=N
         except Exception as e:
             print(f"[WARN] Không thể tìm App Client từ AWS SDK: {e}")
 
-    identity_pool_id = outputs.get("cognito_identity_pool_id") or existing_env.get("VITE_IDENTITY_POOL_ID") or "ap-southeast-1:49174f21-1d09-48e5-9a9e-661fd2cf0baa"
-    s3_bucket = outputs.get("s3_bucket_name") or existing_env.get("VITE_S3_BUCKET_NAME") or "cloudexam-storage-409289618109-dev"
-    cf_domain = outputs.get("cloudfront_distribution_domain_name")
+    identity_pool_id = outputs.get("cognito_identity_pool_id") or existing_env.get("VITE_IDENTITY_POOL_ID", "")
+    s3_bucket = outputs.get("s3_bucket_name") or existing_env.get("VITE_S3_BUCKET_NAME", "")
+    cf_domain = outputs.get("cloudfront_distribution_domain_name", "")
     if not cf_domain and existing_env.get("VITE_CLOUDFRONT_URL"):
         cf_domain = existing_env["VITE_CLOUDFRONT_URL"].replace("https://", "").replace("http://", "")
-    if not cf_domain:
-        cf_domain = "dw1cx1i04s8fe.cloudfront.net"
-    cf_url = f"https://{cf_domain}"
+    cf_url = f"https://{cf_domain}" if cf_domain else ""
 
-    # Giữ lại Gemini API Key hiện tại nếu đã có trong .env (mặc định để trống)
+    # Giữ lại Gemini API Key hiện tại nếu đã có trong .env.local (mặc định để trống)
     existing_key = existing_env.get("VITE_GEMINI_API_KEY", "")
+    gemini_model = existing_env.get("VITE_GEMINI_MODEL", "gemini-3.8-flash")
 
-    cognito_domain = outputs.get("cognito_domain") or existing_env.get("VITE_COGNITO_DOMAIN") or f"https://cloudexam-auth-{REGION}.auth.{REGION}.amazoncognito.com"
+    cognito_domain = outputs.get("cognito_domain") or existing_env.get("VITE_COGNITO_DOMAIN", "")
+    redirect_uri = f"{cf_url}/callback" if cf_url else "http://localhost:5173/callback"
 
     content = f"""# ==============================================================================
-# CLOUDEXAM FRONTEND ENVIRONMENT CONFIGURATION (.env)
-# Tự động cập nhật bởi seed_cloud_data.py khi terraform apply
+# CLOUDEXAM FRONTEND ENVIRONMENT CONFIGURATION (.env.local)
+# Tự động cập nhật bởi seed_cloud_data.py / Terraform
 # ==============================================================================
 
 # Chế độ kết nối AWS thật (false: gọi trực tiếp API Gateway; true: giả lập mock)
@@ -693,7 +693,7 @@ VITE_COGNITO_USER_POOL_ID={user_pool_id}
 VITE_COGNITO_CLIENT_ID={app_client_id}
 
 # URL Callback sau khi xác thực
-VITE_COGNITO_REDIRECT_URI={cf_url}/callback
+VITE_COGNITO_REDIRECT_URI={redirect_uri}
 
 # Cognito Identity Pool ID
 VITE_IDENTITY_POOL_ID={identity_pool_id}
@@ -708,21 +708,14 @@ VITE_CLOUDFRONT_URL={cf_url}
 # CẤU HÌNH GOOGLE GEMINI AI (Trích xuất đề thi & Gia sư ảo AI)
 # ==============================================================================
 VITE_GEMINI_API_KEY={existing_key}
-VITE_GEMINI_MODEL=gemini-3.8-flash
+VITE_GEMINI_MODEL={gemini_model}
 """
     try:
         with open(env_file, "w", encoding="utf-8") as f:
             f.write(content)
         print(f"[OK] Đã cập nhật {env_file} thành công!")
-
-        # Đồng thời cập nhật .env.local cho môi trường dev localhost
-        env_local = frontend_dir / ".env.local"
-        content_local = content.replace(f"VITE_COGNITO_REDIRECT_URI={cf_url}/callback", "VITE_COGNITO_REDIRECT_URI=http://localhost:5173/callback")
-        with open(env_local, "w", encoding="utf-8") as f:
-            f.write(content_local)
-        print(f"[OK] Đã cập nhật {env_local} thành công!")
     except Exception as e:
-        print(f"[WARN] Không thể ghi .env: {e}")
+        print(f"[WARN] Không thể ghi .env.local: {e}")
 
 def main():
     print("=================================================================")
@@ -733,7 +726,7 @@ def main():
     outputs = load_terraform_outputs(tf_dir)
     
     # Đọc từ existing_env nếu có (do Terraform local_file.frontend_env vừa tạo)
-    env_file = frontend_dir / ".env"
+    env_file = frontend_dir / ".env.local"
     existing_env = {}
     if env_file.exists():
         try:

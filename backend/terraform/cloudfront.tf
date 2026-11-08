@@ -205,7 +205,18 @@ resource "terraform_data" "frontend_build_deploy" {
   ]
 
   provisioner "local-exec" {
-    command = "aws s3 sync ${path.module}/../../frontend/dist s3://${aws_s3_bucket.frontend_hosting.id} --delete && aws cloudfront create-invalidation --distribution-id ${aws_cloudfront_distribution.spa_distribution.id} --paths /* || (python3 ${path.module}/../../scripts/deploy_frontend.py || echo FRONTEND_FALLBACK_DEPLOY_FAILED)"
+    environment = {
+      AWS_REGION           = var.aws_region
+      S3_BUCKET            = aws_s3_bucket.frontend_hosting.id
+      CLOUDFRONT_DIST_ID   = aws_cloudfront_distribution.spa_distribution.id
+      CLOUDFRONT_DOMAIN    = aws_cloudfront_distribution.spa_distribution.domain_name
+      CLOUDFRONT_URL       = var.custom_domain_name != "" ? "https://${var.custom_domain_name}" : "https://${aws_cloudfront_distribution.spa_distribution.domain_name}"
+    }
+
+    # Luon build lai tu ma nguon (khong sync dist cu) roi moi deploy len S3 + invalidate CloudFront
+    # working_dir tro ve repo root de tranh loi duong dan tuong doi/Unicode tren Windows
+    working_dir = abspath("${path.module}/../..")
+    command     = "python scripts/deploy_frontend.py"
   }
 
   depends_on = [

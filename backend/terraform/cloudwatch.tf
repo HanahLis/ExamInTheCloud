@@ -17,6 +17,14 @@ resource "aws_sns_topic" "alerts" {
   }
 }
 
+# Subscription email nhận báo cáo bảng điểm ca thi (cần xác nhận qua email)
+resource "aws_sns_topic_subscription" "report_email" {
+  count     = var.report_email != "" ? 1 : 0
+  topic_arn = aws_sns_topic.alerts.arn
+  protocol  = "email"
+  endpoint  = var.report_email
+}
+
 # ------------------------------------------------------------------------------
 # 2. CLOUDWATCH LOG GROUPS CHO CÁC HÀM LAMBDA (RETENTION: 14 NGÀY)
 # ------------------------------------------------------------------------------

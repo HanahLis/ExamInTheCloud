@@ -8,6 +8,11 @@ resource "aws_route53_zone" "primary" {
   count = var.custom_domain_name != "" ? 1 : 0
   name  = var.custom_domain_name
 
+  # Khóa bảo vệ chống xóa: Ngăn chặn tuyệt đối việc xóa/destroy Hosted Zone làm mất Name Server (NS)
+  lifecycle {
+    prevent_destroy = true
+  }
+
   tags = {
     Name        = "${var.project_name}-hosted-zone"
     Environment = var.environment

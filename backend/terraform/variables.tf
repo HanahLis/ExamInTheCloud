@@ -135,6 +135,12 @@ variable "cloudflare_turnstile_secret_key" {
   sensitive   = true
 }
 
+variable "report_email" {
+  description = "Email nhận báo cáo bảng điểm ca thi qua SNS (để trống nếu không muốn tạo subscription)"
+  type        = string
+  default     = ""
+}
+
 # ==============================================================================
 # CẤU HÌNH FINOPS & AWS BUDGETS (0 USD CLOUD)
 # ==============================================================================

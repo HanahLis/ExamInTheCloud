@@ -1,8 +1,7 @@
-const DOMAIN =
-  import.meta.env.VITE_COGNITO_DOMAIN ||
-  'https://cloudexam-auth-409289618109-dev.auth.ap-southeast-1.amazoncognito.com';
-const CLIENT_ID =
-  import.meta.env.VITE_COGNITO_CLIENT_ID || 'j3b3724ts66kqh39e9agdqmuc';
+const DOMAIN = import.meta.env.VITE_COGNITO_DOMAIN || '';
+const CLIENT_ID = import.meta.env.VITE_COGNITO_CLIENT_ID || '';
+const AWS_REGION = import.meta.env.VITE_AWS_REGION || 'ap-southeast-1';
+const COGNITO_IDP_ENDPOINT = `https://cognito-idp.${AWS_REGION}.amazonaws.com/`;
 export const getRedirectUri = (): string => {
   if (typeof window !== 'undefined' && window.location.origin) {
     return `${window.location.origin}/callback`;
@@ -219,7 +218,7 @@ export const loginWithDatabaseAccount = (
   name = '',
   studentCode = ''
 ) => {
-  const poolId = import.meta.env.VITE_COGNITO_USER_POOL_ID || 'ap-southeast-1_CloudExam';
+  const poolId = import.meta.env.VITE_COGNITO_USER_POOL_ID || '';
   const region = import.meta.env.VITE_AWS_REGION || 'ap-southeast-1';
   const header = base64EncodeUtf8(JSON.stringify({ alg: 'RS256', typ: 'JWT' }));
   const payload = base64EncodeUtf8(
@@ -262,7 +261,7 @@ export const loginWithCognitoPassword = async (email: string, password: string):
 
   for (const pwd of passwordsToTry) {
     try {
-      const res = await fetch('https://cognito-idp.ap-southeast-1.amazonaws.com/', {
+      const res = await fetch(COGNITO_IDP_ENDPOINT, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/x-amz-json-1.1',
@@ -347,7 +346,7 @@ export const signUpWithCognito = async (
   password: string,
   name: string
 ): Promise<{ userSub: string; codeDelivery: string }> => {
-  const res = await fetch('https://cognito-idp.ap-southeast-1.amazonaws.com/', {
+  const res = await fetch(COGNITO_IDP_ENDPOINT, {
     method: 'POST',
     headers: {
       'Content-Type': 'application/x-amz-json-1.1',
