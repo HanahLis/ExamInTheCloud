@@ -5,9 +5,7 @@ import JSZip from 'jszip';
 export const isMockMode = (): boolean => import.meta.env.VITE_USE_MOCK === 'true';
 
 const api = axios.create({
-  baseURL:
-    import.meta.env.VITE_API_BASE_URL ||
-    'https://cic3otz73l.execute-api.ap-southeast-1.amazonaws.com/dev',
+  baseURL: import.meta.env.VITE_API_BASE_URL || '',
   headers: {
     'Content-Type': 'application/json',
   },
@@ -263,8 +261,8 @@ export interface ExamPaperResponse {
 // CƠ SỞ DỮ LIỆU SEED / THAM CHIẾU (DYNAMODB & S3)
 // ============================================================================
 
-const BUCKET_NAME = import.meta.env.VITE_S3_BUCKET_NAME || 'cloudexam-storage-409289618109-dev';
-const S3_BASE = `https://${BUCKET_NAME}.s3.ap-southeast-1.amazonaws.com`;
+const BUCKET_NAME = import.meta.env.VITE_S3_BUCKET_NAME || '';
+const S3_BASE = BUCKET_NAME ? `https://${BUCKET_NAME}.s3.${import.meta.env.VITE_AWS_REGION || 'ap-southeast-1'}.amazonaws.com` : '';
 
 export const DEFAULT_QUESTION_BANKS: QuestionBank[] = [
   {
@@ -2937,12 +2935,8 @@ export const saveExamProgress = async (
 };
 
 export const sendSessionReport = async (sessionId: string): Promise<{ message: string }> => {
-  try {
-    const res = await api.post(`/sessions/${sessionId}/send-report`);
-    return res.data;
-  } catch {
-    return { message: 'Đã gửi báo cáo kết quả ca thi tới Giảng viên qua Amazon SNS thành công.' };
-  }
+  const res = await api.post(`/sessions/${sessionId}/send-report`);
+  return res.data;
 };
 
 // ============================================================================

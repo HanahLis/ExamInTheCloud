@@ -10,6 +10,7 @@ import uuid
 import base64
 import io
 import re
+import unicodedata
 import urllib.request
 import urllib.parse
 import zipfile
@@ -1127,6 +1128,13 @@ def handle_auto_finalize_session(session_id: str):
     })
 
 
+def _sns_ascii_subject(text: str, limit: int = 100) -> str:
+    """SNS Subject chỉ chấp nhận ký tự ASCII, không xuống dòng, tối đa 100 ký tự."""
+    text = text.replace("đ", "d").replace("Đ", "D")
+    ascii_text = unicodedata.normalize("NFKD", text).encode("ascii", "ignore").decode("ascii")
+    return " ".join(ascii_text.split())[:limit]
+
+
 def handle_send_session_report(session_id: str):
     """Tổng hợp bảng điểm từ SessionResultsIndex DynamoDB và gửi email báo cáo chi tiết qua Amazon SNS."""
     if not session_id:
@@ -1213,16 +1221,18 @@ Hệ thống Khảo thí Trực tuyến CloudExam — VNU-UET.
 """
 
     sns_message_id = ""
+    sns_error = ""
     if SNS_TOPIC_ARN:
         try:
             publish_res = sns_client.publish(
                 TopicArn=SNS_TOPIC_ARN,
-                Subject=f"[CloudExam] Báo cáo bảng điểm ca thi #{session_id} - {session_name}",
+                Subject=_sns_ascii_subject(f"[CloudExam] Bao cao bang diem ca thi #{session_id} - {session_name}"),
                 Message=report_message
             )
             sns_message_id = publish_res.get("MessageId", "")
             print(f"[SNS] Đã gửi báo cáo ca thi {session_id} tới {SNS_TOPIC_ARN}: MessageId={sns_message_id}")
         except Exception as sns_err:
+            sns_error = str(sns_err)
             print(f"[WARN] Lỗi gửi thông báo qua SNS: {sns_err}")
 
     stats_summary = {
@@ -1250,6 +1260,13 @@ Hệ thống Khảo thí Trực tuyến CloudExam — VNU-UET.
             for s in top5
         ]
     }
+
+    if sns_error:
+        return build_response(502, {
+            "error": f"Không gửi được email báo cáo qua Amazon SNS: {sns_error}",
+            "sessionId": session_id,
+            "stats": stats_summary
+        })
 
     return build_response(200, {
         "message": "Đã gửi email báo cáo tổng hợp ca thi qua Amazon SNS thành công!",
