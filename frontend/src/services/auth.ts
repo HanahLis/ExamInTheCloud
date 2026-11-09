@@ -344,8 +344,19 @@ export const loginWithCognitoPassword = async (email: string, password: string):
 export const signUpWithCognito = async (
   email: string,
   password: string,
-  name: string
+  name: string,
+  role: 'Organizer' | 'Candidate' = 'Candidate',
+  studentCode = ''
 ): Promise<{ userSub: string; codeDelivery: string }> => {
+  const cleanEmail = email.trim().toLowerCase();
+  const userAttrs: { Name: string; Value: string }[] = [
+    { Name: 'email', Value: cleanEmail },
+    { Name: 'name', Value: name.trim() },
+  ];
+  if (studentCode.trim()) {
+    userAttrs.push({ Name: 'custom:student_code', Value: studentCode.trim() });
+  }
+
   const res = await fetch(COGNITO_IDP_ENDPOINT, {
     method: 'POST',
     headers: {
@@ -354,24 +365,116 @@ export const signUpWithCognito = async (
     },
     body: JSON.stringify({
       ClientId: CLIENT_ID,
-      Username: email,
+      Username: cleanEmail,
       Password: password,
-      UserAttributes: [
-        { Name: 'email', Value: email },
-        { Name: 'name', Value: name },
-      ],
+      UserAttributes: userAttrs,
     }),
   });
 
   const data = await res.json();
   if (!res.ok) {
-    throw new Error(data.message || data.__type || 'Đăng ký tài khoản Cognito thất bại.');
+    let errorMsg = data.message || data.__type || 'Đăng ký tài khoản thất bại.';
+    if (data.__type === 'UsernameExistsException') {
+      errorMsg = 'Tài khoản email này đã tồn tại trong hệ thống. Bạn có thể đăng nhập ngay hoặc nhập mã kích hoạt.';
+    } else if (data.__type === 'InvalidPasswordException') {
+      errorMsg = 'Mật khẩu phải có tối thiểu 8 ký tự và chứa ít nhất một chữ số.';
+    } else if (data.__type === 'InvalidParameterException') {
+      errorMsg = 'Thông tin đăng ký không hợp lệ: ' + (data.message || '');
+    }
+    throw new Error(errorMsg);
+  }
+
+  // Ghi nhớ vai trò được chọn của tài khoản
+  setUserSelectedRole(cleanEmail, role);
+  localStorage.setItem(`cloudexam_user_name_${cleanEmail}`, name.trim());
+  if (studentCode.trim()) {
+    localStorage.setItem(`cloudexam_user_code_${cleanEmail}`, studentCode.trim());
   }
 
   return {
     userSub: data.UserSub,
-    codeDelivery: data.CodeDeliveryDetails?.Destination || email,
+    codeDelivery: data.CodeDeliveryDetails?.Destination || cleanEmail,
   };
+};
+
+// Xác thực mã OTP sau khi đăng ký tài khoản
+export const confirmSignUpWithCognito = async (email: string, code: string): Promise<void> => {
+  const cleanEmail = email.trim().toLowerCase();
+  const res = await fetch(COGNITO_IDP_ENDPOINT, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/x-amz-json-1.1',
+      'X-Amz-Target': 'AWSCognitoIdentityProviderService.ConfirmSignUp',
+    },
+    body: JSON.stringify({
+      ClientId: CLIENT_ID,
+      Username: cleanEmail,
+      ConfirmationCode: code.trim(),
+    }),
+  });
+
+  const data = await res.json();
+  if (!res.ok) {
+    let errorMsg = data.message || data.__type || 'Mã xác thực không chính xác.';
+    if (data.__type === 'CodeMismatchException') {
+      errorMsg = 'Mã xác thực không chính xác. Vui lòng kiểm tra lại hộp thư email.';
+    } else if (data.__type === 'ExpiredCodeException') {
+      errorMsg = 'Mã xác thực đã hết hạn. Vui lòng bấm gửi lại mã mới.';
+    }
+    throw new Error(errorMsg);
+  }
+};
+
+// Gửi lại mã kích hoạt OTP
+export const resendConfirmationCode = async (email: string): Promise<void> => {
+  const cleanEmail = email.trim().toLowerCase();
+  const res = await fetch(COGNITO_IDP_ENDPOINT, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/x-amz-json-1.1',
+      'X-Amz-Target': 'AWSCognitoIdentityProviderService.ResendConfirmationCode',
+    },
+    body: JSON.stringify({
+      ClientId: CLIENT_ID,
+      Username: cleanEmail,
+    }),
+  });
+
+  const data = await res.json();
+  if (!res.ok) {
+    throw new Error(data.message || data.__type || 'Gửi lại mã xác thực thất bại.');
+  }
+};
+
+// Lưu & Lấy vai trò tùy chọn người dùng (Giảng viên / Thí sinh)
+export const setUserSelectedRole = (email: string, role: 'Organizer' | 'Candidate') => {
+  const cleanEmail = email.trim().toLowerCase();
+  localStorage.setItem(`cloudexam_user_role_${cleanEmail}`, role);
+  localStorage.setItem('cloudexam_current_active_role', role);
+};
+
+export const getUserSelectedRole = (email: string): 'Organizer' | 'Candidate' | null => {
+  const cleanEmail = email.trim().toLowerCase();
+  return (localStorage.getItem(`cloudexam_user_role_${cleanEmail}`) as 'Organizer' | 'Candidate') || null;
+};
+
+export const switchActiveRole = (role: 'Organizer' | 'Candidate') => {
+  localStorage.setItem('cloudexam_current_active_role', role);
+  const user = getCurrentUser();
+  if (user.email) {
+    localStorage.setItem(`cloudexam_user_role_${user.email.toLowerCase().trim()}`, role);
+  }
+};
+
+export const hasUserChosenRole = (email: string): boolean => {
+  const cleanEmail = email.toLowerCase().trim();
+  if (!cleanEmail) return false;
+  if (cleanEmail === 'laladoraema@gmail.com' || cleanEmail.includes('admin') || cleanEmail.includes('annv')) return true;
+  if (DATABASE_ACCOUNTS_MAP[cleanEmail]) return true;
+  return Boolean(
+    localStorage.getItem(`cloudexam_user_role_${cleanEmail}`) ||
+    localStorage.getItem('cloudexam_current_active_role')
+  );
 };
 
 // ---------- PKCE helpers (Authorization Code + PKCE cho AWS Live) ----------
@@ -383,9 +486,15 @@ const randomString = (size = 32) => base64Url(crypto.getRandomValues(new Uint8Ar
 const sha256Challenge = async (verifier: string) =>
   base64Url(new Uint8Array(await crypto.subtle.digest('SHA-256', new TextEncoder().encode(verifier))));
 
-// 1. Chuyển hướng sang Cognito Hosted UI
-export const redirectToCognitoLogin = async (isSignUp?: boolean | unknown) => {
+// 1. Chuyển hướng sang Cognito Hosted UI (hỗ trợ truyền intendedRole)
+export const redirectToCognitoLogin = async (
+  isSignUp?: boolean | unknown,
+  intendedRole?: 'Organizer' | 'Candidate'
+) => {
   const isDirectSignUp = isSignUp === true;
+  if (intendedRole) {
+    sessionStorage.setItem('cloudexam_intended_role', intendedRole);
+  }
   if (!DOMAIN || !CLIENT_ID) {
     const lang = localStorage.getItem('cloudexam_lang') || 'vi';
     const alertMsg =
@@ -414,7 +523,8 @@ export const redirectToCognitoLogin = async (isSignUp?: boolean | unknown) => {
     code_challenge: await sha256Challenge(verifier),
     code_challenge_method: 'S256',
   });
-  const endpoint = isDirectSignUp ? `${DOMAIN}/signup` : `${DOMAIN}/oauth2/authorize`;
+  const cleanDomain = DOMAIN.replace(/\/+$/, '');
+  const endpoint = isDirectSignUp ? `${cleanDomain}/signup` : `${cleanDomain}/oauth2/authorize`;
   window.location.href = `${endpoint}?${params}`;
 };
 
@@ -452,6 +562,18 @@ const exchangeCode = async () => {
   localStorage.setItem('access_token', data.access_token);
   localStorage.setItem('auth_mode', 'aws'); // Đăng nhập qua AWS Cognito thật
   if (data.refresh_token) localStorage.setItem('refresh_token', data.refresh_token);
+
+  // Áp dụng vai trò dự định nếu người dùng đã chọn trước khi chuyển hướng SSO
+  const intendedRole = sessionStorage.getItem('cloudexam_intended_role');
+  if (intendedRole && data.id_token) {
+    const claims = decodeJwt(data.id_token);
+    if (claims && claims.email) {
+      const email = claims.email.toLowerCase().trim();
+      setUserSelectedRole(email, intendedRole as 'Organizer' | 'Candidate');
+    }
+    sessionStorage.removeItem('cloudexam_intended_role');
+  }
+
   sessionStorage.removeItem('pkce_verifier');
   sessionStorage.removeItem('pkce_state');
 };
@@ -493,10 +615,22 @@ export const getCurrentUser = (): AuthUser => {
     const c = decodeJwt(token);
     if (!c) return { email: '', groups: [] };
     const rawGroups = c['cognito:groups'] || [];
-    const groups: string[] = Array.isArray(rawGroups) ? [...rawGroups] : (rawGroups ? [rawGroups] : []);
+    let groups: string[] = Array.isArray(rawGroups) ? [...rawGroups] : (rawGroups ? [rawGroups] : []);
     const email = (c.email || '').toLowerCase().trim();
 
-    if (email === 'laladoraema@gmail.com' || email.includes('admin') || email.includes('annv')) {
+    // Kiểm tra vai trò do người dùng đã chọn (từ Đăng ký, Onboarding SSO hoặc Chuyển đổi vai trò)
+    const activeRole = localStorage.getItem('cloudexam_current_active_role') as 'Organizer' | 'Candidate' | null;
+    const userRole = (localStorage.getItem(`cloudexam_user_role_${email}`) as 'Organizer' | 'Candidate' | null) || activeRole;
+
+    if (userRole) {
+      if (userRole === 'Organizer') {
+        if (!groups.includes('Organizer')) groups.push('Organizer');
+      } else {
+        // Vai trò Thí sinh
+        groups = groups.filter((g) => g !== 'Organizer' && g !== 'Admin');
+        if (!groups.includes('Candidate')) groups.push('Candidate');
+      }
+    } else if (email === 'laladoraema@gmail.com' || email.includes('admin') || email.includes('annv')) {
       if (!groups.includes('Organizer')) groups.push('Organizer');
       if (!groups.includes('Admin')) groups.push('Admin');
     } else if (DATABASE_ACCOUNTS_MAP[email]) {
@@ -504,24 +638,31 @@ export const getCurrentUser = (): AuthUser => {
       if (!groups.includes(mapping.role)) {
         groups.push(mapping.role);
       }
-    } else if (groups.length === 0) {
-      groups.push('Candidate');
     }
 
     const mapping = DATABASE_ACCOUNTS_MAP[email];
 
     return {
       email: c.email || '',
-      name: c.name || mapping?.name || email,
+      name: c.name || localStorage.getItem(`cloudexam_user_name_${email}`) || mapping?.name || email,
       groups,
-      studentCode: c['custom:student_code'] || mapping?.studentCode || '',
+      studentCode: c['custom:student_code'] || localStorage.getItem(`cloudexam_user_code_${email}`) || mapping?.studentCode || '',
     };
   } catch {
     return { email: '', groups: [] };
   }
 };
 
-// 6. Đăng xuất an toàn và chuyển về trang đăng nhập (giữ nguyên dữ liệu thí sinh/ca thi/ngôn ngữ đã tạo)
+// Lấy URI chuyển hướng sau khi đăng xuất sạch khỏi Cognito Hosted UI
+export const getLogoutRedirectUri = (): string => {
+  if (typeof window !== 'undefined' && window.location.origin) {
+    return window.location.origin.replace(/\/+$/, '');
+  }
+  return 'http://localhost:5173';
+};
+
+// 6. Đăng xuất an toàn và chuyển về trang đăng nhập
+// FIX LỖI BẢO MẬT: Hủy cookie phiên của AWS Cognito Hosted UI để không tự động tái đăng nhập vào tài khoản cũ
 export const logout = () => {
   const authKeys = [
     'id_token',
@@ -533,10 +674,22 @@ export const logout = () => {
     'cloudexam_refresh_token',
     'cloudexam_user',
     'cloudexam_auth_type',
+    'cloudexam_current_active_role',
   ];
   for (const k of authKeys) {
     localStorage.removeItem(k);
   }
   sessionStorage.clear();
-  window.location.href = window.location.origin + '/';
+
+  // Đăng xuất hoàn toàn khỏi AWS Cognito Hosted UI
+  // Khi đăng nhập bằng SSO / Hosted UI, Cognito lưu cookie phiên tại domain Hosted UI.
+  // Nếu chỉ xóa localStorage trên app, cookie phiên ở Cognito vẫn tồn tại khiến lần đăng nhập sau tự động nhận diện lại tài khoản cũ.
+  // Điều hướng tới endpoint /logout của Cognito để xóa sạch phiên.
+  if (DOMAIN && CLIENT_ID) {
+    const logoutUri = getLogoutRedirectUri();
+    const cleanDomain = DOMAIN.replace(/\/+$/, '');
+    window.location.href = `${cleanDomain}/logout?client_id=${encodeURIComponent(CLIENT_ID)}&logout_uri=${encodeURIComponent(logoutUri)}`;
+  } else {
+    window.location.href = window.location.origin + '/';
+  }
 };

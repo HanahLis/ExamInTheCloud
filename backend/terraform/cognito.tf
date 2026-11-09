@@ -117,24 +117,45 @@ resource "aws_cognito_user_pool_client" "web_client" {
       "https://${aws_cloudfront_distribution.spa_distribution.domain_name}",
       "https://${aws_cloudfront_distribution.spa_distribution.domain_name}/callback"
     ],
-    var.custom_domain_name != "" ? [
-      "https://${var.custom_domain_name}",
-      "https://${var.custom_domain_name}/callback",
-      "https://www.${var.custom_domain_name}",
-      "https://www.${var.custom_domain_name}/callback"
-    ] : []
+    var.custom_domain_name != "" ? concat(
+      [
+        "https://${var.custom_domain_name}",
+        "https://${var.custom_domain_name}/callback",
+        "https://www.${var.custom_domain_name}",
+        "https://www.${var.custom_domain_name}/callback"
+      ],
+      flatten([
+        for sub in ["vn", "us", "lao", "de"] : [
+          "https://${sub}.${var.custom_domain_name}",
+          "https://${sub}.${var.custom_domain_name}/callback"
+        ]
+      ])
+    ) : []
   ))
   logout_urls = distinct(concat(
     var.frontend_logout_urls,
     [
       "http://localhost:5173",
+      "http://localhost:5173/",
       "http://localhost:3000",
-      "https://${aws_cloudfront_distribution.spa_distribution.domain_name}"
+      "http://localhost:3000/",
+      "https://${aws_cloudfront_distribution.spa_distribution.domain_name}",
+      "https://${aws_cloudfront_distribution.spa_distribution.domain_name}/"
     ],
-    var.custom_domain_name != "" ? [
-      "https://${var.custom_domain_name}",
-      "https://www.${var.custom_domain_name}"
-    ] : []
+    var.custom_domain_name != "" ? concat(
+      [
+        "https://${var.custom_domain_name}",
+        "https://${var.custom_domain_name}/",
+        "https://www.${var.custom_domain_name}",
+        "https://www.${var.custom_domain_name}/"
+      ],
+      flatten([
+        for sub in ["vn", "us", "lao", "de"] : [
+          "https://${sub}.${var.custom_domain_name}",
+          "https://${sub}.${var.custom_domain_name}/"
+        ]
+      ])
+    ) : []
   ))
 
   # Luồng xác thực trực tiếp

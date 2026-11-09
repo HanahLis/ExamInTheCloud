@@ -5,6 +5,12 @@ import {
   isLoggedIn,
   getCurrentUser,
   loginWithCognitoPassword,
+  signUpWithCognito,
+  confirmSignUpWithCognito,
+  resendConfirmationCode,
+  setUserSelectedRole,
+  switchActiveRole,
+  hasUserChosenRole,
 } from './services/auth';
 import {
   getQuestions,
@@ -292,12 +298,46 @@ export default function App() {
   const [syncing, setSyncing] = useState(false);
   const [syncNotice, setSyncNotice] = useState<string | null>(null);
 
+  // Tab chuyển đổi Đăng nhập / Đăng ký
+  const [authTab, setAuthTab] = useState<'signin' | 'signup'>('signin');
+
   // Form đăng nhập trực tiếp
   const [loginEmail, setLoginEmail] = useState('');
   const [loginPassword, setLoginPassword] = useState('');
   const [loginLoading, setLoginLoading] = useState(false);
 
+  // Form đăng ký tài khoản mới kèm lựa chọn vai trò
+  const [regName, setRegName] = useState('');
+  const [regEmail, setRegEmail] = useState('');
+  const [regRole, setRegRole] = useState<'Candidate' | 'Organizer'>('Candidate');
+  const [regStudentCode, setRegStudentCode] = useState('');
+  const [regPassword, setRegPassword] = useState('');
+  const [regConfirmPassword, setRegConfirmPassword] = useState('');
+  const [regLoading, setRegLoading] = useState(false);
+
+  // Modal xác thực mã kích hoạt OTP
+  const [showOtpModal, setShowOtpModal] = useState(false);
+  const [otpEmail, setOtpEmail] = useState('');
+  const [otpPassword, setOtpPassword] = useState('');
+  const [otpCode, setOtpCode] = useState('');
+  const [otpLoading, setOtpLoading] = useState(false);
+  const [otpResending, setOtpResending] = useState(false);
+  const [otpNotice, setOtpNotice] = useState<string | null>(null);
+
+  // Trigger re-render khi chuyển vai trò
+  const [, setRoleTrigger] = useState(0);
+
   const loggedIn = isLoggedIn();
+  const user = getCurrentUser();
+  const userChosenRole = hasUserChosenRole(user.email);
+  const [showRoleOnboarding, setShowRoleOnboarding] = useState(false);
+  const [selectedOnboardingRole, setSelectedOnboardingRole] = useState<'Candidate' | 'Organizer'>('Candidate');
+
+  useEffect(() => {
+    if (loggedIn && user.email && !userChosenRole) {
+      setShowRoleOnboarding(true);
+    }
+  }, [loggedIn, user.email, userChosenRole]);
 
   // Tải dữ liệu an toàn (luôn có dữ liệu chuẩn, không bao giờ bị trống)
   const refreshAll = useCallback(async () => {
@@ -424,7 +464,7 @@ export default function App() {
     }
   }
 
-  // MÀN HÌNH ĐĂNG NHẬP (EDUCATIONAL PASTEL PORTAL)
+  // MÀN HÌNH ĐĂNG NHẬP / ĐĂNG KÝ TÀI KHOẢN (EDUCATIONAL PASTEL PORTAL)
   if (!loggedIn) {
     const handleLogin = async (e: React.FormEvent) => {
       e.preventDefault();
@@ -442,12 +482,83 @@ export default function App() {
         } else if (msg.includes('Tài khoản không tồn tại') || msg.includes('User not found')) {
           alert(t('alert_user_not_found'));
         } else if (msg.includes('chưa được xác thực') || msg.includes('UserNotConfirmed')) {
-          alert(t('alert_user_unconfirmed'));
+          setOtpEmail(loginEmail.trim().toLowerCase());
+          setOtpPassword(loginPassword);
+          setShowOtpModal(true);
         } else {
           alert(msg || t('alert_login_failed'));
         }
       } finally {
         setLoginLoading(false);
+      }
+    };
+
+    const handleRegister = async (e: React.FormEvent) => {
+      e.preventDefault();
+      if (!regName.trim() || !regEmail.trim() || !regPassword.trim()) {
+        return alert(t('alert_enter_email_password'));
+      }
+      if (regPassword !== regConfirmPassword) {
+        return alert(t('register_password_mismatch'));
+      }
+      if (regPassword.length < 8 || !/\d/.test(regPassword)) {
+        return alert(t('register_password_min'));
+      }
+
+      setRegLoading(true);
+      try {
+        await signUpWithCognito(
+          regEmail.trim(),
+          regPassword,
+          regName.trim(),
+          regRole,
+          regStudentCode.trim()
+        );
+        setOtpEmail(regEmail.trim().toLowerCase());
+        setOtpPassword(regPassword);
+        setOtpNotice(null);
+        setOtpCode('');
+        setShowOtpModal(true);
+      } catch (err: any) {
+        alert(err?.message || 'Đăng ký thất bại. Vui lòng thử lại.');
+      } finally {
+        setRegLoading(false);
+      }
+    };
+
+    const handleVerifyOtp = async (e: React.FormEvent) => {
+      e.preventDefault();
+      if (!otpCode.trim()) return alert('Vui lòng nhập mã kích hoạt 6 chữ số!');
+      setOtpLoading(true);
+      setOtpNotice(null);
+      try {
+        await confirmSignUpWithCognito(otpEmail, otpCode.trim());
+        if (otpPassword) {
+          await loginWithCognitoPassword(otpEmail, otpPassword);
+          window.location.reload();
+        } else {
+          alert('Tài khoản đã được kích hoạt thành công! Vui lòng đăng nhập.');
+          setShowOtpModal(false);
+          setAuthTab('signin');
+          setLoginEmail(otpEmail);
+        }
+      } catch (err: any) {
+        setOtpNotice(err?.message || 'Xác thực mã OTP thất bại.');
+      } finally {
+        setOtpLoading(false);
+      }
+    };
+
+    const handleResendOtp = async () => {
+      if (!otpEmail) return;
+      setOtpResending(true);
+      try {
+        await resendConfirmationCode(otpEmail);
+        setOtpNotice(t('otp_resend_success'));
+      } catch (err: any) {
+        setOtpNotice(err?.message || 'Không thể gửi lại mã xác thực.');
+      } finally {
+        setOtpResending(false);
       }
     };
 
@@ -513,134 +624,395 @@ export default function App() {
             </div>
           </div>
 
-          {/* Cột phải: Form Đăng nhập & Quick Demo Chips */}
-          <div className="md:col-span-7 p-6 md:p-8 flex flex-col justify-center space-y-5">
-            <div>
-              <h3 className="text-lg font-bold text-slate-900 tracking-tight">{t('login_title')}</h3>
-              <p className="text-xs text-slate-500 mt-1">
-                {t('login_hint')}
-              </p>
-            </div>
-
-            {/* Quick Demo Chips */}
-            <div className="p-3 bg-slate-50/80 rounded-2xl border border-slate-200/70 space-y-2">
-              <span className="text-[11px] font-semibold text-slate-600 uppercase tracking-wider block">
-                {t('login_quick_label')}
-              </span>
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
-                <button
-                  type="button"
-                  onClick={() => {
-                    setLoginEmail('annv@uet.vnu.edu.vn');
-                    setLoginPassword('12345678');
-                  }}
-                  className="p-2.5 rounded-xl bg-indigo-50/70 hover:bg-indigo-100/80 border border-indigo-200/60 text-left transition cursor-pointer group"
-                >
-                  <div className="flex items-center gap-2">
-                    <span className="px-1.5 py-0.5 rounded-full bg-indigo-200 text-indigo-800 text-[10px] font-bold flex items-center justify-center">{t('role_abbr_lecturer')}</span>
-                    <div className="min-w-0">
-                      <p className="text-xs font-semibold text-indigo-900 truncate">PGS. TS. Nguyễn Văn An</p>
-                      <p className="text-[10px] text-indigo-700 truncate font-mono">annv@uet.vnu.edu.vn</p>
-                    </div>
-                  </div>
-                </button>
-
-                <button
-                  type="button"
-                  onClick={() => {
-                    setLoginEmail('24020001@vnu.edu.vn');
-                    setLoginPassword('12345678');
-                  }}
-                  className="p-2.5 rounded-xl bg-sky-50/70 hover:bg-sky-100/80 border border-sky-200/60 text-left transition cursor-pointer group"
-                >
-                  <div className="flex items-center gap-2">
-                    <span className="px-1.5 py-0.5 rounded-full bg-sky-200 text-sky-800 text-[10px] font-bold flex items-center justify-center">{t('role_abbr_student')}</span>
-                    <div className="min-w-0">
-                      <p className="text-xs font-semibold text-sky-900 truncate">Trần Minh Đức</p>
-                      <p className="text-[10px] text-sky-700 truncate font-mono">24020001@vnu.edu.vn</p>
-                    </div>
-                  </div>
-                </button>
-              </div>
-            </div>
-
-            <form onSubmit={handleLogin} className="space-y-4">
-              <div>
-                <label className="block text-xs font-medium text-slate-700 mb-1">
-                  {t('cand_table_email')}
-                </label>
-                <div className="relative">
-                  <input
-                    type="email"
-                    list="vnu-accounts"
-                    placeholder={t('login_email_placeholder')}
-                    value={loginEmail}
-                    onChange={(e) => setLoginEmail(e.target.value)}
-                    className="w-full pl-3 pr-3 py-2.5 bg-slate-50/50 border border-slate-200 rounded-xl text-xs outline-none focus:bg-white focus:border-indigo-400 focus:ring-2 focus:ring-indigo-200/40 transition"
-                    required
-                    autoComplete="username"
-                  />
-                </div>
-                <datalist id="vnu-accounts">
-                  {DATABASE_ACCOUNTS.map((acc) => (
-                    <option key={acc.email} value={acc.email}>
-                      {acc.name} ({acc.role === 'Organizer' ? t('qb_lecturer_label') : acc.studentCode})
-                    </option>
-                  ))}
-                </datalist>
-              </div>
-
-              <div>
-                <label className="block text-xs font-medium text-slate-700 mb-1">
-                  {t('login_password')}
-                </label>
-                <input
-                  type="password"
-                  placeholder={t('login_password_placeholder')}
-                  value={loginPassword}
-                  onChange={(e) => setLoginPassword(e.target.value)}
-                  className="w-full pl-3 pr-3 py-2.5 bg-slate-50/50 border border-slate-200 rounded-xl text-xs outline-none focus:bg-white focus:border-indigo-400 focus:ring-2 focus:ring-indigo-200/40 transition"
-                  required
-                  autoComplete="current-password"
-                />
-              </div>
-
+          {/* Cột phải: Form Đăng nhập / Đăng ký */}
+          <div className="md:col-span-7 p-6 md:p-8 flex flex-col justify-center space-y-4">
+            {/* Tabs chuyển đổi giữa Đăng nhập & Đăng ký */}
+            <div className="flex bg-slate-100 p-1 rounded-2xl border border-slate-200/80">
               <button
-                type="submit"
-                disabled={loginLoading}
-                className="w-full py-2.5 bg-gradient-to-r from-indigo-600 to-indigo-700 hover:from-indigo-500 hover:to-indigo-600 text-white text-xs font-semibold rounded-xl shadow-md shadow-indigo-200 active:scale-[0.99] transition-all cursor-pointer disabled:opacity-50"
+                type="button"
+                onClick={() => setAuthTab('signin')}
+                className={`flex-1 py-2 text-xs font-semibold rounded-xl transition cursor-pointer ${
+                  authTab === 'signin'
+                    ? 'bg-white text-indigo-700 shadow-xs'
+                    : 'text-slate-500 hover:text-slate-800'
+                }`}
               >
-                {loginLoading ? (
-                  <span className="flex items-center justify-center gap-2">
-                    <span className="w-3.5 h-3.5 border-2 border-white/30 border-t-white rounded-full animate-spin"></span>
-                    {t('login_loading')}
-                  </span>
-                ) : (
-                  t('login_btn')
-                )}
+                {t('tab_signin')}
               </button>
+              <button
+                type="button"
+                onClick={() => setAuthTab('signup')}
+                className={`flex-1 py-2 text-xs font-semibold rounded-xl transition cursor-pointer ${
+                  authTab === 'signup'
+                    ? 'bg-white text-indigo-700 shadow-xs'
+                    : 'text-slate-500 hover:text-slate-800'
+                }`}
+              >
+                {t('tab_signup')}
+              </button>
+            </div>
 
-              <div className="pt-2 text-center border-t border-slate-100 flex flex-col gap-1.5">
-                {activeExamSessionId && showOrganizerLogin && (
+            {authTab === 'signin' ? (
+              <>
+                <div>
+                  <h3 className="text-lg font-bold text-slate-900 tracking-tight">{t('login_title')}</h3>
+                  <p className="text-xs text-slate-500 mt-1">
+                    {t('login_hint')}
+                  </p>
+                </div>
+
+                {/* Quick Demo Chips */}
+                <div className="p-3 bg-slate-50/80 rounded-2xl border border-slate-200/70 space-y-2">
+                  <span className="text-[11px] font-semibold text-slate-600 uppercase tracking-wider block">
+                    {t('login_quick_label')}
+                  </span>
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setLoginEmail('annv@uet.vnu.edu.vn');
+                        setLoginPassword('12345678');
+                      }}
+                      className="p-2.5 rounded-xl bg-indigo-50/70 hover:bg-indigo-100/80 border border-indigo-200/60 text-left transition cursor-pointer group"
+                    >
+                      <div className="flex items-center gap-2">
+                        <span className="px-1.5 py-0.5 rounded-full bg-indigo-200 text-indigo-800 text-[10px] font-bold flex items-center justify-center">{t('role_abbr_lecturer')}</span>
+                        <div className="min-w-0">
+                          <p className="text-xs font-semibold text-indigo-900 truncate">PGS. TS. Nguyễn Văn An</p>
+                          <p className="text-[10px] text-indigo-700 truncate font-mono">annv@uet.vnu.edu.vn</p>
+                        </div>
+                      </div>
+                    </button>
+
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setLoginEmail('24020001@vnu.edu.vn');
+                        setLoginPassword('12345678');
+                      }}
+                      className="p-2.5 rounded-xl bg-sky-50/70 hover:bg-sky-100/80 border border-sky-200/60 text-left transition cursor-pointer group"
+                    >
+                      <div className="flex items-center gap-2">
+                        <span className="px-1.5 py-0.5 rounded-full bg-sky-200 text-sky-800 text-[10px] font-bold flex items-center justify-center">{t('role_abbr_student')}</span>
+                        <div className="min-w-0">
+                          <p className="text-xs font-semibold text-sky-900 truncate">Trần Minh Đức</p>
+                          <p className="text-[10px] text-sky-700 truncate font-mono">24020001@vnu.edu.vn</p>
+                        </div>
+                      </div>
+                    </button>
+                  </div>
+                </div>
+
+                <form onSubmit={handleLogin} className="space-y-3.5">
+                  <div>
+                    <label className="block text-xs font-medium text-slate-700 mb-1">
+                      {t('cand_table_email')}
+                    </label>
+                    <div className="relative">
+                      <input
+                        type="email"
+                        list="vnu-accounts"
+                        placeholder={t('login_email_placeholder')}
+                        value={loginEmail}
+                        onChange={(e) => setLoginEmail(e.target.value)}
+                        className="w-full pl-3 pr-3 py-2 bg-slate-50/50 border border-slate-200 rounded-xl text-xs outline-none focus:bg-white focus:border-indigo-400 focus:ring-2 focus:ring-indigo-200/40 transition"
+                        required
+                        autoComplete="username"
+                      />
+                    </div>
+                    <datalist id="vnu-accounts">
+                      {DATABASE_ACCOUNTS.map((acc) => (
+                        <option key={acc.email} value={acc.email}>
+                          {acc.name} ({acc.role === 'Organizer' ? t('qb_lecturer_label') : acc.studentCode})
+                        </option>
+                      ))}
+                    </datalist>
+                  </div>
+
+                  <div>
+                    <label className="block text-xs font-medium text-slate-700 mb-1">
+                      {t('login_password')}
+                    </label>
+                    <input
+                      type="password"
+                      placeholder={t('login_password_placeholder')}
+                      value={loginPassword}
+                      onChange={(e) => setLoginPassword(e.target.value)}
+                      className="w-full pl-3 pr-3 py-2 bg-slate-50/50 border border-slate-200 rounded-xl text-xs outline-none focus:bg-white focus:border-indigo-400 focus:ring-2 focus:ring-indigo-200/40 transition"
+                      required
+                      autoComplete="current-password"
+                    />
+                  </div>
+
                   <button
-                    type="button"
-                    onClick={() => setShowOrganizerLogin(false)}
-                    className="text-xs text-emerald-600 hover:text-emerald-800 cursor-pointer font-bold inline-flex items-center justify-center gap-1"
+                    type="submit"
+                    disabled={loginLoading}
+                    className="w-full py-2.5 bg-gradient-to-r from-indigo-600 to-indigo-700 hover:from-indigo-500 hover:to-indigo-600 text-white text-xs font-semibold rounded-xl shadow-md shadow-indigo-200 active:scale-[0.99] transition-all cursor-pointer disabled:opacity-50"
                   >
-                    <span>{t('switch_to_candidate_login')}</span>
+                    {loginLoading ? (
+                      <span className="flex items-center justify-center gap-2">
+                        <span className="w-3.5 h-3.5 border-2 border-white/30 border-t-white rounded-full animate-spin"></span>
+                        {t('login_loading')}
+                      </span>
+                    ) : (
+                      t('login_btn')
+                    )}
                   </button>
-                )}
-                <button
-                  type="button"
-                  onClick={() => redirectToCognitoLogin(false)}
-                  className="text-xs text-indigo-600 hover:text-indigo-800 cursor-pointer font-medium hover:underline inline-flex items-center justify-center gap-1"
-                >
-                  <span>{t('login_candidate_portal')}</span>
-                </button>
-              </div>
-            </form>
+
+                  <div className="pt-2 text-center border-t border-slate-100 flex flex-col gap-1.5">
+                    {activeExamSessionId && showOrganizerLogin && (
+                      <button
+                        type="button"
+                        onClick={() => setShowOrganizerLogin(false)}
+                        className="text-xs text-emerald-600 hover:text-emerald-800 cursor-pointer font-bold inline-flex items-center justify-center gap-1"
+                      >
+                        <span>{t('switch_to_candidate_login')}</span>
+                      </button>
+                    )}
+                    <button
+                      type="button"
+                      onClick={() => redirectToCognitoLogin(false)}
+                      className="text-xs text-indigo-600 hover:text-indigo-800 cursor-pointer font-medium hover:underline inline-flex items-center justify-center gap-1.5"
+                    >
+                      <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M11 16l-4-4m0 0l4-4m-4 4h14m-5 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h7a3 3 0 013 3v1" />
+                      </svg>
+                      <span>{t('login_candidate_portal')}</span>
+                    </button>
+                  </div>
+                </form>
+              </>
+            ) : (
+              /* FORM ĐĂNG KÝ TÀI KHOẢN KÈM LỰA CHỌN VAI TRÒ */
+              <>
+                <div>
+                  <h3 className="text-lg font-bold text-slate-900 tracking-tight">{t('register_title')}</h3>
+                  <p className="text-xs text-slate-500 mt-0.5">
+                    {t('register_hint')}
+                  </p>
+                </div>
+
+                <form onSubmit={handleRegister} className="space-y-3">
+                  {/* BẮT BUỘC CHỌN VAI TRÒ: THÍ SINH HOẶC GIẢNG VIÊN */}
+                  <div>
+                    <label className="block text-xs font-bold text-slate-700 mb-1.5">
+                      {t('register_role_title')} <span className="text-rose-500">*</span>
+                    </label>
+                    <div className="grid grid-cols-2 gap-2">
+                      <button
+                        type="button"
+                        onClick={() => setRegRole('Candidate')}
+                        className={`p-2.5 rounded-xl border text-left transition cursor-pointer ${
+                          regRole === 'Candidate'
+                            ? 'border-sky-500 bg-sky-50/70 ring-2 ring-sky-200'
+                            : 'border-slate-200 bg-slate-50/60 hover:bg-slate-50'
+                        }`}
+                      >
+                        <div className="flex items-center gap-1.5 mb-0.5">
+                          <span className="text-base">🎓</span>
+                          <span className="text-xs font-bold text-slate-900">{t('register_role_candidate')}</span>
+                        </div>
+                        <p className="text-[10px] text-slate-500 leading-tight">{t('register_role_candidate_desc')}</p>
+                      </button>
+
+                      <button
+                        type="button"
+                        onClick={() => setRegRole('Organizer')}
+                        className={`p-2.5 rounded-xl border text-left transition cursor-pointer ${
+                          regRole === 'Organizer'
+                            ? 'border-indigo-600 bg-indigo-50/70 ring-2 ring-indigo-200'
+                            : 'border-slate-200 bg-slate-50/60 hover:bg-slate-50'
+                        }`}
+                      >
+                        <div className="flex items-center gap-1.5 mb-0.5">
+                          <span className="text-base">👨‍🏫</span>
+                          <span className="text-xs font-bold text-slate-900">{t('register_role_organizer')}</span>
+                        </div>
+                        <p className="text-[10px] text-slate-500 leading-tight">{t('register_role_organizer_desc')}</p>
+                      </button>
+                    </div>
+                  </div>
+
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                    <div>
+                      <label className="block text-xs font-medium text-slate-700 mb-1">
+                        {t('register_name_label')} <span className="text-rose-500">*</span>
+                      </label>
+                      <input
+                        type="text"
+                        placeholder={t('register_name_placeholder')}
+                        value={regName}
+                        onChange={(e) => setRegName(e.target.value)}
+                        className="w-full px-3 py-2 bg-slate-50/50 border border-slate-200 rounded-xl text-xs outline-none focus:bg-white focus:border-indigo-400 focus:ring-2 focus:ring-indigo-200/40 transition"
+                        required
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-xs font-medium text-slate-700 mb-1">
+                        {regRole === 'Candidate' ? t('register_code_student') : t('register_code_lecturer')}
+                      </label>
+                      <input
+                        type="text"
+                        placeholder={t('register_code_placeholder')}
+                        value={regStudentCode}
+                        onChange={(e) => setRegStudentCode(e.target.value)}
+                        className="w-full px-3 py-2 bg-slate-50/50 border border-slate-200 rounded-xl text-xs outline-none focus:bg-white focus:border-indigo-400 focus:ring-2 focus:ring-indigo-200/40 transition"
+                      />
+                    </div>
+                  </div>
+
+                  <div>
+                    <label className="block text-xs font-medium text-slate-700 mb-1">
+                      {t('register_email_label')} <span className="text-rose-500">*</span>
+                    </label>
+                    <input
+                      type="email"
+                      placeholder={t('register_email_placeholder')}
+                      value={regEmail}
+                      onChange={(e) => setRegEmail(e.target.value)}
+                      className="w-full px-3 py-2 bg-slate-50/50 border border-slate-200 rounded-xl text-xs outline-none focus:bg-white focus:border-indigo-400 focus:ring-2 focus:ring-indigo-200/40 transition"
+                      required
+                    />
+                  </div>
+
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                    <div>
+                      <label className="block text-xs font-medium text-slate-700 mb-1">
+                        {t('register_password_label')} <span className="text-rose-500">*</span>
+                      </label>
+                      <input
+                        type="password"
+                        placeholder={t('register_password_placeholder')}
+                        value={regPassword}
+                        onChange={(e) => setRegPassword(e.target.value)}
+                        className="w-full px-3 py-2 bg-slate-50/50 border border-slate-200 rounded-xl text-xs outline-none focus:bg-white focus:border-indigo-400 focus:ring-2 focus:ring-indigo-200/40 transition"
+                        required
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-xs font-medium text-slate-700 mb-1">
+                        {t('register_confirm_password_label')} <span className="text-rose-500">*</span>
+                      </label>
+                      <input
+                        type="password"
+                        placeholder={t('register_confirm_password_placeholder')}
+                        value={regConfirmPassword}
+                        onChange={(e) => setRegConfirmPassword(e.target.value)}
+                        className="w-full px-3 py-2 bg-slate-50/50 border border-slate-200 rounded-xl text-xs outline-none focus:bg-white focus:border-indigo-400 focus:ring-2 focus:ring-indigo-200/40 transition"
+                        required
+                      />
+                    </div>
+                  </div>
+
+                  <button
+                    type="submit"
+                    disabled={regLoading}
+                    className="w-full py-2.5 bg-gradient-to-r from-indigo-600 to-indigo-700 hover:from-indigo-500 hover:to-indigo-600 text-white text-xs font-semibold rounded-xl shadow-md shadow-indigo-200 transition cursor-pointer disabled:opacity-50"
+                  >
+                    {regLoading ? (
+                      <span className="flex items-center justify-center gap-2">
+                        <span className="w-3.5 h-3.5 border-2 border-white/30 border-t-white rounded-full animate-spin"></span>
+                        {t('register_loading')}
+                      </span>
+                    ) : (
+                      t('register_submit_btn')
+                    )}
+                  </button>
+
+                  <div className="pt-2 text-center border-t border-slate-100">
+                    <button
+                      type="button"
+                      onClick={() => redirectToCognitoLogin(true, regRole)}
+                      className="text-xs text-indigo-600 hover:text-indigo-800 cursor-pointer font-medium hover:underline inline-flex items-center justify-center gap-1.5"
+                    >
+                      <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 11c0 3.517-1.009 6.799-2.753 9.571m-3.44-2.04l.054-.09A13.916 13.916 0 008 11a4 4 0 118 0c0 1.017-.07 2.019-.203 3m-2.118 6.844A21.88 21.88 0 0015.171 17m3.839 1.132c.645-2.266.99-4.659.99-7.132A8 8 0 008 4.07M3 15.364c.64-1.319 1-2.8 1-4.364 0-1.457.39-2.823 1.07-4" />
+                      </svg>
+                      <span>{t('register_sso_btn')}</span>
+                    </button>
+                  </div>
+                </form>
+              </>
+            )}
           </div>
         </main>
+
+        {/* MODAL NHẬP MÃ OTP KÍCH HOẠT TÀI KHOẢN COGNITO */}
+        {showOtpModal && (
+          <div className="fixed inset-0 z-50 bg-slate-900/60 backdrop-blur-sm flex items-center justify-center p-4">
+            <div className="bg-white rounded-3xl border border-indigo-100 shadow-2xl max-w-sm w-full p-6 space-y-4">
+              <div className="text-center space-y-1.5">
+                <div className="w-11 h-11 rounded-2xl bg-gradient-to-tr from-emerald-500 to-indigo-600 text-white flex items-center justify-center mx-auto shadow-md shadow-emerald-200">
+                  <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
+                  </svg>
+                </div>
+                <h3 className="text-base font-bold text-slate-900">{t('otp_modal_title')}</h3>
+                <p className="text-xs text-slate-500 leading-snug">
+                  {t('otp_modal_desc')}{' '}
+                  <span className="font-semibold text-slate-700 block font-mono">{otpEmail}</span>
+                </p>
+              </div>
+
+              {otpNotice && (
+                <div className={`p-2.5 rounded-xl text-xs ${otpNotice.includes('thành công') || otpNotice.includes('đã được gửi') ? 'bg-emerald-50 text-emerald-800 border border-emerald-200' : 'bg-rose-50 text-rose-700 border border-rose-200'}`}>
+                  {otpNotice}
+                </div>
+              )}
+
+              <form onSubmit={handleVerifyOtp} className="space-y-3.5">
+                <div>
+                  <label className="block text-xs font-medium text-slate-700 mb-1 text-center">
+                    Nhập mã xác thực 6 chữ số
+                  </label>
+                  <input
+                    type="text"
+                    maxLength={6}
+                    placeholder={t('otp_input_placeholder')}
+                    value={otpCode}
+                    onChange={(e) => setOtpCode(e.target.value.replace(/\D/g, ''))}
+                    className="w-full text-center text-lg tracking-[0.3em] font-mono py-2 bg-slate-50 border border-slate-200 rounded-xl outline-none focus:bg-white focus:border-indigo-500 focus:ring-2 focus:ring-indigo-200 transition"
+                    required
+                    autoFocus
+                  />
+                </div>
+
+                <button
+                  type="submit"
+                  disabled={otpLoading || otpCode.length < 4}
+                  className="w-full py-2.5 bg-gradient-to-r from-emerald-600 to-indigo-600 hover:from-emerald-500 hover:to-indigo-500 text-white text-xs font-semibold rounded-xl shadow-md transition cursor-pointer disabled:opacity-50"
+                >
+                  {otpLoading ? (
+                    <span className="flex items-center justify-center gap-2">
+                      <span className="w-3.5 h-3.5 border-2 border-white/30 border-t-white rounded-full animate-spin"></span>
+                      Đang xác thực...
+                    </span>
+                  ) : (
+                    t('otp_verify_btn')
+                  )}
+                </button>
+
+                <div className="flex items-center justify-between pt-2 border-t border-slate-100 text-xs">
+                  <button
+                    type="button"
+                    onClick={handleResendOtp}
+                    disabled={otpResending}
+                    className="text-indigo-600 hover:text-indigo-800 font-medium cursor-pointer"
+                  >
+                    {otpResending ? t('otp_resending') : t('otp_resend_btn')}
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setShowOtpModal(false)}
+                    className="text-slate-400 hover:text-slate-600 cursor-pointer"
+                  >
+                    Đóng
+                  </button>
+                </div>
+              </form>
+            </div>
+          </div>
+        )}
 
         {/* Footer bản quyền */}
         <footer className="text-center text-xs text-slate-400 py-2">
@@ -650,7 +1022,6 @@ export default function App() {
     );
   }
 
-  const user = getCurrentUser();
   const isAdminOrOrganizer = user.groups.some((g) => ['Admin', 'Organizer'].includes(g));
   const isCandidateOnly = user.groups.includes('Candidate') && !isAdminOrOrganizer;
 
@@ -688,6 +1059,81 @@ export default function App() {
   };
 
 
+  const roleOnboardingModal = showRoleOnboarding ? (
+    <div className="fixed inset-0 z-50 bg-slate-900/60 backdrop-blur-sm flex items-center justify-center p-4">
+      <div className="bg-white rounded-3xl border border-indigo-100 shadow-2xl max-w-md w-full p-6 sm:p-8 space-y-6 animate-in fade-in duration-200">
+        <div className="text-center space-y-2">
+          <div className="w-12 h-12 rounded-2xl bg-gradient-to-tr from-indigo-600 to-sky-500 text-white flex items-center justify-center mx-auto shadow-md shadow-indigo-200">
+            <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
+            </svg>
+          </div>
+          <h3 className="text-lg font-bold text-slate-900">{t('onboarding_role_title')}</h3>
+          <p className="text-xs text-slate-500">
+            {t('onboarding_role_subtitle')}{' '}
+            <span className="font-semibold text-slate-700 font-mono block mt-0.5">{user.email}</span>
+          </p>
+        </div>
+
+        <div className="space-y-3">
+          <button
+            type="button"
+            onClick={() => setSelectedOnboardingRole('Candidate')}
+            className={`w-full p-4 rounded-2xl border text-left transition flex items-start gap-3.5 cursor-pointer ${
+              selectedOnboardingRole === 'Candidate'
+                ? 'border-sky-500 bg-sky-50/70 ring-2 ring-sky-200 shadow-xs'
+                : 'border-slate-200 bg-slate-50/50 hover:bg-slate-50 hover:border-slate-300'
+            }`}
+          >
+            <div className="text-2xl mt-0.5">🎓</div>
+            <div className="flex-1 min-w-0">
+              <div className="flex items-center justify-between">
+                <p className="text-xs font-bold text-slate-900">{t('register_role_candidate')}</p>
+                {selectedOnboardingRole === 'Candidate' && (
+                  <span className="w-2.5 h-2.5 rounded-full bg-sky-500"></span>
+                )}
+              </div>
+              <p className="text-[11px] text-slate-500 mt-0.5">{t('register_role_candidate_desc')}</p>
+            </div>
+          </button>
+
+          <button
+            type="button"
+            onClick={() => setSelectedOnboardingRole('Organizer')}
+            className={`w-full p-4 rounded-2xl border text-left transition flex items-start gap-3.5 cursor-pointer ${
+              selectedOnboardingRole === 'Organizer'
+                ? 'border-indigo-600 bg-indigo-50/70 ring-2 ring-indigo-200 shadow-xs'
+                : 'border-slate-200 bg-slate-50/50 hover:bg-slate-50 hover:border-slate-300'
+            }`}
+          >
+            <div className="text-2xl mt-0.5">👨‍🏫</div>
+            <div className="flex-1 min-w-0">
+              <div className="flex items-center justify-between">
+                <p className="text-xs font-bold text-slate-900">{t('register_role_organizer')}</p>
+                {selectedOnboardingRole === 'Organizer' && (
+                  <span className="w-2.5 h-2.5 rounded-full bg-indigo-600"></span>
+                )}
+              </div>
+              <p className="text-[11px] text-slate-500 mt-0.5">{t('register_role_organizer_desc')}</p>
+            </div>
+          </button>
+        </div>
+
+        <button
+          type="button"
+          onClick={() => {
+            setUserSelectedRole(user.email, selectedOnboardingRole);
+            setShowRoleOnboarding(false);
+            setRoleTrigger((prev) => prev + 1);
+          }}
+          className="w-full py-3 bg-gradient-to-r from-indigo-600 to-indigo-700 hover:from-indigo-500 hover:to-indigo-600 text-white text-xs font-semibold rounded-xl shadow-md shadow-indigo-200 transition cursor-pointer"
+        >
+          {t('onboarding_confirm_btn')}
+        </button>
+      </div>
+    </div>
+  ) : null;
+
   // CỔNG THÍ SINH
   if (isCandidateOnly) {
     const mySessions = sessions.filter(
@@ -721,8 +1167,22 @@ export default function App() {
               </div>
             </div>
 
-            <div className="flex items-center gap-3 text-xs">
+            <div className="flex items-center gap-2.5 text-xs">
               <CountryLanguageBar />
+
+              <button
+                type="button"
+                onClick={() => {
+                  switchActiveRole('Organizer');
+                  setRoleTrigger((prev) => prev + 1);
+                }}
+                className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-indigo-50 hover:bg-indigo-100 text-indigo-700 rounded-xl text-xs font-semibold border border-indigo-200 transition cursor-pointer"
+                title={t('switch_role_tooltip')}
+              >
+                <span>👨‍🏫</span>
+                <span className="hidden sm:inline">{t('switch_to_lecturer_portal')}</span>
+              </button>
+
               <button
                 onClick={logout}
                 className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-slate-100/80 hover:bg-rose-50 text-slate-600 hover:text-rose-700 rounded-xl text-xs font-medium border border-slate-200/60 transition cursor-pointer"
@@ -853,6 +1313,8 @@ export default function App() {
         <footer className="text-center text-xs text-slate-400 py-4 border-t border-slate-200/50">
           &copy; 2026 CloudExam • {t('footer_uet_title')}
         </footer>
+
+        {roleOnboardingModal}
       </div>
     );
   }
@@ -884,6 +1346,20 @@ export default function App() {
 
           <div className="flex items-center gap-2.5 text-xs">
             <CountryLanguageBar />
+
+            {/* Nút chuyển sang Cổng Thí sinh */}
+            <button
+              type="button"
+              onClick={() => {
+                switchActiveRole('Candidate');
+                setRoleTrigger((prev) => prev + 1);
+              }}
+              className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-sky-50 hover:bg-sky-100 text-sky-700 rounded-xl text-xs font-semibold border border-sky-200 transition cursor-pointer"
+              title={t('switch_role_tooltip')}
+            >
+              <span>🎓</span>
+              <span className="hidden sm:inline">{t('switch_to_candidate_portal')}</span>
+            </button>
 
             <button
               onClick={handleSyncToCloud}
@@ -1059,6 +1535,8 @@ export default function App() {
       <footer className="text-center text-xs text-slate-400 py-4 border-t border-slate-200/50">
         &copy; 2026 CloudExam • {t('footer_copyright')}
       </footer>
+
+      {roleOnboardingModal}
     </div>
   );
 }
