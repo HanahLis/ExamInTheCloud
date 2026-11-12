@@ -49,9 +49,11 @@ const decodeJwt = (token: string) => {
   }
 };
 
+export type AppRole = 'Organizer' | 'Proctor' | 'Candidate';
+
 export const DATABASE_ACCOUNTS_MAP: Record<
   string,
-  { role: 'Organizer' | 'Candidate'; name: string; email: string; studentCode?: string }
+  { role: AppRole; name: string; email: string; studentCode?: string }
 > = {
   'phongpt@vnu.edu.vn': {
     role: 'Organizer',
@@ -83,8 +85,14 @@ export const DATABASE_ACCOUNTS_MAP: Record<
     email: 'annv@uet.vnu.edu.vn',
     studentCode: 'GV001',
   },
-  'laladoraema@gmail.com': {
+  'annv@vnu.edu.vn': {
     role: 'Organizer',
+    name: 'PGS. TS. Nguyễn Văn An',
+    email: 'annv@vnu.edu.vn',
+    studentCode: 'GV001',
+  },
+  'laladoraema@gmail.com': {
+    role: 'Proctor',
     name: 'Giám thị Laladoraema',
     email: 'laladoraema@gmail.com',
     studentCode: 'GT002',
@@ -447,23 +455,19 @@ export const resendConfirmationCode = async (email: string): Promise<void> => {
 };
 
 // Lưu & Lấy vai trò tùy chọn người dùng (Giảng viên / Thí sinh)
-export const setUserSelectedRole = (email: string, role: 'Organizer' | 'Candidate') => {
+export const setUserSelectedRole = (email: string, role: AppRole) => {
   const cleanEmail = email.trim().toLowerCase();
   localStorage.setItem(`cloudexam_user_role_${cleanEmail}`, role);
-  localStorage.setItem('cloudexam_current_active_role', role);
 };
 
-export const getUserSelectedRole = (email: string): 'Organizer' | 'Candidate' | null => {
+export const getUserSelectedRole = (email: string): AppRole | null => {
   const cleanEmail = email.trim().toLowerCase();
-  return (localStorage.getItem(`cloudexam_user_role_${cleanEmail}`) as 'Organizer' | 'Candidate') || null;
+  return (localStorage.getItem(`cloudexam_user_role_${cleanEmail}`) as AppRole) || null;
 };
 
-export const switchActiveRole = (role: 'Organizer' | 'Candidate') => {
-  localStorage.setItem('cloudexam_current_active_role', role);
-  const user = getCurrentUser();
-  if (user.email) {
-    localStorage.setItem(`cloudexam_user_role_${user.email.toLowerCase().trim()}`, role);
-  }
+// Đã vô hiệu hóa chuyển vai trò chéo để đảm bảo an ninh hệ thống phòng thi (RBAC)
+export const switchActiveRole = (_role: AppRole) => {
+  // Không cho phép đổi vai trò chéo
 };
 
 export const hasUserChosenRole = (email: string): boolean => {
@@ -471,10 +475,7 @@ export const hasUserChosenRole = (email: string): boolean => {
   if (!cleanEmail) return false;
   if (cleanEmail === 'laladoraema@gmail.com' || cleanEmail.includes('admin') || cleanEmail.includes('annv')) return true;
   if (DATABASE_ACCOUNTS_MAP[cleanEmail]) return true;
-  return Boolean(
-    localStorage.getItem(`cloudexam_user_role_${cleanEmail}`) ||
-    localStorage.getItem('cloudexam_current_active_role')
-  );
+  return Boolean(localStorage.getItem(`cloudexam_user_role_${cleanEmail}`));
 };
 
 // ---------- PKCE helpers (Authorization Code + PKCE cho AWS Live) ----------
@@ -618,29 +619,37 @@ export const getCurrentUser = (): AuthUser => {
     let groups: string[] = Array.isArray(rawGroups) ? [...rawGroups] : (rawGroups ? [rawGroups] : []);
     const email = (c.email || '').toLowerCase().trim();
 
-    // Kiểm tra vai trò do người dùng đã chọn (từ Đăng ký, Onboarding SSO hoặc Chuyển đổi vai trò)
-    const activeRole = localStorage.getItem('cloudexam_current_active_role') as 'Organizer' | 'Candidate' | null;
-    const userRole = (localStorage.getItem(`cloudexam_user_role_${email}`) as 'Organizer' | 'Candidate' | null) || activeRole;
+    // Tra cứu tài khoản hệ thống chuẩn (RBAC Isolation)
+    const mapping = DATABASE_ACCOUNTS_MAP[email];
 
-    if (userRole) {
-      if (userRole === 'Organizer') {
-        if (!groups.includes('Organizer')) groups.push('Organizer');
+    if (mapping) {
+      if (mapping.role === 'Proctor') {
+        groups = ['Proctor'];
+      } else if (mapping.role === 'Organizer') {
+        groups = ['Organizer', 'Admin'];
       } else {
-        // Vai trò Thí sinh
-        groups = groups.filter((g) => g !== 'Organizer' && g !== 'Admin');
-        if (!groups.includes('Candidate')) groups.push('Candidate');
+        groups = ['Candidate'];
       }
-    } else if (email === 'laladoraema@gmail.com' || email.includes('admin') || email.includes('annv')) {
-      if (!groups.includes('Organizer')) groups.push('Organizer');
-      if (!groups.includes('Admin')) groups.push('Admin');
-    } else if (DATABASE_ACCOUNTS_MAP[email]) {
-      const mapping = DATABASE_ACCOUNTS_MAP[email];
-      if (!groups.includes(mapping.role)) {
-        groups.push(mapping.role);
+    } else if (email === 'laladoraema@gmail.com') {
+      groups = ['Proctor'];
+    } else if (email.includes('admin') || email.includes('annv')) {
+      groups = ['Organizer', 'Admin'];
+    } else if (groups.includes('Proctor')) {
+      groups = ['Proctor'];
+    } else if (groups.some((g) => ['Admin', 'Organizer'].includes(g))) {
+      groups = ['Organizer', 'Admin'];
+    } else if (groups.includes('Candidate') || /^\d{8}@/.test(email) || (email.includes('@vnu.edu.vn') && !email.includes('annv') && !email.includes('phongpt'))) {
+      groups = ['Candidate'];
+    } else {
+      const userRole = getUserSelectedRole(email);
+      if (userRole === 'Proctor') {
+        groups = ['Proctor'];
+      } else if (userRole === 'Organizer') {
+        groups = ['Organizer', 'Admin'];
+      } else {
+        groups = ['Candidate'];
       }
     }
-
-    const mapping = DATABASE_ACCOUNTS_MAP[email];
 
     return {
       email: c.email || '',

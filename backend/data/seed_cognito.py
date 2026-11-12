@@ -18,7 +18,7 @@ if sys.stdout.encoding != 'utf-8':
         pass
 
 REGION = os.getenv("AWS_REGION", "ap-southeast-1")
-PASSWORD = os.getenv("DEFAULT_USER_PASSWORD", "CloudExam@2026")
+PASSWORD = os.getenv("DEFAULT_USER_PASSWORD", "12345678")
 
 def get_cognito_pool_id():
     """Lấy User Pool ID từ Terraform State hoặc file frontend/.env"""

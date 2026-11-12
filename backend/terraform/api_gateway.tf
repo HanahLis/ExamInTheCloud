@@ -1,7 +1,6 @@
 # ==============================================================================
 # AMAZON API GATEWAY: REST API, COGNITO AUTHORIZER & CORS
-# ==============================================================================
-
+# =============================================================================
 # 1. Khởi tạo REST API
 resource "aws_api_gateway_rest_api" "main" {
   name        = "${var.project_name}-api-${var.environment}"

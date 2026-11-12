@@ -9,8 +9,9 @@ import {
   confirmSignUpWithCognito,
   resendConfirmationCode,
   setUserSelectedRole,
-  switchActiveRole,
   hasUserChosenRole,
+  DATABASE_ACCOUNTS_MAP,
+  type AppRole,
 } from './services/auth';
 import {
   getQuestions,
@@ -36,6 +37,7 @@ import { CandidatesTab } from './components/CandidatesTab';
 import { ExamSessionTab } from './components/ExamSessionTab';
 import { ExamRoom } from './components/ExamRoom';
 import { CandidateRoomLogin } from './components/CandidateRoomLogin';
+import { LiveProctorDashboard } from './components/LiveProctorDashboard';
 import { useTheme } from './themes/themeContext';
 import { useTranslation, type Language } from './locales/i18nContext';
 import {
@@ -160,7 +162,7 @@ const parseRouteFromUrl = (): { tab: Tab; examId: string | null } => {
 };
 
 export interface SystemAccount {
-  role: 'Organizer' | 'Candidate';
+  role: AppRole;
   name: string;
   email: string;
   studentCode?: string;
@@ -176,7 +178,7 @@ const DATABASE_ACCOUNTS: SystemAccount[] = [
     unit: 'Giảng viên Khoa Công nghệ Thông tin - ĐH Công nghệ (UET)',
   },
   {
-    role: 'Organizer',
+    role: 'Proctor',
     name: 'Giám thị Laladoraema',
     email: 'laladoraema@gmail.com',
     studentCode: 'GT002',
@@ -323,9 +325,6 @@ export default function App() {
   const [otpLoading, setOtpLoading] = useState(false);
   const [otpResending, setOtpResending] = useState(false);
   const [otpNotice, setOtpNotice] = useState<string | null>(null);
-
-  // Trigger re-render khi chuyển vai trò
-  const [, setRoleTrigger] = useState(0);
 
   const loggedIn = isLoggedIn();
   const user = getCurrentUser();
@@ -664,22 +663,39 @@ export default function App() {
                 {/* Quick Demo Chips */}
                 <div className="p-3 bg-slate-50/80 rounded-2xl border border-slate-200/70 space-y-2">
                   <span className="text-[11px] font-semibold text-slate-600 uppercase tracking-wider block">
-                    {t('login_quick_label')}
+                    {t('login_quick_label')} (3 Cổng phân quyền độc lập)
                   </span>
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
                     <button
                       type="button"
                       onClick={() => {
                         setLoginEmail('annv@uet.vnu.edu.vn');
                         setLoginPassword('12345678');
                       }}
+                      className="p-2.5 rounded-xl bg-purple-50/70 hover:bg-purple-100/80 border border-purple-200/60 text-left transition cursor-pointer group"
+                    >
+                      <div className="flex items-center gap-2">
+                        <span className="px-1.5 py-0.5 rounded-full bg-purple-200 text-purple-800 text-[10px] font-bold flex items-center justify-center shrink-0">GV</span>
+                        <div className="min-w-0">
+                          <p className="text-xs font-semibold text-purple-900 truncate">Nguyễn Văn An</p>
+                          <p className="text-[10px] text-purple-700 truncate font-mono">annv@uet...</p>
+                        </div>
+                      </div>
+                    </button>
+
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setLoginEmail('laladoraema@gmail.com');
+                        setLoginPassword('12345678');
+                      }}
                       className="p-2.5 rounded-xl bg-indigo-50/70 hover:bg-indigo-100/80 border border-indigo-200/60 text-left transition cursor-pointer group"
                     >
                       <div className="flex items-center gap-2">
-                        <span className="px-1.5 py-0.5 rounded-full bg-indigo-200 text-indigo-800 text-[10px] font-bold flex items-center justify-center">{t('role_abbr_lecturer')}</span>
+                        <span className="px-1.5 py-0.5 rounded-full bg-indigo-200 text-indigo-800 text-[10px] font-bold flex items-center justify-center shrink-0">GT</span>
                         <div className="min-w-0">
-                          <p className="text-xs font-semibold text-indigo-900 truncate">PGS. TS. Nguyễn Văn An</p>
-                          <p className="text-[10px] text-indigo-700 truncate font-mono">annv@uet.vnu.edu.vn</p>
+                          <p className="text-xs font-semibold text-indigo-900 truncate">Laladoraema</p>
+                          <p className="text-[10px] text-indigo-700 truncate font-mono">laladoraema...</p>
                         </div>
                       </div>
                     </button>
@@ -693,10 +709,10 @@ export default function App() {
                       className="p-2.5 rounded-xl bg-sky-50/70 hover:bg-sky-100/80 border border-sky-200/60 text-left transition cursor-pointer group"
                     >
                       <div className="flex items-center gap-2">
-                        <span className="px-1.5 py-0.5 rounded-full bg-sky-200 text-sky-800 text-[10px] font-bold flex items-center justify-center">{t('role_abbr_student')}</span>
+                        <span className="px-1.5 py-0.5 rounded-full bg-sky-200 text-sky-800 text-[10px] font-bold flex items-center justify-center shrink-0">TS</span>
                         <div className="min-w-0">
                           <p className="text-xs font-semibold text-sky-900 truncate">Trần Minh Đức</p>
-                          <p className="text-[10px] text-sky-700 truncate font-mono">24020001@vnu.edu.vn</p>
+                          <p className="text-[10px] text-sky-700 truncate font-mono">24020001...</p>
                         </div>
                       </div>
                     </button>
@@ -723,7 +739,7 @@ export default function App() {
                     <datalist id="vnu-accounts">
                       {DATABASE_ACCOUNTS.map((acc) => (
                         <option key={acc.email} value={acc.email}>
-                          {acc.name} ({acc.role === 'Organizer' ? t('qb_lecturer_label') : acc.studentCode})
+                          {acc.name} ({acc.role === 'Organizer' ? t('qb_lecturer_label') : acc.role === 'Proctor' ? 'Giám thị' : acc.studentCode})
                         </option>
                       ))}
                     </datalist>
@@ -1022,8 +1038,21 @@ export default function App() {
     );
   }
 
-  const isAdminOrOrganizer = user.groups.some((g) => ['Admin', 'Organizer'].includes(g));
-  const isCandidateOnly = user.groups.includes('Candidate') && !isAdminOrOrganizer;
+  const emailLower = (user.email || '').toLowerCase().trim();
+  const dbAccount = DATABASE_ACCOUNTS_MAP[emailLower];
+
+  // BẢO MẬT PHÂN QUYỀN (RBAC): Mỗi vai trò chỉ được ở 1 cổng riêng biệt tuyệt đối
+  const isProctor =
+    dbAccount?.role === 'Proctor' ||
+    user.groups.includes('Proctor') ||
+    emailLower === 'laladoraema@gmail.com';
+
+  const isCandidateOnly =
+    !isProctor &&
+    (dbAccount?.role === 'Candidate' ||
+      user.groups.includes('Candidate') ||
+      /^\d{8}@/.test(emailLower) ||
+      (emailLower.includes('@vnu.edu.vn') && !emailLower.includes('annv') && !emailLower.includes('phongpt')));
 
   const handleAddCandidate = async (candidate: Candidate) => {
     const saved = await createCandidate(candidate);
@@ -1124,7 +1153,7 @@ export default function App() {
           onClick={() => {
             setUserSelectedRole(user.email, selectedOnboardingRole);
             setShowRoleOnboarding(false);
-            setRoleTrigger((prev) => prev + 1);
+            window.location.reload();
           }}
           className="w-full py-3 bg-gradient-to-r from-indigo-600 to-indigo-700 hover:from-indigo-500 hover:to-indigo-600 text-white text-xs font-semibold rounded-xl shadow-md shadow-indigo-200 transition cursor-pointer"
         >
@@ -1167,21 +1196,8 @@ export default function App() {
               </div>
             </div>
 
-            <div className="flex items-center gap-2.5 text-xs">
+            <div className="flex items-center gap-2.5 text-xs flex-wrap">
               <CountryLanguageBar />
-
-              <button
-                type="button"
-                onClick={() => {
-                  switchActiveRole('Organizer');
-                  setRoleTrigger((prev) => prev + 1);
-                }}
-                className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-indigo-50 hover:bg-indigo-100 text-indigo-700 rounded-xl text-xs font-semibold border border-indigo-200 transition cursor-pointer"
-                title={t('switch_role_tooltip')}
-              >
-                <span>👨‍🏫</span>
-                <span className="hidden sm:inline">{t('switch_to_lecturer_portal')}</span>
-              </button>
 
               <button
                 onClick={logout}
@@ -1319,6 +1335,24 @@ export default function App() {
     );
   }
 
+  // CỔNG CÁN BỘ COI THI (LIVE PROCTOR DASHBOARD)
+  if (isProctor) {
+    return (
+      <>
+        <LiveProctorDashboard
+          user={user}
+          sessions={sessions}
+          candidates={candidates}
+          onRefresh={refreshAll}
+          onUpdateSessionCandidates={handleUpdateSessionCandidates}
+          onUpdateSessionStatus={handleUpdateSessionStatus}
+          countryLanguageBar={<CountryLanguageBar />}
+        />
+        {roleOnboardingModal}
+      </>
+    );
+  }
+
   // CỔNG QUẢN LÝ (GIẢNG VIÊN / BAN TỔ CHỨC)
   return (
     <div className="min-h-screen bg-slate-50/70 text-slate-700 flex flex-col justify-between">
@@ -1334,8 +1368,8 @@ export default function App() {
             <div>
               <div className="flex items-center gap-2">
                 <h1 className="text-sm font-bold text-slate-900 tracking-tight">{t('app_title')}</h1>
-                <span className="text-[10px] font-semibold px-2 py-0.5 rounded-full bg-indigo-50 text-indigo-700 border border-indigo-100">
-                  {user.groups.includes('Organizer') ? t('qb_lecturer_label') : t('admin')}
+                <span className="text-[10px] font-semibold px-2 py-0.5 rounded-full bg-purple-50 text-purple-700 border border-purple-200 font-bold">
+                  {t('qb_lecturer_label')}
                 </span>
               </div>
               <p className="text-[11px] text-slate-500">
@@ -1344,22 +1378,8 @@ export default function App() {
             </div>
           </div>
 
-          <div className="flex items-center gap-2.5 text-xs">
+          <div className="flex items-center gap-2.5 text-xs flex-wrap">
             <CountryLanguageBar />
-
-            {/* Nút chuyển sang Cổng Thí sinh */}
-            <button
-              type="button"
-              onClick={() => {
-                switchActiveRole('Candidate');
-                setRoleTrigger((prev) => prev + 1);
-              }}
-              className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-sky-50 hover:bg-sky-100 text-sky-700 rounded-xl text-xs font-semibold border border-sky-200 transition cursor-pointer"
-              title={t('switch_role_tooltip')}
-            >
-              <span>🎓</span>
-              <span className="hidden sm:inline">{t('switch_to_candidate_portal')}</span>
-            </button>
 
             <button
               onClick={handleSyncToCloud}

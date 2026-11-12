@@ -3,7 +3,7 @@
     "id": "EXAM-DEMO-K69",
     "name": "Thi Đánh Giá Năng Lực: Điện Toán Đám Mây & Kiến Trúc Phần Mềm (UET)",
     "startTime": "2026-11-01T00:00:00.000Z",
-    "endTime": "2026-12-31T23:59:59.000Z",
+    "endTime": "2027-12-31T23:59:59.000Z",
     "status": "RUNNING",
     "durationMinutes": 45,
     "questionIds": [
@@ -21,16 +21,26 @@
     "candidateEmails": [
       "tranducmanh2006@gmail.com",
       "annv@uet.vnu.edu.vn",
+      "laladoraema@gmail.com",
       "duc.tm24@vnu.edu.vn",
+      "24020001@vnu.edu.vn",
       "mai.lt24@vnu.edu.vn",
+      "24020002@vnu.edu.vn",
       "long.ph24@vnu.edu.vn",
+      "24020003@vnu.edu.vn",
       "linh.vt24@vnu.edu.vn",
+      "24020004@vnu.edu.vn",
       "huy.dq24@vnu.edu.vn",
+      "24020005@vnu.edu.vn",
       "huong.nt24@vnu.edu.vn",
+      "24020006@vnu.edu.vn",
       "tuan.bv24@vnu.edu.vn",
+      "24020007@vnu.edu.vn",
       "thu.hm24@vnu.edu.vn",
       "quan.dm24@vnu.edu.vn",
-      "chi.nq24@vnu.edu.vn"
+      "chi.nq24@vnu.edu.vn",
+      "phongpt@vnu.edu.vn",
+      "24021598@vnu.edu.vn"
     ],
     "link": "http://localhost:5173/?exam=EXAM-DEMO-K69"
   },
@@ -38,7 +48,7 @@
     "id": "EX-VNU-2026-01",
     "name": "Thi Thử Nghiệm Chuẩn: Kiến trúc Serverless & Multi-Cloud",
     "startTime": "2026-11-01T00:00:00.000Z",
-    "endTime": "2026-12-31T23:59:59.000Z",
+    "endTime": "2027-12-31T23:59:59.000Z",
     "status": "RUNNING",
     "durationMinutes": 30,
     "questionIds": [
@@ -51,7 +61,23 @@
     "candidateEmails": [
       "tranducmanh2006@gmail.com",
       "annv@uet.vnu.edu.vn",
-      "duc.tm24@vnu.edu.vn"
+      "laladoraema@gmail.com",
+      "duc.tm24@vnu.edu.vn",
+      "24020001@vnu.edu.vn",
+      "mai.lt24@vnu.edu.vn",
+      "24020002@vnu.edu.vn",
+      "long.ph24@vnu.edu.vn",
+      "24020003@vnu.edu.vn",
+      "linh.vt24@vnu.edu.vn",
+      "24020004@vnu.edu.vn",
+      "huy.dq24@vnu.edu.vn",
+      "24020005@vnu.edu.vn",
+      "huong.nt24@vnu.edu.vn",
+      "24020006@vnu.edu.vn",
+      "tuan.bv24@vnu.edu.vn",
+      "24020007@vnu.edu.vn",
+      "phongpt@vnu.edu.vn",
+      "24021598@vnu.edu.vn"
     ],
     "link": "http://localhost:5173/?exam=EX-VNU-2026-01"
   }

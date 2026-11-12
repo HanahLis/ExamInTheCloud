@@ -87,6 +87,8 @@ export interface Candidate {
   className: string;
   faceImageUrl: string;
   createdAt?: string;
+  submissions?: Record<string, any>;
+  draftSubmissions?: Record<string, any>;
 }
 
 export type CandidateInput = Candidate;
@@ -114,6 +116,8 @@ export interface ExamSession {
     }
   >;
   createdAt?: string;
+  submissions?: Record<string, any>;
+  draftSubmissions?: Record<string, any>;
 }
 
 export interface FaceVerifyRequest {
