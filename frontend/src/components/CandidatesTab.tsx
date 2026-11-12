@@ -86,7 +86,7 @@ export const CandidatesTab = ({
   };
 
   const handleRemove = async (cEmail: string, cName: string) => {
-    if (!confirm(`${t('confirm_delete_candidate')} (${cName})`)) return;
+    if (!confirm(`${t('confirm_delete_candidate')} ${cName}`)) return;
     setDeletingEmail(cEmail);
     try {
       await onRemoveCandidate(cEmail);
@@ -112,16 +112,16 @@ export const CandidatesTab = ({
   return (
     <div className="space-y-5">
       {/* Top Action Bar & Summary */}
-      <div className="bg-white p-5 rounded-3xl border border-slate-200/80 shadow-xs flex flex-wrap items-center justify-between gap-3">
+      <div className="bg-white p-5 rounded-2xl border border-slate-200 shadow-sm flex flex-wrap items-center justify-between gap-3">
         <div className="flex items-center gap-3">
-          <div className="w-10 h-10 rounded-2xl bg-indigo-50 text-indigo-600 flex items-center justify-center border border-indigo-100">
+          <div className="w-10 h-10 rounded-lg bg-slate-100 text-slate-500 flex items-center justify-center border border-slate-200">
             <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197M13 7a4 4 0 11-8 0 4 4 0 018 0z" />
             </svg>
           </div>
           <div>
-            <h3 className="text-sm font-bold text-slate-900 tracking-tight">
-              {t('cand_title')} ({candidates.length})
+            <h3 className="text-sm font-semibold text-slate-900 tracking-tight">
+              {t('cand_title')} · {candidates.length}
             </h3>
             <p className="text-xs text-slate-500">
               {t('cand_desc')}
@@ -144,7 +144,7 @@ export const CandidatesTab = ({
 
           <button
             onClick={() => setShowAddForm(!showAddForm)}
-            className="px-4 py-2 bg-gradient-to-r from-indigo-600 to-indigo-700 hover:from-indigo-500 hover:to-indigo-600 text-white rounded-xl text-xs font-semibold shadow-xs shadow-indigo-200 transition cursor-pointer flex items-center gap-1.5 active:scale-[0.99]"
+            className="px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl text-xs font-semibold shadow-sm transition cursor-pointer flex items-center gap-1.5"
           >
             <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d={showAddForm ? "M6 18L18 6M6 6l12 12" : "M12 4v16m8-8H4"} />
@@ -154,19 +154,22 @@ export const CandidatesTab = ({
         </div>
       </div>
 
-      {/* Form thêm thí sinh mới (Pastel Soft Panel) */}
+      {/* Form thêm thí sinh mới */}
       {showAddForm && (
-        <div className="bg-gradient-to-br from-indigo-50/40 via-purple-50/20 to-sky-50/30 p-6 rounded-3xl border border-indigo-100 shadow-sm space-y-4">
+        <div className="bg-white p-6 rounded-2xl border border-slate-200 shadow-sm space-y-4">
           <div className="flex justify-between items-center">
             <div>
-              <h4 className="text-sm font-bold text-slate-900 tracking-tight">{t('cand_add_title')}</h4>
+              <h4 className="text-sm font-semibold text-slate-900 tracking-tight">{t('cand_add_title')}</h4>
               <p className="text-xs text-slate-500">{t('cand_add_desc')}</p>
             </div>
             <button
               onClick={() => setShowAddForm(false)}
-              className="text-slate-400 hover:text-slate-600 cursor-pointer text-sm font-bold"
+              className="text-slate-400 hover:text-slate-600 cursor-pointer"
+              aria-label="Close"
             >
-              ✕
+              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M6 18L18 6M6 6l12 12" />
+              </svg>
             </button>
           </div>
 
@@ -228,7 +231,7 @@ export const CandidatesTab = ({
               <label className="block text-xs font-semibold text-slate-700 mb-1">
                 {t('cand_table_avatar')} {t('cand_avatar_hint')} *
               </label>
-              <div className="flex items-center gap-4 p-3 bg-white border border-slate-200 rounded-2xl">
+              <div className="flex items-center gap-4 p-3 bg-slate-50 border border-slate-200 rounded-xl">
                 <input
                   ref={fileInput}
                   type="file"
@@ -242,7 +245,7 @@ export const CandidatesTab = ({
                     <img
                       src={facePreview}
                       alt="Preview"
-                      className="w-12 h-16 rounded-xl object-cover border-2 border-indigo-200 shadow-xs"
+                      className="w-12 h-16 rounded-lg object-cover border border-slate-200"
                     />
                     <span className="text-[11px] text-emerald-600 font-semibold">{t('cand_image_uploaded')}</span>
                   </div>
@@ -277,8 +280,8 @@ export const CandidatesTab = ({
         </div>
       )}
 
-      {/* Danh sách Thí sinh (Pastel Card & Search) */}
-      <div className="bg-white p-6 rounded-3xl border border-slate-200/80 shadow-xs space-y-4">
+      {/* Danh sách Thí sinh */}
+      <div className="bg-white p-6 rounded-2xl border border-slate-200 shadow-sm space-y-4">
         {/* Thanh tìm kiếm */}
         <div className="flex flex-wrap items-center justify-between gap-3">
           <div className="relative flex-1 min-w-[240px]">
@@ -308,7 +311,7 @@ export const CandidatesTab = ({
 
         {filteredCandidates.length === 0 && !loading && (
           <div className="py-12 text-center space-y-2">
-            <div className="w-12 h-12 mx-auto rounded-2xl bg-slate-100 text-slate-400 flex items-center justify-center">
+            <div className="w-12 h-12 mx-auto rounded-xl bg-slate-100 text-slate-400 flex items-center justify-center">
               <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197M13 7a4 4 0 11-8 0 4 4 0 018 0z" />
               </svg>
@@ -318,47 +321,41 @@ export const CandidatesTab = ({
           </div>
         )}
 
-        {/* Danh sách Card Thí sinh Pastel */}
+        {/* Danh sách Card Thí sinh */}
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
           {filteredCandidates.map((c) => (
             <div
               key={c.email}
-              className="p-3.5 rounded-2xl border border-slate-200/70 bg-white hover:border-indigo-200 hover:shadow-sm transition-all duration-200 flex items-center justify-between gap-3 group"
+              className="p-3.5 rounded-xl border border-slate-200 bg-white hover:border-slate-300 hover:shadow-sm transition flex items-center justify-between gap-3"
             >
               <div className="flex items-center gap-3 min-w-0">
-                <div className="relative shrink-0">
-                  <img
-                    src={c.faceImageUrl}
-                    alt={c.name}
-                    className="w-12 h-16 rounded-xl object-cover border border-slate-200/80 bg-slate-100 shadow-2xs group-hover:scale-105 transition"
-                    onError={(e) => {
-                      const img = e.target as HTMLImageElement;
-                      const fileBase = c.studentCode === 'GV001' ? 'annv' : c.studentCode;
-                      const fallbackUrl = `/sample_faces/${fileBase}.jpg`;
-                      if (!img.src.includes(fallbackUrl)) {
-                        img.src = fallbackUrl;
-                      } else {
-                        img.src =
-                          'https://ui-avatars.com/api/?name=' +
-                          encodeURIComponent(c.name) +
-                          '&background=e0e7ff&color=4338ca&rounded=true';
-                      }
-                    }}
-                  />
-                  <span className="w-2.5 h-2.5 rounded-full bg-emerald-500 absolute -bottom-0.5 -right-0.5 ring-2 ring-white"></span>
+                <div className="relative w-12 h-16 rounded-lg border border-slate-200 bg-slate-100 flex items-center justify-center overflow-hidden shrink-0">
+                  <span className="text-sm font-medium text-slate-400">
+                    {c.name.trim().split(/\s+/).slice(-2).map((w) => w.charAt(0)).join('').toUpperCase() || '?'}
+                  </span>
+                  {c.faceImageUrl && (
+                    <img
+                      src={c.faceImageUrl}
+                      alt={c.name}
+                      className="absolute inset-0 w-full h-full object-cover"
+                      onError={(e) => {
+                        (e.target as HTMLElement).style.display = 'none';
+                      }}
+                    />
+                  )}
                 </div>
 
                 <div className="min-w-0">
-                  <h5 className="font-bold text-slate-900 text-xs truncate group-hover:text-indigo-600 transition">
+                  <h5 className="font-semibold text-slate-900 text-xs truncate">
                     {c.name}
                   </h5>
                   <div className="flex items-center gap-1.5 mt-0.5">
-                    <span className="text-[10px] font-mono font-semibold px-1.5 py-0.2 rounded bg-indigo-50 text-indigo-700 border border-indigo-100">
+                    <span className="text-[10px] font-mono font-medium px-1.5 py-0.2 rounded bg-slate-100 text-slate-600 border border-slate-200">
                       {c.studentCode || 'N/A'}
                     </span>
                     {c.className && (
                       <span className="text-[10px] text-slate-500 truncate">
-                        • {c.className}
+                        · {c.className}
                       </span>
                     )}
                   </div>
@@ -369,23 +366,25 @@ export const CandidatesTab = ({
               </div>
 
               <div className="flex items-center gap-1 shrink-0">
-                <a
-                  href={c.faceImageUrl}
-                  target="_blank"
-                  rel="noreferrer"
-                  className="w-8 h-8 rounded-xl bg-slate-100/70 hover:bg-indigo-50 text-slate-500 hover:text-indigo-600 flex items-center justify-center transition cursor-pointer"
-                  title={t('cand_view_photo')}
-                >
-                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
-                  </svg>
-                </a>
+                {c.faceImageUrl && (
+                  <a
+                    href={c.faceImageUrl}
+                    target="_blank"
+                    rel="noreferrer"
+                    className="w-8 h-8 rounded-lg bg-slate-100 hover:bg-slate-200 text-slate-500 hover:text-slate-700 flex items-center justify-center transition cursor-pointer"
+                    title={t('cand_view_photo')}
+                  >
+                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
+                    </svg>
+                  </a>
+                )}
 
                 <button
                   onClick={() => handleRemove(c.email, c.name)}
                   disabled={deletingEmail === c.email}
-                  className="w-8 h-8 rounded-xl bg-slate-100/70 hover:bg-rose-50 text-slate-400 hover:text-rose-600 flex items-center justify-center transition cursor-pointer disabled:opacity-30"
+                  className="w-8 h-8 rounded-lg bg-slate-100 hover:bg-rose-50 text-slate-400 hover:text-rose-600 flex items-center justify-center transition cursor-pointer disabled:opacity-30"
                   title={t('cand_delete_title')}
                 >
                   <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">

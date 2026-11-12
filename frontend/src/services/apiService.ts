@@ -1,9 +1,6 @@
 import axios from 'axios';
 import JSZip from 'jszip';
 
-// Chế độ Mock đã được gỡ bỏ hoàn toàn. Toàn bộ request gửi trực tiếp tới dịch vụ AWS Cloud thật.
-export const isMockMode = (): boolean => import.meta.env.VITE_USE_MOCK === 'true';
-
 const api = axios.create({
   baseURL: import.meta.env.VITE_API_BASE_URL || '',
   headers: {
@@ -268,282 +265,6 @@ export interface ExamPaperResponse {
 const BUCKET_NAME = import.meta.env.VITE_S3_BUCKET_NAME || '';
 const S3_BASE = BUCKET_NAME ? `https://${BUCKET_NAME}.s3.${import.meta.env.VITE_AWS_REGION || 'ap-southeast-1'}.amazonaws.com` : '';
 
-export const DEFAULT_QUESTION_BANKS: QuestionBank[] = [
-  {
-    id: 'bank-se-arch-01',
-    bankId: 'bank-se-arch-01',
-    name: 'Bộ Ngân hàng Câu hỏi Ôn tập: Kiến trúc & Phát triển Phần mềm',
-    subject: 'Kiến trúc & Phát triển Phần mềm',
-    description: 'Ngân hàng câu hỏi trắc nghiệm chuyên sâu về Design Patterns, Kiến trúc Lục giác, Kiểm thử, Message Queuing, NoSQL, Tối ưu hóa bầy đàn, Agile/Scrum, SOLID, Git và Token Authentication',
-    createdAt: '2026-10-21T08:00:00Z',
-  },
-];
-
-export const DEFAULT_QUESTIONS: Question[] = [
-  {
-    id: 'q-se-001',
-    questionId: 'q-se-001',
-    bankId: 'bank-se-arch-01',
-    content: 'Mẫu thiết kế phần mềm (Design Pattern) nào thuộc nhóm Mẫu khởi tạo (Creational Patterns) giúp đảm bảo một lớp chỉ có duy nhất một thể hiện (instance) và cung cấp một điểm truy cập toàn cục tới nó?',
-    type: 'SINGLE_CHOICE',
-    options: ['Factory Method', 'Abstract Factory', 'Singleton', 'Builder'],
-    correctIndex: 2,
-    correctAnswer: 'Singleton',
-    score: 1,
-    subject: 'Kiến trúc & Phát triển Phần mềm',
-    topic: 'Creational Design Patterns',
-    difficulty: 'EASY',
-    imageUrl: '',
-  },
-  {
-    id: 'q-se-002',
-    questionId: 'q-se-002',
-    bankId: 'bank-se-arch-01',
-    content: 'Trong mô hình kiến trúc Lục giác (Hexagonal Architecture / Ports and Adapters), thành phần nào đóng vai trò là cầu nối để ứng dụng bên ngoài (như Web UI, REST API) giao tiếp với các cổng (Ports) của lõi nghiệp vụ?',
-    type: 'SINGLE_CHOICE',
-    options: ['Repository', 'Adapter', 'Entity', 'Value Object'],
-    correctIndex: 1,
-    correctAnswer: 'Adapter',
-    score: 1,
-    subject: 'Kiến trúc & Phát triển Phần mềm',
-    topic: 'Hexagonal Architecture',
-    difficulty: 'MEDIUM',
-    imageUrl: '',
-  },
-  {
-    id: 'q-se-003',
-    questionId: 'q-se-003',
-    bankId: 'bank-se-arch-01',
-    content: 'Kỹ thuật kiểm thử hộp đen (Black-box Testing) nào chia miền giá trị đầu vào thành các tập hợp con mà tại đó các phần tử có khả năng cao sẽ mang lại cùng một hành vi kết quả của hệ thống?',
-    type: 'SINGLE_CHOICE',
-    options: [
-      'Kiểm thử đường dẫn cơ sở (Basis Path Testing)',
-      'Phân tích giá trị biên (Boundary Value Analysis)',
-      'Phân hoạch tương đương (Equivalence Partitioning)',
-      'Kiểm thử luồng điều khiển (Control Flow Testing)',
-    ],
-    correctIndex: 2,
-    correctAnswer: 'Phân hoạch tương đương (Equivalence Partitioning)',
-    score: 1,
-    subject: 'Kiến trúc & Phát triển Phần mềm',
-    topic: 'Black-box Testing',
-    difficulty: 'EASY',
-    imageUrl: '',
-  },
-  {
-    id: 'q-se-004',
-    questionId: 'q-se-004',
-    bankId: 'bank-se-arch-01',
-    content: 'Khi xây dựng các hệ thống phân tán trên nền tảng Cloud, giao thức nhắn tin bất đồng bộ (Message Queuing) nào thường được sử dụng phổ biến để giảm sự phụ thuộc giữa các microservices?',
-    type: 'SINGLE_CHOICE',
-    options: ['HTTP REST', 'RabbitMQ / Kafka', 'JDBC Connection', 'Secure Shell (SSH)'],
-    correctIndex: 1,
-    correctAnswer: 'RabbitMQ / Kafka',
-    score: 1,
-    subject: 'Kiến trúc & Phát triển Phần mềm',
-    topic: 'Cloud Microservices & Message Queuing',
-    difficulty: 'EASY',
-    imageUrl: '',
-  },
-  {
-    id: 'q-se-005',
-    questionId: 'q-se-005',
-    bankId: 'bank-se-arch-01',
-    content: 'Trong cơ sở dữ liệu NoSQL dạng tài liệu (như MongoDB), đặc tính nào mô tả việc lưu trữ toàn bộ dữ liệu liên quan vào một tài liệu duy nhất thay vì phân tách ra nhiều bảng như cơ sở dữ liệu quan hệ?',
-    type: 'SINGLE_CHOICE',
-    options: [
-      'Chuẩn hóa (Normalization)',
-      'Khử chuẩn hóa (Denormalization)',
-      'Toàn vẹn tham chiếu (Foreign Key Constraint)',
-      'Khóa ngoại đa bảng (Multi-table Join)',
-    ],
-    correctIndex: 1,
-    correctAnswer: 'Khử chuẩn hóa (Denormalization)',
-    score: 1,
-    subject: 'Kiến trúc & Phát triển Phần mềm',
-    topic: 'NoSQL Document Store',
-    difficulty: 'MEDIUM',
-    imageUrl: '',
-  },
-  {
-    id: 'q-se-006',
-    questionId: 'q-se-006',
-    bankId: 'bank-se-arch-01',
-    content: 'Trong các phương pháp tối ưu hóa tổ hợp, giải thuật tối ưu bầy đàn nào nổi tiếng với mô phỏng hành vi di chuyển tìm kiếm thức ăn của đàn kiến dựa trên lượng pheromone để giải quyết bài toán người đưa thư (TSP) hoặc Cục bộ?',
-    type: 'SINGLE_CHOICE',
-    options: [
-      'Thuật toán di truyền (Genetic Algorithm)',
-      'Giải thuật tối ưu đàn kiến (Ant Colony Optimization - ACO)',
-      'Leo đồi (Hill Climbing)',
-      'Tìm kiếm theo chiều rộng (BFS)',
-    ],
-    correctIndex: 1,
-    correctAnswer: 'Giải thuật tối ưu đàn kiến (Ant Colony Optimization - ACO)',
-    score: 1,
-    subject: 'Kiến trúc & Phát triển Phần mềm',
-    topic: 'Swarm Intelligence & Metaheuristics',
-    difficulty: 'MEDIUM',
-    imageUrl: '',
-  },
-  {
-    id: 'q-se-007',
-    questionId: 'q-se-007',
-    bankId: 'bank-se-arch-01',
-    content: 'Trong quy trình phát triển phần mềm Agile/Scrum, sự kiện nào được tổ chức vào cuối mỗi Sprint để đội ngũ trình bày các tính năng/sản phẩm đã hoàn thành cho các bên liên quan (Stakeholders)?',
-    type: 'SINGLE_CHOICE',
-    options: [
-      'Sprint Planning',
-      'Daily Standup',
-      'Sprint Review',
-      'Sprint Retrospective',
-    ],
-    correctIndex: 2,
-    correctAnswer: 'Sprint Review',
-    score: 1,
-    subject: 'Kiến trúc & Phát triển Phần mềm',
-    topic: 'Agile / Scrum Framework',
-    difficulty: 'EASY',
-    imageUrl: '',
-  },
-  {
-    id: 'q-se-008',
-    questionId: 'q-se-008',
-    bankId: 'bank-se-arch-01',
-    content: 'Trong các nguyên lý thiết kế hướng đối tượng SOLID, nguyên lý nào phát biểu rằng "Một class nên chỉ có một lý do duy nhất để thay đổi" (tập trung vào một trách nhiệm nghiệp vụ)?',
-    type: 'SINGLE_CHOICE',
-    options: [
-      'Single Responsibility Principle (SRP)',
-      'Open/Closed Principle (OCP)',
-      'Liskov Substitution Principle (LSP)',
-      'Dependency Inversion Principle (DIP)',
-    ],
-    correctIndex: 0,
-    correctAnswer: 'Single Responsibility Principle (SRP)',
-    score: 1,
-    subject: 'Kiến trúc & Phát triển Phần mềm',
-    topic: 'SOLID Principles',
-    difficulty: 'EASY',
-    imageUrl: '',
-  },
-  {
-    id: 'q-se-009',
-    questionId: 'q-se-009',
-    bankId: 'bank-se-arch-01',
-    content: 'Khi quản lý mã nguồn bằng Git, câu lệnh nào được sử dụng để ghép (áp dụng) một commit cụ thể từ nhánh này sang nhánh hiện tại mà không cần thiết phải hợp nhất (merge) toàn bộ nhánh đó?',
-    type: 'SINGLE_CHOICE',
-    options: ['git stash', 'git rebase', 'git cherry-pick', 'git reset --soft'],
-    correctIndex: 2,
-    correctAnswer: 'git cherry-pick',
-    score: 1,
-    subject: 'Kiến trúc & Phát triển Phần mềm',
-    topic: 'Git Source Control',
-    difficulty: 'MEDIUM',
-    imageUrl: '',
-  },
-  {
-    id: 'q-se-010',
-    questionId: 'q-se-010',
-    bankId: 'bank-se-arch-01',
-    content: 'Trong hệ thống xác thực người dùng dựa trên token (như JWT), thành phần nào trong cấu trúc token chứa các thông tin định danh (claims) như ID người dùng, email và quyền hạn?',
-    type: 'SINGLE_CHOICE',
-    options: ['Header', 'Payload', 'Signature', 'Secret Key'],
-    correctIndex: 1,
-    correctAnswer: 'Payload',
-    score: 1,
-    subject: 'Kiến trúc & Phát triển Phần mềm',
-    topic: 'JWT Authentication & Security',
-    difficulty: 'EASY',
-    imageUrl: '',
-  },
-];
-
-export const DEFAULT_CANDIDATES: Candidate[] = [
-  {
-    studentCode: '24020001',
-    name: 'Trần Minh Đức',
-    email: '24020001@vnu.edu.vn',
-    className: 'K69 - Khoa CNTT - UET',
-    faceImageUrl: `${S3_BASE}/faces/24020001.jpg`,
-  },
-  {
-    studentCode: '24020002',
-    name: 'Lê Thị Mai',
-    email: '24020002@vnu.edu.vn',
-    className: 'K69 - Khoa CNTT - UET',
-    faceImageUrl: `${S3_BASE}/faces/24020002.jpg`,
-  },
-  {
-    studentCode: '24020003',
-    name: 'Phạm Hoàng Long',
-    email: '24020003@vnu.edu.vn',
-    className: 'K69 - Khoa CNTT - UET',
-    faceImageUrl: `${S3_BASE}/faces/24020003.jpg`,
-  },
-  {
-    studentCode: '24020004',
-    name: 'Vũ Thùy Linh',
-    email: '24020004@vnu.edu.vn',
-    className: 'K69 - Khoa CNTT - UET',
-    faceImageUrl: `${S3_BASE}/faces/24020004.jpg`,
-  },
-  {
-    studentCode: '24020005',
-    name: 'Đỗ Quang Huy',
-    email: '24020005@vnu.edu.vn',
-    className: 'K69 - Khoa CNTT - UET',
-    faceImageUrl: `${S3_BASE}/faces/24020005.jpg`,
-  },
-  {
-    studentCode: '24020006',
-    name: 'Nguyễn Văn Sáu',
-    email: '24020006@vnu.edu.vn',
-    className: 'k69i-it7',
-    faceImageUrl: `${S3_BASE}/faces/24020006.jpg`,
-  },
-  {
-    studentCode: '24020007',
-    name: 'Nguyễn VĂN BẢY',
-    email: '24020007@vnu.edu.vn',
-    className: 'K69I-IT6',
-    faceImageUrl: `${S3_BASE}/faces/24020007.jpg`,
-  },
-  {
-    studentCode: '24021598',
-    name: 'Phạm Tuấn Phong',
-    email: 'phongpt@vnu.edu.vn',
-    className: 'K69 - Khoa CNTT - UET',
-    faceImageUrl: `${S3_BASE}/faces/24020001.jpg`,
-  },
-  {
-    studentCode: '24021598',
-    name: 'Phạm Tuấn Phong',
-    email: '24021598@vnu.edu.vn',
-    className: 'K69 - Khoa CNTT - UET',
-    faceImageUrl: `${S3_BASE}/faces/24020001.jpg`,
-  },
-  {
-    studentCode: '24020010',
-    name: 'Nguyễn Thử nghiệm',
-    email: '24020010@vnu.edu.vn',
-    className: 'K69 - Khoa CNTT - UET',
-    faceImageUrl: `${S3_BASE}/faces/1794080127-86d60df8.jpg`,
-  },
-  {
-    studentCode: '24020115',
-    name: 'Nguyễn Thị Ngọc Hà',
-    email: '24020115@vnu.edu.vn',
-    className: 'K69 - Khoa CNTT - UET',
-    faceImageUrl: `${S3_BASE}/faces/1794080127-86d60df8.jpg`,
-  },
-  {
-    studentCode: '24020009',
-    name: 'Nguyễn thị B',
-    email: '24020009@vnu.edu.vn',
-    className: 'K69 - Khoa CNTT - UET',
-    faceImageUrl: `${S3_BASE}/faces/1794080097-98bdaed2.png`,
-  },
-];
-
 export const resolveSessionStatus = (
   status?: string | null,
   startTime?: string,
@@ -564,42 +285,6 @@ export const resolveSessionStatus = (
   }
   return 'SCHEDULED';
 };
-
-export const DEFAULT_SESSIONS: ExamSession[] = [
-  {
-    id: 'EX-VNU-2026-01',
-    name: 'Thi Đánh Giá Năng Lực: Kiến trúc & Phát triển Phần mềm',
-    startTime: new Date(Date.now() - 3600000).toISOString(),
-    endTime: new Date(Date.now() + 86400000 * 30).toISOString(),
-    status: 'RUNNING',
-    questionIds: [
-      'q-se-001',
-      'q-se-002',
-      'q-se-003',
-      'q-se-004',
-      'q-se-005',
-      'q-se-006',
-      'q-se-007',
-      'q-se-008',
-      'q-se-009',
-      'q-se-010',
-    ],
-    candidateEmails: [
-      '24020001@vnu.edu.vn',
-      'duc.tm24@vnu.edu.vn',
-      '24020002@vnu.edu.vn',
-      '24020003@vnu.edu.vn',
-      '24020004@vnu.edu.vn',
-      '24020005@vnu.edu.vn',
-      '24020006@vnu.edu.vn',
-      '24020007@vnu.edu.vn',
-      'annv@uet.vnu.edu.vn',
-      'phongpt@vnu.edu.vn',
-      '24021598@vnu.edu.vn',
-    ],
-    link: `${typeof window !== 'undefined' ? window.location.origin : ''}/?exam=EX-VNU-2026-01`,
-  },
-];
 
 // ============================================================================
 // 1. S3 PRESIGNED URL API (POST /questions/image-upload)
@@ -640,278 +325,85 @@ export const requestFacePresignedUrl = async (
 // 2. QUESTION BANKS APIS (/question-banks - DynamoDB)
 // ============================================================================
 
-const LOCAL_CUSTOM_BANKS_KEY = 'cloudexam_custom_banks';
-const LOCAL_DELETED_BANKS_KEY = 'cloudexam_deleted_banks';
-
-export const getDeletedBankIds = (): Set<string> => {
-  try {
-    const raw = localStorage.getItem(LOCAL_DELETED_BANKS_KEY);
-    if (!raw) return new Set();
-    const arr = JSON.parse(raw);
-    return new Set(Array.isArray(arr) ? arr : []);
-  } catch {
-    return new Set();
-  }
-};
-
-export const addDeletedBankId = (bankId: string) => {
-  try {
-    const set = getDeletedBankIds();
-    set.add(bankId);
-    localStorage.setItem(LOCAL_DELETED_BANKS_KEY, JSON.stringify(Array.from(set)));
-  } catch (e) {
-    console.warn('Lỗi ghi deleted bank id:', e);
-  }
-};
-
-export const getLocalBanks = (): QuestionBank[] => {
-  try {
-    const raw = localStorage.getItem(LOCAL_CUSTOM_BANKS_KEY);
-    return raw ? JSON.parse(raw) : [];
-  } catch {
-    return [];
-  }
-};
-
-export const saveLocalBank = (b: QuestionBank) => {
-  try {
-    const list = getLocalBanks();
-    const idx = list.findIndex((item) => item.id === b.id || (item.bankId && item.bankId === b.bankId));
-    if (idx >= 0) {
-      list[idx] = b;
-    } else {
-      list.push(b);
-    }
-    localStorage.setItem(LOCAL_CUSTOM_BANKS_KEY, JSON.stringify(list));
-  } catch (e) {
-    console.warn('Lỗi lưu local bank:', e);
-  }
-};
-
 export const getQuestionBanks = async (ownerEmail?: string): Promise<QuestionBank[]> => {
-  let cloudBanks: QuestionBank[] = [];
-  try {
-    const params = ownerEmail ? { ownerEmail } : undefined;
-    const res = await api.get('/question-banks', { params });
-    const data = res.data;
-    const list = Array.isArray(data) ? data : data.items ?? [];
-    cloudBanks = list.map((b: any) => ({
-      id: b.id || b.bankId,
-      bankId: b.bankId || b.id,
-      name: b.name || 'Ngân hàng câu hỏi',
-      subject: b.subject || 'Kiến trúc & Phát triển Phần mềm',
-      description: b.description || '',
-      createdAt: b.createdAt,
-      ownerEmail: b.ownerEmail || b.createdBy,
-      createdBy: b.createdBy || b.ownerEmail,
-    }));
-  } catch (err) {
-    console.warn('Lỗi lấy ngân hàng câu hỏi từ API:', err);
-    cloudBanks = [...DEFAULT_QUESTION_BANKS];
-  }
-
-  // Kết hợp ngân hàng mặc định của nhà trường để luôn hiển thị cho giảng viên
-  const seenIds = new Set(cloudBanks.map((b) => b.id));
-  for (const defBank of DEFAULT_QUESTION_BANKS) {
-    if (!seenIds.has(defBank.id)) {
-      cloudBanks.push(defBank);
-      seenIds.add(defBank.id);
-    }
-  }
-
-  // Kết hợp ngân hàng câu hỏi lưu trên trình duyệt (chỉ khi đúng chủ sở hữu)
-  const localBanks = getLocalBanks();
-  for (const lb of localBanks) {
-    if (!seenIds.has(lb.id) && (!ownerEmail || lb.ownerEmail?.toLowerCase() === ownerEmail.toLowerCase())) {
-      cloudBanks.push(lb);
-      seenIds.add(lb.id);
-    }
-  }
-
-  // Lọc bỏ triệt để các ngân hàng đã bị xóa bởi người dùng (Tombstone Blacklist)
-  const deletedIds = getDeletedBankIds();
-  const filtered = cloudBanks.filter(
-    (b) => !deletedIds.has(b.id) && !deletedIds.has(b.bankId || '')
-  );
-
-  return filtered;
+  const params = ownerEmail ? { ownerEmail } : undefined;
+  const res = await api.get('/question-banks', { params });
+  const data = res.data;
+  const list = Array.isArray(data) ? data : data.items ?? [];
+  return list.map((b: any) => ({
+    id: b.id || b.bankId,
+    bankId: b.bankId || b.id,
+    name: b.name || '',
+    subject: b.subject || '',
+    description: b.description || '',
+    createdAt: b.createdAt,
+    ownerEmail: b.ownerEmail || b.createdBy,
+    createdBy: b.createdBy || b.ownerEmail,
+  }));
 };
 
 export const createQuestionBank = async (data: QuestionBankInput): Promise<QuestionBank> => {
-  const bankId = data.id || data.bankId || ('bank-' + Math.random().toString(36).substring(2, 10));
+  const bankId = data.id || data.bankId || 'bank-' + Math.random().toString(36).substring(2, 10);
   const fullBank: QuestionBank = {
     ...data,
     id: bankId,
     bankId,
-    name: data.name || 'Ngân hàng câu hỏi',
-    subject: data.subject || 'Chung',
+    name: data.name,
+    subject: data.subject || '',
     description: data.description || '',
     ownerEmail: data.ownerEmail || data.createdBy,
     createdBy: data.createdBy || data.ownerEmail,
     createdAt: new Date().toISOString(),
   };
-
-  saveLocalBank(fullBank);
-
-  try {
-    const res = await api.post('/question-banks', fullBank);
-    return res.data;
-  } catch (err) {
-    console.warn('POST /question-banks lỗi (đã lưu an toàn vào local cache):', err);
-    return fullBank;
-  }
-};
-
-export const removeLocalBank = (bankId: string) => {
-  try {
-    const list = getLocalBanks().filter((b) => b.id !== bankId && b.bankId !== bankId);
-    localStorage.setItem(LOCAL_CUSTOM_BANKS_KEY, JSON.stringify(list));
-  } catch (e) {
-    console.warn('Lỗi xóa local bank:', e);
-  }
-};
-
-export const removeLocalQuestionsByBank = (bankId: string) => {
-  try {
-    const list = getLocalQuestions().filter((q) => q.bankId !== bankId);
-    localStorage.setItem(LOCAL_CUSTOM_QUESTIONS_KEY, JSON.stringify(list));
-  } catch (e) {
-    console.warn('Lỗi xóa local questions by bank:', e);
-  }
+  const res = await api.post('/question-banks', fullBank);
+  return res.data || fullBank;
 };
 
 export const deleteQuestionBank = async (bankId: string): Promise<any> => {
-  // 1. Thêm vào danh sách ngân hàng đã xóa và xóa trên local cache tức thì
-  addDeletedBankId(bankId);
-  removeLocalBank(bankId);
-  removeLocalQuestionsByBank(bankId);
+  const allQuestions = await getQuestions().catch(() => [] as Question[]);
+  await Promise.all(
+    allQuestions
+      .filter((q) => q.bankId === bankId)
+      .map((q) => api.delete(`/questions/${q.id}`).catch(() => undefined))
+  );
 
-  // 2. Xóa toàn bộ câu hỏi thuộc ngân hàng này trên AWS DynamoDB (CloudExam_Questions_dev)
-  try {
-    const allQuestions = await getQuestions();
-    const bankQuestions = allQuestions.filter((q) => q.bankId === bankId);
-    await Promise.all(
-      bankQuestions.map((q) =>
-        api.delete(`/questions/${q.id}`).catch((delErr) =>
-          console.warn(`Lỗi xóa câu hỏi ${q.id} trên AWS:`, delErr)
-        )
-      )
-    );
-  } catch (qErr) {
-    console.warn('Lỗi quét câu hỏi cần xóa trên AWS:', qErr);
-  }
-
-  // 3. Gọi endpoint xóa ngân hàng đề trên AWS
   try {
     const res = await api.post('/question-banks', { action: 'DELETE', id: bankId });
     return res.data;
-  } catch (postErr) {
-    try {
-      const res = await api.delete(`/question-banks/${bankId}`);
-      return res.data;
-    } catch (err) {
-      try {
-        const res2 = await api.delete('/question-banks', { params: { id: bankId } });
-        return res2.data;
-      } catch {
-        return { id: bankId, deleted: true };
-      }
-    }
-  }
-};
-
-// ============================================================================
-// 3. QUESTION APIS (/questions - DynamoDB & Local Resilience Cache)
-// ============================================================================
-
-const LOCAL_CUSTOM_QUESTIONS_KEY = 'cloudexam_custom_questions';
-
-export const getLocalQuestions = (): Question[] => {
-  try {
-    const raw = localStorage.getItem(LOCAL_CUSTOM_QUESTIONS_KEY);
-    return raw ? JSON.parse(raw) : [];
   } catch {
-    return [];
+    const res = await api.delete(`/question-banks/${bankId}`);
+    return res.data;
   }
 };
 
-export const saveLocalQuestion = (q: Question) => {
-  try {
-    const list = getLocalQuestions();
-    const existingIdx = list.findIndex(
-      (item) => item.id === q.id || (item.questionId && item.questionId === q.questionId)
-    );
-    if (existingIdx >= 0) {
-      list[existingIdx] = q;
-    } else {
-      list.push(q);
-    }
-    localStorage.setItem(LOCAL_CUSTOM_QUESTIONS_KEY, JSON.stringify(list));
-  } catch (e) {
-    console.warn('Lỗi lưu local question:', e);
-  }
-};
-
-export const removeLocalQuestion = (id: string) => {
-  try {
-    const list = getLocalQuestions().filter((item) => item.id !== id && item.questionId !== id);
-    localStorage.setItem(LOCAL_CUSTOM_QUESTIONS_KEY, JSON.stringify(list));
-  } catch (e) {
-    console.warn('Lỗi xóa local question:', e);
-  }
-};
+// ============================================================================
+// 3. QUESTION APIS (/questions - DynamoDB)
+// ============================================================================
 
 export const getQuestions = async (): Promise<Question[]> => {
-  let cloudItems: Question[] = [];
-  try {
-    const res = await api.get('/questions');
-    const data = res.data;
-    const list = Array.isArray(data) ? data : data.items ?? [];
-
-    cloudItems = list.map((q: any) => ({
-      ...q,
-      id: q.id ?? q.questionId,
-      questionId: q.questionId ?? q.id,
-      bankId: q.bankId || 'bank-se-arch-01',
-      type: q.type || 'SINGLE_CHOICE',
-      options: q.options ?? [],
-      correctIndex: Number(q.correctIndex ?? 0),
-      correctAnswer: q.correctAnswer || (q.options ? q.options[q.correctIndex] : ''),
-      score: Number(q.score ?? 1),
-      subject: q.subject || 'Kiến trúc & Phát triển Phần mềm',
-      topic: q.topic || 'Software Architecture',
-      difficulty: q.difficulty || 'EASY',
-      imageUrl: q.imageUrl || '',
-      explanation: q.explanation || '',
-    }));
-  } catch (err) {
-    console.warn('Lỗi tải câu hỏi từ DynamoDB API, sử dụng DEFAULT_QUESTIONS:', err);
-    cloudItems = [...DEFAULT_QUESTIONS];
-  }
-
-  // Kết hợp an toàn các câu hỏi mặc định của hệ thống
-  const seenIds = new Set(cloudItems.map((q) => q.id));
-  for (const dq of DEFAULT_QUESTIONS) {
-    if (!seenIds.has(dq.id)) {
-      cloudItems.push(dq);
-      seenIds.add(dq.id);
-    }
-  }
-
-  // Kết hợp an toàn các câu hỏi đã trích xuất/tạo mới để không bao giờ bị mất dữ liệu
-  const localItems = getLocalQuestions();
-  for (const lq of localItems) {
-    if (!seenIds.has(lq.id)) {
-      cloudItems.push(lq);
-      seenIds.add(lq.id);
-    }
-  }
-
-  return cloudItems;
+  const res = await api.get('/questions');
+  const data = res.data;
+  const list = Array.isArray(data) ? data : data.items ?? [];
+  return list.map((q: any) => ({
+    ...q,
+    id: q.id ?? q.questionId,
+    questionId: q.questionId ?? q.id,
+    bankId: q.bankId || '',
+    type: q.type || 'SINGLE_CHOICE',
+    options: q.options ?? [],
+    correctIndex: Number(q.correctIndex ?? 0),
+    correctAnswer: q.correctAnswer || (q.options ? q.options[q.correctIndex] : ''),
+    score: Number(q.score ?? 1),
+    subject: q.subject || '',
+    topic: q.topic || '',
+    difficulty: q.difficulty || 'EASY',
+    imageUrl: q.imageUrl || '',
+    explanation: q.explanation || '',
+  }));
 };
 
 export const createQuestion = async (data: QuestionInput): Promise<Question> => {
-  const qId = data.id || data.questionId || ('q-doc-' + Math.random().toString(36).substring(2, 10));
+  const qId = data.id || data.questionId || 'q-' + Math.random().toString(36).substring(2, 10);
   const isEssay = data.type === 'ESSAY';
   const fullQ: Question = {
     ...data,
@@ -924,160 +416,63 @@ export const createQuestion = async (data: QuestionInput): Promise<Question> => 
       ? (data.correctAnswer || '')
       : (data.correctAnswer || (data.options ? data.options[Number(data.correctIndex ?? 0)] : '')),
     score: Number(data.score ?? 1),
-    subject: data.subject || 'Kiến trúc Phần mềm',
+    subject: data.subject || '',
     topic: data.topic || '',
     difficulty: data.difficulty || 'MEDIUM',
     imageUrl: data.imageUrl || '',
   };
   delete (fullQ as any).explanation;
 
-  saveLocalQuestion(fullQ);
-
-  try {
-    const res = await api.post('/questions', fullQ);
-    return res.data;
-  } catch (err) {
-    console.warn('POST /questions gặp lỗi (đã lưu an toàn vào local cache):', err);
-    return fullQ;
-  }
+  const res = await api.post('/questions', fullQ);
+  return res.data || fullQ;
 };
 
 export const updateQuestion = async (id: string, data: Partial<QuestionInput>): Promise<any> => {
-  try {
-    const localList = getLocalQuestions();
-    const idx = localList.findIndex((item) => item.id === id || item.questionId === id);
-    if (idx >= 0) {
-      localList[idx] = { ...localList[idx], ...data };
-      localStorage.setItem(LOCAL_CUSTOM_QUESTIONS_KEY, JSON.stringify(localList));
-    }
-  } catch (e) {
-    console.warn('Lỗi cập nhật local question:', e);
-  }
-
-  try {
-    const res = await api.put(`/questions/${id}`, data);
-    return res.data;
-  } catch (err) {
-    console.warn('PUT /questions gặp lỗi, đã cập nhật local cache:', err);
-    return { id, ...data };
-  }
+  const res = await api.put(`/questions/${id}`, data);
+  return res.data;
 };
 
 export const deleteQuestion = async (id: string): Promise<any> => {
-  removeLocalQuestion(id);
-  try {
-    const res = await api.delete(`/questions/${id}`);
-    return res.data;
-  } catch (err) {
-    console.warn('DELETE /questions gặp lỗi, đã xóa trong local cache:', err);
-    return { id, deleted: true };
-  }
+  const res = await api.delete(`/questions/${id}`);
+  return res.data;
 };
 
 // ============================================================================
 // 4. CANDIDATES APIS (/candidates - DynamoDB)
 // ============================================================================
 
-const LOCAL_CUSTOM_CANDIDATES_KEY = 'cloudexam_custom_candidates';
-
-export const getLocalCandidates = (): Candidate[] => {
-  try {
-    const raw = localStorage.getItem(LOCAL_CUSTOM_CANDIDATES_KEY);
-    return raw ? JSON.parse(raw) : [];
-  } catch {
-    return [];
-  }
-};
-
-export const saveLocalCandidate = (c: Candidate) => {
-  try {
-    const list = getLocalCandidates().filter((item) => item.email.toLowerCase() !== c.email.toLowerCase());
-    list.unshift(c);
-    localStorage.setItem(LOCAL_CUSTOM_CANDIDATES_KEY, JSON.stringify(list));
-  } catch (e) {
-    console.warn('Lỗi lưu local candidate:', e);
-  }
-};
-
-export const removeLocalCandidate = (email: string) => {
-  try {
-    const list = getLocalCandidates().filter((c) => c.email.toLowerCase() !== email.toLowerCase());
-    localStorage.setItem(LOCAL_CUSTOM_CANDIDATES_KEY, JSON.stringify(list));
-  } catch (e) {
-    console.warn('Lỗi xóa local candidate:', e);
-  }
-};
-
 export const getCandidates = async (): Promise<Candidate[]> => {
-  let cloudItems: Candidate[] = [];
-  try {
-    const res = await api.get('/candidates');
-    const data = res.data;
-    const list = Array.isArray(data) ? data : data.items ?? [];
-
-    cloudItems = list.map((c: any) => {
-      let faceImageUrl = c.faceImageUrl || '';
-      if (faceImageUrl.startsWith('faces/')) {
-        faceImageUrl = `${S3_BASE}/${faceImageUrl}`;
-      }
-      return {
-        studentCode: c.studentCode || '',
-        name: c.name || '',
-        email: c.email || '',
-        className: c.className || '',
-        faceImageUrl,
-        createdAt: c.createdAt,
-      };
-    });
-  } catch (err) {
-    console.warn('Lỗi tải thí sinh từ API Gateway DynamoDB, sử dụng DEFAULT_CANDIDATES:', err);
-    cloudItems = [...DEFAULT_CANDIDATES];
-  }
-
-  // Kết hợp các thí sinh mặc định của hệ thống
-  const seenEmails = new Set(cloudItems.map((c) => c.email.toLowerCase()));
-  for (const dc of DEFAULT_CANDIDATES) {
-    if (!seenEmails.has(dc.email.toLowerCase())) {
-      cloudItems.push(dc);
-      seenEmails.add(dc.email.toLowerCase());
+  const res = await api.get('/candidates');
+  const data = res.data;
+  const list = Array.isArray(data) ? data : data.items ?? [];
+  return list.map((c: any) => {
+    let faceImageUrl = c.faceImageUrl || '';
+    if (faceImageUrl.startsWith('faces/')) {
+      faceImageUrl = `${S3_BASE}/${faceImageUrl}`;
     }
-  }
-
-  // Kết hợp an toàn các thí sinh lưu cục bộ (Local-first)
-  const localCandidates = getLocalCandidates();
-  for (const lc of localCandidates) {
-    if (!seenEmails.has(lc.email.toLowerCase())) {
-      cloudItems.push(lc);
-      seenEmails.add(lc.email.toLowerCase());
-    }
-  }
-
-  return cloudItems;
+    return {
+      studentCode: c.studentCode || '',
+      name: c.name || '',
+      email: c.email || '',
+      className: c.className || '',
+      faceImageUrl,
+      createdAt: c.createdAt,
+    };
+  });
 };
 
 export const createCandidate = async (data: CandidateInput): Promise<Candidate> => {
-  saveLocalCandidate(data);
-  try {
-    const res = await api.post('/candidates', data);
-    return res.data;
-  } catch (err) {
-    console.warn('Lỗi tạo thí sinh trên Cloud API Gateway, đã lưu an toàn vào CSDL cục bộ:', err);
-    return data;
-  }
+  const res = await api.post('/candidates', data);
+  return res.data || data;
 };
 
 export const deleteCandidate = async (email: string): Promise<any> => {
-  removeLocalCandidate(email);
   try {
     const res = await api.delete(`/candidates/${email}`);
     return res.data;
   } catch {
-    try {
-      const res2 = await api.delete(`/candidates/${encodeURIComponent(email)}`);
-      return res2.data;
-    } catch {
-      return { email, deleted: true };
-    }
+    const res = await api.delete(`/candidates/${encodeURIComponent(email)}`);
+    return res.data;
   }
 };
 
@@ -1085,120 +480,32 @@ export const deleteCandidate = async (email: string): Promise<any> => {
 // 5. EXAM SESSIONS APIS (/sessions - DynamoDB)
 // ============================================================================
 
-const LOCAL_CUSTOM_SESSIONS_KEY = 'cloudexam_custom_sessions';
-
-export const getLocalSessions = (): ExamSession[] => {
-  try {
-    const raw = localStorage.getItem(LOCAL_CUSTOM_SESSIONS_KEY);
-    return raw ? JSON.parse(raw) : [];
-  } catch {
-    return [];
-  }
-};
-
-export const saveLocalSession = (s: ExamSession) => {
-  try {
-    const list = getLocalSessions().filter((item) => item.id !== s.id);
-    list.unshift(s);
-    localStorage.setItem(LOCAL_CUSTOM_SESSIONS_KEY, JSON.stringify(list));
-  } catch (e) {
-    console.warn('Lỗi lưu local session:', e);
-  }
-};
-
-export const removeLocalSession = (id: string) => {
-  try {
-    const list = getLocalSessions().filter((s) => s.id !== id);
-    localStorage.setItem(LOCAL_CUSTOM_SESSIONS_KEY, JSON.stringify(list));
-  } catch (e) {
-    console.warn('Lỗi xóa local session:', e);
-  }
-};
-
 export const getSessions = async (): Promise<ExamSession[]> => {
-  let cloudSessions: ExamSession[] = [];
-  try {
-    const res = await api.get('/sessions');
-    const data = res.data;
-    const list = Array.isArray(data) ? data : data.items ?? [];
-
-    cloudSessions = list.map((s: any) => ({
-      id: s.id,
-      name: s.name || s.title || 'Ca thi',
-      startTime: s.startTime || new Date(Date.now() - 3600000).toISOString(),
-      endTime: s.endTime || new Date(Date.now() + 86400000 * 30).toISOString(),
-      status: resolveSessionStatus(s.status, s.startTime, s.endTime),
-      questionIds: s.questionIds ?? [],
-      candidateEmails: s.candidateEmails ?? [],
-      roomPassword: s.roomPassword,
-      lockedCandidates: s.lockedCandidates ?? {},
-      link: s.link || `${typeof window !== 'undefined' ? window.location.origin : ''}/?exam=${s.id}`,
-      createdAt: s.createdAt,
-    }));
-  } catch (err) {
-    console.warn('Lỗi tải ca thi từ DynamoDB API, sử dụng DEFAULT_SESSIONS:', err);
-    cloudSessions = [...DEFAULT_SESSIONS];
-  }
-
-  // Hợp nhất candidateEmails từ DEFAULT_SESSIONS cho ca thi mặc định EX-VNU-2026-01
-  const defaultExam = DEFAULT_SESSIONS.find((s) => s.id === 'EX-VNU-2026-01');
-  const targetExam = cloudSessions.find((s) => s.id === 'EX-VNU-2026-01');
-  if (defaultExam && targetExam) {
-    targetExam.candidateEmails = Array.from(
-      new Set([...(targetExam.candidateEmails || []), ...(defaultExam.candidateEmails || [])])
-    );
-  }
-
-  // Kết hợp các ca thi đã lưu cục bộ (Local-first persistence)
-  const localSessions = getLocalSessions();
-  for (const ls of localSessions) {
-    const cloudIndex = cloudSessions.findIndex((s) => s.id === ls.id);
-    if (cloudIndex >= 0) {
-      // Hợp nhất candidateEmails nếu local có thí sinh vừa được thêm
-      const mergedEmails = Array.from(
-        new Set([...(cloudSessions[cloudIndex].candidateEmails || []), ...(ls.candidateEmails || [])])
-      );
-      cloudSessions[cloudIndex].candidateEmails = mergedEmails;
-    } else {
-      cloudSessions.push(ls);
-    }
-  }
-
-  return cloudSessions;
+  const res = await api.get('/sessions');
+  const data = res.data;
+  const list = Array.isArray(data) ? data : data.items ?? [];
+  return list.map((s: any) => ({
+    id: s.id,
+    name: s.name || s.title || '',
+    startTime: s.startTime || '',
+    endTime: s.endTime || '',
+    status: resolveSessionStatus(s.status, s.startTime, s.endTime),
+    questionIds: s.questionIds ?? [],
+    candidateEmails: s.candidateEmails ?? [],
+    roomPassword: s.roomPassword,
+    lockedCandidates: s.lockedCandidates ?? {},
+    link: s.link || `${typeof window !== 'undefined' ? window.location.origin : ''}/?exam=${s.id}`,
+    createdAt: s.createdAt,
+  }));
 };
 
 export const getSession = async (id: string): Promise<ExamSession> => {
-  const localFound = getLocalSessions().find((s) => s.id === id);
-  try {
-    const res = await api.get(`/sessions/${id}`);
-    const data = res.data;
-    if (localFound && Array.isArray(localFound.candidateEmails)) {
-      const mergedEmails = Array.from(
-        new Set([...(data.candidateEmails || []), ...localFound.candidateEmails])
-      );
-      data.candidateEmails = mergedEmails;
-    }
-    return {
-      ...data,
-      status: resolveSessionStatus(data.status, data.startTime, data.endTime),
-    };
-  } catch (err) {
-    console.warn(`Lỗi tải ca thi ${id} từ API, tìm trong local/DEFAULT:`, err);
-    if (localFound) {
-      return {
-        ...localFound,
-        status: resolveSessionStatus(localFound.status, localFound.startTime, localFound.endTime),
-      };
-    }
-    const found = DEFAULT_SESSIONS.find((s) => s.id === id);
-    if (found) {
-      return {
-        ...found,
-        status: resolveSessionStatus(found.status, found.startTime, found.endTime),
-      };
-    }
-    throw new Error('Không tìm thấy ca thi. Vui lòng kiểm tra lại đường dẫn hoặc liên hệ Giảng viên.');
-  }
+  const res = await api.get(`/sessions/${id}`);
+  const data = res.data;
+  return {
+    ...data,
+    status: resolveSessionStatus(data.status, data.startTime, data.endTime),
+  };
 };
 
 export const createSession = async (
@@ -1206,52 +513,22 @@ export const createSession = async (
 ): Promise<ExamSession> => {
   const sessionId = data.id || `EX-${Date.now().toString(36).toUpperCase()}`;
   const roomPassword = data.roomPassword || `${Math.floor(100000 + Math.random() * 900000)}`;
-  const sessionObj: ExamSession = {
+  const res = await api.post('/sessions', { ...data, id: sessionId, roomPassword });
+  return res.data || {
+    ...data,
     id: sessionId,
-    name: data.name,
-    startTime: data.startTime,
-    endTime: data.endTime,
-    status: data.status,
-    questionIds: data.questionIds,
-    candidateEmails: data.candidateEmails,
-    roomPassword: roomPassword,
-    lockedCandidates: {},
+    roomPassword,
     link: `${typeof window !== 'undefined' ? window.location.origin : ''}/?exam=${sessionId}`,
     createdAt: new Date().toISOString(),
   };
-
-  // Lưu ngay cục bộ để không bao giờ bị mất hoặc vướng lỗi 401
-  saveLocalSession(sessionObj);
-
-  try {
-    const res = await api.post('/sessions', { ...data, id: sessionId, roomPassword });
-    if (res.data) {
-      saveLocalSession(res.data);
-      return res.data;
-    }
-  } catch (err) {
-    console.warn('[CloudExam] Lỗi gọi API Gateway tạo ca thi (401/Network), đã lưu an toàn cục bộ:', err);
-  }
-  return sessionObj;
 };
 
 export const updateSessionDetails = async (
   id: string,
   data: Partial<ExamSession>
 ): Promise<any> => {
-  const localList = getLocalSessions();
-  const found = localList.find((s) => s.id === id);
-  if (found) {
-    Object.assign(found, data);
-    saveLocalSession(found);
-  }
-  try {
-    const res = await api.put(`/sessions/${id}`, data);
-    return res.data;
-  } catch (err) {
-    console.warn(`Lỗi API PUT /sessions/${id}:`, err);
-    return { id, ...data };
-  }
+  const res = await api.put(`/sessions/${id}`, data);
+  return res.data;
 };
 
 export const unlockCandidateInSession = async (
@@ -1259,56 +536,21 @@ export const unlockCandidateInSession = async (
   candidateEmail: string
 ): Promise<any> => {
   const normEmail = candidateEmail.trim().toLowerCase();
-  const session = await getSession(sessionId).catch(() => null);
-  if (session && session.lockedCandidates) {
-    const updated = { ...session.lockedCandidates };
-    delete updated[normEmail];
-    delete updated[candidateEmail];
-    return updateSessionDetails(sessionId, { lockedCandidates: updated });
-  }
+  const session = await getSession(sessionId);
+  const updated = { ...(session.lockedCandidates || {}) };
+  delete updated[normEmail];
+  delete updated[candidateEmail];
+  return updateSessionDetails(sessionId, { lockedCandidates: updated });
 };
 
 export const updateSessionStatus = async (id: string, status: SessionStatus): Promise<any> => {
-  const localList = getLocalSessions();
-  const found = localList.find((s) => s.id === id);
-  if (found) {
-    found.status = status;
-    saveLocalSession(found);
-  }
-  try {
-    const res = await api.put(`/sessions/${id}`, { status });
-    return res.data;
-  } catch (err) {
-    console.warn('Lỗi cập nhật trạng thái ca thi trên Cloud:', err);
-    return { id, status };
-  }
+  const res = await api.put(`/sessions/${id}`, { status });
+  return res.data;
 };
 
 export const updateSessionCandidates = async (id: string, candidateEmails: string[]): Promise<any> => {
-  const localList = getLocalSessions();
-  const found = localList.find((s) => s.id === id);
-  if (found) {
-    found.candidateEmails = candidateEmails;
-    saveLocalSession(found);
-  } else {
-    saveLocalSession({
-      id,
-      name: id === 'EX-VNU-2026-01' ? 'Thi Đánh Giá Năng Lực: Kiến trúc & Phát triển Phần mềm' : `Ca thi ${id}`,
-      startTime: new Date(Date.now() - 3600000).toISOString(),
-      endTime: new Date(Date.now() + 86400000 * 30).toISOString(),
-      status: 'RUNNING',
-      questionIds: [],
-      candidateEmails,
-      link: `${typeof window !== 'undefined' ? window.location.origin : ''}/?exam=${id}`,
-    });
-  }
-  try {
-    const res = await api.put(`/sessions/${id}`, { candidateEmails, status: 'RUNNING' });
-    return res.data;
-  } catch (err) {
-    console.warn('Lỗi cập nhật thí sinh trong ca thi trên Cloud API Gateway:', err);
-    return { id, candidateEmails };
-  }
+  const res = await api.put(`/sessions/${id}`, { candidateEmails });
+  return res.data;
 };
 
 // ============================================================================
@@ -1318,84 +560,48 @@ export const updateSessionCandidates = async (id: string, candidateEmails: strin
 export const verifyFace = async (req: FaceVerifyRequest): Promise<FaceVerifyResponse> => {
   const targetEmail = (req.email || '').trim().toLowerCase();
 
-  // 1. Đảm bảo trạng thái Session luôn là RUNNING trên DynamoDB
-  try {
-    if (req.sessionId) {
-      await updateSessionStatus(req.sessionId, 'RUNNING').catch(() => {});
-    }
-  } catch {
-    // Không chặn luồng nếu cập nhật status gặp sự cố
-  }
-
-  // 2. Tìm ảnh thẻ của thí sinh được chọn (từ DynamoDB / danh sách Candidates)
-  let candidateFaceKey = '';
   let candidateName = '';
-  try {
-    if (targetEmail) {
-      const candRes = await api.get(`/candidates/${targetEmail}`).catch(() => null);
-      if (candRes && candRes.data) {
-        candidateFaceKey = candRes.data.faceImageUrl || '';
-        candidateName = candRes.data.name || '';
-      }
-    }
-  } catch {
-    // Tiếp tục tìm trong getCandidates
-  }
-
-  if (!candidateFaceKey && targetEmail) {
-    try {
-      const allCands = await getCandidates();
+  if (targetEmail) {
+    const candRes = await api.get(`/candidates/${targetEmail}`).catch(() => null);
+    if (candRes?.data) {
+      candidateName = candRes.data.name || '';
+    } else {
+      const allCands = await getCandidates().catch(() => [] as Candidate[]);
       const match = allCands.find((c) => c.email.toLowerCase() === targetEmail);
-      if (match) {
-        candidateFaceKey = match.faceImageUrl;
-        candidateName = match.name;
-      }
-    } catch {
-      // Bỏ qua nếu lỗi
+      if (match) candidateName = match.name;
     }
   }
 
-  // Chuẩn hóa S3 key: loại bỏ prefix URL nếu có
-  if (candidateFaceKey.startsWith('http')) {
-    const parts = candidateFaceKey.split('.amazonaws.com/');
-    if (parts.length > 1) {
-      candidateFaceKey = parts[1].split('?')[0];
-    }
+  const deviceTokenKey = `cloudexam_cand_token_${req.sessionId}_${targetEmail}`;
+  let deviceToken = req.deviceToken || localStorage.getItem(deviceTokenKey) || '';
+  if (!deviceToken) {
+    deviceToken = `tok_${Date.now()}_${Math.random().toString(36).slice(2, 7)}`;
   }
 
-  const localDevTokenKey = `cloudexam_cand_token_${req.sessionId}_${targetEmail}`;
-  let devToken = req.deviceToken || localStorage.getItem(localDevTokenKey) || '';
-  if (!devToken) {
-    devToken = `tok_${Date.now()}_${Math.random().toString(36).slice(2, 7)}`;
+  const payload: {
+    sessionId: string;
+    email: string;
+    capturedS3Key?: string;
+    capturedImage?: string;
+    roomPassword?: string;
+    deviceToken?: string;
+  } = {
+    sessionId: req.sessionId,
+    email: targetEmail,
+    roomPassword: req.roomPassword,
+    deviceToken,
+  };
+
+  if (req.capturedS3Key) {
+    payload.capturedS3Key = req.capturedS3Key;
+  } else if (req.capturedImage) {
+    payload.capturedImage = req.capturedImage;
   }
 
   try {
-    // 3. Gửi yêu cầu đối soát khuôn mặt tới Amazon Rekognition qua Lambda
-    // Ưu tiên truyền capturedS3Key (~100 bytes) để tối ưu và tránh vượt giới hạn kích thước request body WAF
-    const payload: {
-      sessionId: string;
-      email: string;
-      capturedS3Key?: string;
-      capturedImage?: string;
-      roomPassword?: string;
-      deviceToken?: string;
-    } = {
-      sessionId: req.sessionId,
-      email: targetEmail || 'annv@uet.vnu.edu.vn',
-      roomPassword: req.roomPassword,
-      deviceToken: devToken,
-    };
-
-    if (req.capturedS3Key) {
-      payload.capturedS3Key = req.capturedS3Key;
-    } else if (req.capturedImage) {
-      payload.capturedImage = req.capturedImage;
-    }
-
     const res = await api.post('/auth/face-verify', payload);
     if (res.data && res.data.verified) {
-      const finalToken = res.data.deviceToken || devToken;
-      localStorage.setItem(localDevTokenKey, finalToken);
+      localStorage.setItem(deviceTokenKey, res.data.deviceToken || deviceToken);
     }
     return res.data;
   } catch (err: any) {
@@ -1403,7 +609,6 @@ export const verifyFace = async (req: FaceVerifyRequest): Promise<FaceVerifyResp
     const msg =
       errorData?.message || errorData?.error || errorData?.details || err?.message || '';
 
-    // Xử lý các lỗi ngoại lệ từ Amazon Rekognition
     if (
       msg.includes('InvalidParameterException') ||
       msg.includes('invalid parameters') ||
@@ -1416,7 +621,7 @@ export const verifyFace = async (req: FaceVerifyRequest): Promise<FaceVerifyResp
         similarity: 0,
         candidateName: candidateName || targetEmail,
         message:
-          'Không nhận diện được khuôn mặt người trong ảnh thẻ hồ sơ thí sinh hoặc ảnh chụp camera. Vui lòng kiểm tra lại ảnh thẻ (phải có khuôn mặt người rõ ràng, không dùng sơ đồ/vật thể) và hướng thẳng vào camera.',
+          'Không nhận diện được khuôn mặt trong ảnh thẻ hồ sơ hoặc ảnh chụp camera. Vui lòng kiểm tra lại ảnh thẻ và hướng thẳng vào camera.',
       };
     }
 
@@ -1424,27 +629,10 @@ export const verifyFace = async (req: FaceVerifyRequest): Promise<FaceVerifyResp
       return errorData;
     }
 
-    // Chế độ tự phục hồi kiểm thử (Local testing & offline demo theo Chương 1 Báo cáo):
-    // Cho phép thí sinh vượt qua kiểm tra sinh trắc học với điểm tương đồng >= 80% khi máy chủ AWS chưa sẵn sàng
-    if (!err.response || err.code === 'ERR_NETWORK' || err.response?.status >= 500) {
-      console.warn('[FaceVerify] API Gateway AWS chưa sẵn sàng, kích hoạt đối soát sinh trắc học Rekognition tự phục hồi');
-      const finalToken = devToken || `tok_${Date.now()}_fallback`;
-      localStorage.setItem(localDevTokenKey, finalToken);
-      return {
-        status: 'PASS',
-        verified: true,
-        similarity: 94.5,
-        candidateName: candidateName || targetEmail,
-        deviceToken: finalToken,
-        locked: true,
-        message: 'Khuôn mặt trùng khớp với hồ sơ thí sinh (Độ tương đồng AWS Rekognition: 94.5% >= 80%). Điểm danh và khóa định tài khoản thành công!',
-      };
-    }
-
     let friendlyMessage = msg;
     if (msg === 'Forbidden' || err?.response?.status === 403) {
       friendlyMessage =
-        'Khuôn mặt không khớp với ảnh hồ sơ thí sinh (Độ tương đồng < 80%) hoặc phiên làm việc đã hết hạn. Vui lòng chụp lại rõ mặt hoặc liên hệ Giám thị.';
+        'Khuôn mặt không khớp với ảnh hồ sơ hoặc phiên làm việc đã hết hạn. Vui lòng chụp lại rõ mặt hoặc liên hệ Giảng viên.';
     }
 
     return {
@@ -1462,65 +650,8 @@ export const verifyFace = async (req: FaceVerifyRequest): Promise<FaceVerifyResp
 // ============================================================================
 
 export const submitExam = async (req: ExamSubmitRequest): Promise<ExamSubmitResponse> => {
-  try {
-    const res = await api.post('/exam/submit', req);
-    return res.data;
-  } catch (err) {
-    console.warn('[SubmitExam] API Gateway chưa sẵn sàng, kích hoạt Worker chấm điểm tự động cục bộ theo Quy trình D:', err);
-    const allQuestions = await getQuestions();
-    const qMap = new Map(allQuestions.map((q) => [q.id, q]));
-
-    let correctCount = 0;
-    let totalScore = 0;
-    let maxScore = 0;
-
-    const answerEntries = Object.entries(req.answers || {});
-    answerEntries.forEach(([qId, chosen]) => {
-      const q = qMap.get(qId);
-      if (q) {
-        maxScore += (q.score || 1);
-        if (q.type === 'ESSAY') {
-          if (typeof chosen === 'string' && chosen.trim().length > 15) {
-            totalScore += (q.score || 1);
-            correctCount++;
-          }
-        } else {
-          if (Number(chosen) === Number(q.correctIndex)) {
-            totalScore += (q.score || 1);
-            correctCount++;
-          }
-        }
-      }
-    });
-
-    const finalScore = maxScore > 0 ? Math.round((totalScore / maxScore) * 10 * 10) / 10 : 10;
-    const submissionId = `sub-${Date.now()}`;
-    const submissionResult: ExamSubmitResult = {
-      id: submissionId,
-      sessionId: req.sessionId,
-      candidateEmail: req.candidateEmail || '',
-      score: finalScore,
-      maxScore: 10,
-      correctCount,
-      totalQuestions: answerEntries.length || 5,
-      submittedAt: new Date().toISOString(),
-      status: 'COMPLETED',
-    };
-
-    try {
-      const resultsKey = `cloudexam_results_${req.sessionId}`;
-      const existing = JSON.parse(localStorage.getItem(resultsKey) || '[]');
-      existing.push(submissionResult);
-      localStorage.setItem(resultsKey, JSON.stringify(existing));
-    } catch (e) {
-      // ignore
-    }
-
-    return {
-      message: 'Đã nhận bài an toàn qua Amazon SQS Buffer Pipeline (Tự động chấm điểm thành công)',
-      result: submissionResult,
-    };
-  }
+  const res = await api.post('/exam/submit', req);
+  return res.data;
 };
 
 // ============================================================================
@@ -1780,540 +911,6 @@ export const parseQuestionsFromRawText = (
   }
 
   return questions;
-};
-
-export const generateTopicQuestions = (
-  bankId: string,
-  subject = 'Điện toán đám mây & Kiến trúc hệ thống',
-  topic = 'Kiến trúc hệ thống',
-  promptText = '',
-  targetLang?: string
-): Question[] => {
-  const p = (promptText || '').toLowerCase();
-  const countMatch = (promptText || '').match(/(\d+)\s*(?:câu|questions?|fragen?)/i);
-  const targetCount = countMatch ? Math.min(50, Math.max(1, parseInt(countMatch[1], 10))) : 5;
-  const isEssay = /(?:tự\s*luận|essay|offene\s*frage|câu\s*hỏi\s*mở|viết\s*(?:luận|code|bài)|phân\s*tích|giải\s*thích\s*chi\s*tiết|erkläre|beschreibe|analysiere)/i.test(promptText);
-
-  // Nhận diện ngôn ngữ mục tiêu (Đức, Anh, Lào, Việt)
-  const detectedLang: 'de' | 'en' | 'la' | 'vi' = (() => {
-    if (targetLang && ['de', 'en', 'la', 'vi'].includes(targetLang)) return targetLang as any;
-    const saved = typeof window !== 'undefined' ? localStorage.getItem('cloudexam_lang') : null;
-    if (saved && ['de', 'en', 'la', 'vi'].includes(saved)) return saved as any;
-    if (/[\u0E80-\u0EFF]/.test(promptText) || p.includes('ພາສາລາວ') || p.includes('ຄຳຖາມ')) return 'la';
-    if (/\b(erstelle|fragen?|antworten?|welche[rs]?|deutsch|deutschland|bitte|multiple-choice|wähle|optionen)\b/i.test(p)) return 'de';
-    if (/\b(generate|create|questions?|which|what|choose|select|following|answer|options?)\b/i.test(p)) return 'en';
-    return 'vi';
-  })();
-
-  // 1. POOL TIẾNG ĐỨC (GERMAN / DEUTSCH)
-  const awsMcPoolDe = [
-    {
-      content: 'Welcher AWS-Datenbankdienst ist eine NoSQL-Datenbank, die Partitionsschlüssel (Partition Key), Latenzzeiten im Millisekundenbereich und automatische Skalierung unterstützt?',
-      options: ['Amazon DynamoDB', 'Amazon RDS MySQL', 'Amazon Aurora Serverless', 'Amazon DocumentDB'],
-      correctIndex: 0,
-      correctAnswer: 'Amazon DynamoDB',
-      topic: 'NoSQL-Datenbank (DynamoDB)',
-    },
-    {
-      content: 'Welcher Mechanismus wird verwendet, um ein sicheres privates virtuelles Netzwerk für EC2-, RDS- und Lambda-Ressourcen in einem AWS-Konto zu isolieren?',
-      options: ['Amazon VPC (Virtual Private Cloud)', 'Amazon Route 53', 'AWS Direct Connect', 'Amazon CloudFront'],
-      correctIndex: 0,
-      correctAnswer: 'Amazon VPC (Virtual Private Cloud)',
-      topic: 'Virtuelles privates Netzwerk (VPC)',
-    },
-    {
-      content: 'Welcher AWS-Dienst bietet unbegrenzte Objektspeicherung mit einer Haltbarkeit von 99,999999999% (11 Neunen)?',
-      options: ['Amazon S3', 'Amazon EBS', 'Amazon EFS', 'AWS Storage Gateway'],
-      correctIndex: 0,
-      correctAnswer: 'Amazon S3',
-      topic: 'Objektspeicher (S3)',
-    },
-    {
-      content: 'Welches Serverless-Rechenmodell in AWS ermöglicht die ereignisgesteuerte Codeausführung ohne Serververwaltung?',
-      options: ['AWS Lambda', 'Amazon EC2', 'Amazon ECS', 'AWS Elastic Beanstalk'],
-      correctIndex: 0,
-      correctAnswer: 'AWS Lambda',
-      topic: 'Serverless Computing (Lambda)',
-    },
-    {
-      content: 'Welcher zentrale Dienst wird für Identitätsmanagement und granulare Berechtigungsvergabe (Least Privilege) in AWS verwendet?',
-      options: ['AWS IAM (Identity and Access Management)', 'Amazon Cognito', 'AWS Shield', 'Amazon GuardDuty'],
-      correctIndex: 0,
-      correctAnswer: 'AWS IAM (Identity and Access Management)',
-      topic: 'Sicherheit & IAM',
-    },
-    {
-      content: 'Welcher globale CDN-Dienst (Content Delivery Network) beschleunigt die Bereitstellung statischer und dynamischer Inhalte mit geringer Latenz?',
-      options: ['Amazon CloudFront', 'AWS Global Accelerator', 'Amazon Route 53', 'AWS Direct Connect'],
-      correctIndex: 0,
-      correctAnswer: 'Amazon CloudFront',
-      topic: 'Content Delivery Network (CloudFront)',
-    },
-    {
-      content: 'Welcher hochverfügbare DNS-Webdienst verwaltet Domänenrouting und Systemzustandsprüfungen (Health Checks) in AWS?',
-      options: ['Amazon Route 53', 'AWS Direct Connect', 'Amazon CloudFront', 'AWS Transit Gateway'],
-      correctIndex: 0,
-      correctAnswer: 'Amazon Route 53',
-      topic: 'DNS-System (Route 53)',
-    },
-    {
-      content: 'Welcher nachrichtenbasierte Serverless-Warteschlangendienst (Message Queue) entkoppelt Microservices in AWS?',
-      options: ['Amazon SQS (Simple Queue Service)', 'Amazon SNS', 'Amazon EventBridge', 'Amazon Kinesis'],
-      correctIndex: 0,
-      correctAnswer: 'Amazon SQS (Simple Queue Service)',
-      topic: 'Warteschlangendienst (SQS)',
-    },
-    {
-      content: 'Welcher Dienst überwacht Systemmetriken, sammelt Protokolle (Logs) und konfiguriert Alarme für Cloud-Ressourcen?',
-      options: ['Amazon CloudWatch', 'AWS CloudTrail', 'AWS Config', 'AWS X-Ray'],
-      correctIndex: 0,
-      correctAnswer: 'Amazon CloudWatch',
-      topic: 'Überwachung (CloudWatch)',
-    },
-    {
-      content: 'Welcher Dienst stellt flexible virtuelle Server mit konfigurierbaren CPU-, RAM- und Netzwerkkapazitäten in AWS bereit?',
-      options: ['Amazon EC2 (Elastic Compute Cloud)', 'AWS Batch', 'AWS Elastic Beanstalk', 'Amazon Lightsail'],
-      correctIndex: 0,
-      correctAnswer: 'Amazon EC2 (Elastic Compute Cloud)',
-      topic: 'Virtuelle Server (EC2)',
-    },
-  ];
-
-  const archMcPoolDe = [
-    {
-      content: 'Welches Architekturmuster verhindert kaskadierende Ausfälle (Cascading Failures), wenn ein abhängiger Microservice überlastet ist?',
-      options: ['Circuit Breaker Pattern', 'Singleton Pattern', 'Factory Pattern', 'Adapter Pattern'],
-      correctIndex: 0,
-      correctAnswer: 'Circuit Breaker Pattern',
-      topic: 'Resilienz-Muster (Circuit Breaker)',
-    },
-    {
-      content: 'Was besagt das CAP-Theorem über verteilte Datenbanksysteme?',
-      options: [
-        'Ein verteiltes System kann nur maximal zwei der drei Eigenschaften Konsistenz (Consistency), Verfügbarkeit (Availability) und Partitionstoleranz (Partition Tolerance) gleichzeitig garantieren',
-        'Es garantiert immer 100%ige Vertraulichkeit, Integrität und Authentizität',
-        'Es regelt die maximale Bandbreite und Zugriffsgeschwindigkeit von lokalen Speichern',
-        'Ein System muss zwingend alle drei Eigenschaften zu 100% erfüllen',
-      ],
-      correctIndex: 0,
-      correctAnswer: 'Ein verteiltes System kann nur maximal zwei der drei Eigenschaften Konsistenz (Consistency), Verfügbarkeit (Availability) und Partitionstoleranz (Partition Tolerance) gleichzeitig garantieren',
-      topic: 'CAP-Theorem & Verteilte Systeme',
-    },
-  ];
-
-  const essayPoolDe = [
-    {
-      content: 'Erläutern Sie den Kernunterschied zwischen monolithischer Architektur und Microservices-Architektur. Analysieren Sie Skalierbarkeit, Zuverlässigkeit und Betriebskosten.',
-      rubric: '1. Definition Monolith vs. Microservices (0.5P)\n2. Skalierbarkeit im Vergleich (0.5P)\n3. Fehlertoleranz und Ausfallisolierung (0.5P)\n4. Betriebskomplexität und Netzwerkanalyse (0.5P)',
-      topic: 'Monolith vs. Microservices',
-    },
-    {
-      content: 'Erklären Sie das Funktionsprinzip der zustandslosen Token-basierten Authentifizierung mit JSON Web Tokens (JWT) in Microservices. Diskutieren Sie Sicherheitsrisiken und Lösungsansätze.',
-      rubric: '1. Struktur von JWT: Header, Payload, Signature (0.5P)\n2. Stateless-Validierung am API Gateway (0.5P)\n3. Refresh-Token-Rotation bei Token-Kompromittierung (0.5P)\n4. Token-Revocation via Redis-Blacklist (0.5P)',
-      topic: 'JWT-Sicherheit & API Gateway',
-    },
-  ];
-
-  // 2. POOL TIẾNG ANH (ENGLISH)
-  const awsMcPoolEn = [
-    {
-      content: 'Which AWS database service is a managed NoSQL database that supports partition keys, single-digit millisecond latency, and automatic scaling?',
-      options: ['Amazon DynamoDB', 'Amazon RDS MySQL', 'Amazon Aurora Serverless', 'Amazon DocumentDB'],
-      correctIndex: 0,
-      correctAnswer: 'Amazon DynamoDB',
-      topic: 'NoSQL Database (DynamoDB)',
-    },
-    {
-      content: 'Which service enables provisioning an isolated virtual private network for EC2, RDS, and Lambda resources within an AWS account?',
-      options: ['Amazon VPC (Virtual Private Cloud)', 'Amazon Route 53', 'AWS Direct Connect', 'Amazon CloudFront'],
-      correctIndex: 0,
-      correctAnswer: 'Amazon VPC (Virtual Private Cloud)',
-      topic: 'Virtual Private Cloud (VPC)',
-    },
-    {
-      content: 'Which AWS storage service provides object storage with 99.999999999% (11 9s) of data durability?',
-      options: ['Amazon S3', 'Amazon EBS', 'Amazon EFS', 'AWS Storage Gateway'],
-      correctIndex: 0,
-      correctAnswer: 'Amazon S3',
-      topic: 'Object Storage (S3)',
-    },
-    {
-      content: 'Which serverless compute service runs code in response to events and automatically manages underlying compute resources?',
-      options: ['AWS Lambda', 'Amazon EC2', 'Amazon ECS', 'AWS Elastic Beanstalk'],
-      correctIndex: 0,
-      correctAnswer: 'AWS Lambda',
-      topic: 'Serverless Compute (Lambda)',
-    },
-    {
-      content: 'Which core AWS service is used to securely manage access and enforce least-privilege permissions for users and cloud services?',
-      options: ['AWS IAM (Identity and Access Management)', 'Amazon Cognito', 'AWS Shield', 'Amazon GuardDuty'],
-      correctIndex: 0,
-      correctAnswer: 'AWS IAM (Identity and Access Management)',
-      topic: 'Security & Identity (IAM)',
-    },
-    {
-      content: 'Which global content delivery network (CDN) service securely delivers static and dynamic web content with low latency?',
-      options: ['Amazon CloudFront', 'AWS Global Accelerator', 'Amazon Route 53', 'AWS Direct Connect'],
-      correctIndex: 0,
-      correctAnswer: 'Amazon CloudFront',
-      topic: 'Content Delivery Network (CloudFront)',
-    },
-    {
-      content: 'Which highly available DNS web service routes end users to Internet applications and performs system health checks?',
-      options: ['Amazon Route 53', 'AWS Direct Connect', 'Amazon CloudFront', 'AWS Transit Gateway'],
-      correctIndex: 0,
-      correctAnswer: 'Amazon Route 53',
-      topic: 'Domain Name System (Route 53)',
-    },
-    {
-      content: 'Which serverless message queuing service enables decoupling and scaling of microservices, distributed systems, and serverless applications?',
-      options: ['Amazon SQS (Simple Queue Service)', 'Amazon SNS', 'Amazon EventBridge', 'Amazon Kinesis'],
-      correctIndex: 0,
-      correctAnswer: 'Amazon SQS (Simple Queue Service)',
-      topic: 'Message Queuing (SQS)',
-    },
-    {
-      content: 'Which monitoring and observability service collects monitoring data, logs, and triggers automated alarms across AWS resources?',
-      options: ['Amazon CloudWatch', 'AWS CloudTrail', 'AWS Config', 'AWS X-Ray'],
-      correctIndex: 0,
-      correctAnswer: 'Amazon CloudWatch',
-      topic: 'Monitoring & Logs (CloudWatch)',
-    },
-    {
-      content: 'Which service provides secure, resizable compute capacity as virtual machines in the cloud?',
-      options: ['Amazon EC2 (Elastic Compute Cloud)', 'AWS Batch', 'AWS Elastic Beanstalk', 'Amazon Lightsail'],
-      correctIndex: 0,
-      correctAnswer: 'Amazon EC2 (Elastic Compute Cloud)',
-      topic: 'Virtual Compute (EC2)',
-    },
-  ];
-
-  const archMcPoolEn = [
-    {
-      content: 'Which design pattern prevents cascading failures across distributed services when a downstream dependency experiences degraded performance?',
-      options: ['Circuit Breaker Pattern', 'Singleton Pattern', 'Factory Pattern', 'Adapter Pattern'],
-      correctIndex: 0,
-      correctAnswer: 'Circuit Breaker Pattern',
-      topic: 'Resilience Patterns (Circuit Breaker)',
-    },
-    {
-      content: 'What does the CAP theorem state regarding distributed data stores?',
-      options: [
-        'A distributed system can guarantee at most two out of three properties simultaneously: Consistency, Availability, and Partition Tolerance',
-        'A system must guarantee all three properties in order to be fault-tolerant',
-        'Confidentiality and Authenticity cannot coexist with High Availability',
-        'Network latency decreases linearly as database nodes increase',
-      ],
-      correctIndex: 0,
-      correctAnswer: 'A distributed system can guarantee at most two out of three properties simultaneously: Consistency, Availability, and Partition Tolerance',
-      topic: 'CAP Theorem & Distributed Systems',
-    },
-  ];
-
-  const essayPoolEn = [
-    {
-      content: 'Compare Monolithic architecture and Microservices architecture. Analyze their trade-offs in Scalability, Fault Tolerance, and Operational Cost.',
-      rubric: '1. Monolith vs Microservices core concepts (0.5 pts)\n2. Independent scaling comparison (0.5 pts)\n3. Fault isolation and cascading failure prevention (0.5 pts)\n4. Distributed tracing and operational complexity (0.5 pts)',
-      topic: 'Monolith vs Microservices',
-    },
-    {
-      content: 'Explain stateless token-based authentication using JSON Web Tokens (JWT) in Microservices. Discuss security risks and mitigation techniques.',
-      rubric: '1. JWT 3-part structure (0.5 pts)\n2. Stateless verification at API Gateway (0.5 pts)\n3. Refresh token rotation strategy (0.5 pts)\n4. Token revocation via Redis blacklist (0.5 pts)',
-      topic: 'JWT Security & API Gateway',
-    },
-  ];
-
-  // 3. POOL TIẾNG LÀO (LAO / ພາສາລາວ)
-  const awsMcPoolLa = [
-    {
-      content: 'ບໍລິການຖານຂໍ້ມູນ NoSQL ໃດໃນ AWS ທີ່ຮອງຮັບ Partition Key, ຄວາມໄວໃນລະດັບມິລລິວິນາທີ ແລະ ການປັບຂະໜາດອັດຕະໂນມັດ?',
-      options: ['Amazon DynamoDB', 'Amazon RDS MySQL', 'Amazon Aurora Serverless', 'Amazon DocumentDB'],
-      correctIndex: 0,
-      correctAnswer: 'Amazon DynamoDB',
-      topic: 'ຖານຂໍ້ມູນ NoSQL (DynamoDB)',
-    },
-    {
-      content: 'ກົນໄກໃດທີ່ໃຊ້ເພື່ອແຍກເຄືອຂ່າຍສະເໝືອນສ່ວນຕົວທີ່ປອດໄພສຳລັບຊັບພະຍາກອນ EC2, RDS ແລະ Lambda ໃນບັນຊີ AWS?',
-      options: ['Amazon VPC (Virtual Private Cloud)', 'Amazon Route 53', 'AWS Direct Connect', 'Amazon CloudFront'],
-      correctIndex: 0,
-      correctAnswer: 'Amazon VPC (Virtual Private Cloud)',
-      topic: 'ເຄືອຂ່າຍສ່ວນຕົວສະເໝືອນ (VPC)',
-    },
-    {
-      content: 'ບໍລິການເກັບຮັກສາໃດຂອງ AWS ທີ່ໃຫ້ຄວາມທົນທານຂອງຂໍ້ມູນສູງເຖິງ 99.999999999% (11 ຕົວເກົ້າ)?',
-      options: ['Amazon S3', 'Amazon EBS', 'Amazon EFS', 'AWS Storage Gateway'],
-      correctIndex: 0,
-      correctAnswer: 'Amazon S3',
-      topic: 'ການເກັບຮັກສາວັດຖຸ (S3)',
-    },
-    {
-      content: 'ຮູບແບບ Serverless ໃດໃນ AWS ທີ່ອະນຸຍາດໃຫ້ປະມວນຜົນໂຄ້ດຕາມເຫດການ ໂດຍບໍ່ຈຳເປັນຕ້ອງຄຸ້ມຄອງເຊີບເວີ?',
-      options: ['AWS Lambda', 'Amazon EC2', 'Amazon ECS', 'AWS Elastic Beanstalk'],
-      correctIndex: 0,
-      correctAnswer: 'AWS Lambda',
-      topic: 'ການປະມວນຜົນແບບບໍ່ມີເຊີບເວີ (Lambda)',
-    },
-    {
-      content: 'ບໍລິການຫຼັກໃດໃນ AWS ທີ່ໃຊ້ສຳລັບການຈັດການຕົວຕົນ ແລະ ການກຳນົດສິດແບບລະອຽດ (Least Privilege)?',
-      options: ['AWS IAM (Identity and Access Management)', 'Amazon Cognito', 'AWS Shield', 'Amazon GuardDuty'],
-      correctIndex: 0,
-      correctAnswer: 'AWS IAM (Identity and Access Management)',
-      topic: 'ຄວາມປອດໄພ ແລະ IAM',
-    },
-    {
-      content: 'ເຄືອຂ່າຍກະຈາຍເນື້ອຫາທົ່ວໂລກ (CDN) ໃດທີ່ຊ່ວຍເພີ່ມຄວາມໄວໃນການສົ່ງເນື້ອຫາດ້ວຍເວລາຕອບສະໜອງຕໍ່າໃນ AWS?',
-      options: ['Amazon CloudFront', 'AWS Global Accelerator', 'Amazon Route 53', 'AWS Direct Connect'],
-      correctIndex: 0,
-      correctAnswer: 'Amazon CloudFront',
-      topic: 'ເຄືອຂ່າຍກະຈາຍເນື້ອຫາ (CloudFront)',
-    },
-  ];
-
-  const archMcPoolLa = [
-    {
-      content: 'ຮູບແບບສະຖາປັດຕະຍະກຳໃດທີ່ປ້ອງກັນຄວາມຜິດພາດແບບລູກໂສ້ (Cascading Failure) ເມື່ອ Microservice ທີ່ກ່ຽວຂ້ອງເກີດບັນຫາ?',
-      options: ['Circuit Breaker Pattern', 'Singleton Pattern', 'Factory Pattern', 'Adapter Pattern'],
-      correctIndex: 0,
-      correctAnswer: 'Circuit Breaker Pattern',
-      topic: 'ຮູບແບບຄວາມທົນທານ (Circuit Breaker)',
-    },
-    {
-      content: 'ທິດສະດີ CAP ຊີ້ບອກຫຍັງກ່ຽວກັບລະບົບຖານຂໍ້ມູນແບບແຈກຢາຍ?',
-      options: [
-        'ລະບົບແຈກຢາຍສາມາດຕອບສະໜອງໄດ້ສູງສຸດພຽງ 2 ໃນ 3 ຄຸນລັກສະນະພ້ອມກັນ: ຄວາມສອດຄ່ອງ (Consistency), ຄວາມພ້ອມໃຊ້ງານ (Availability) ແລະ ຄວາມທົນທານຕໍ່ການແບ່ງສ່ວນເຄືອຂ່າຍ (Partition Tolerance)',
-        'ລະບົບຕ້ອງຕອບສະໜອງໄດ້ທັງ 3 ຄຸນລັກສະນະ 100% ຕະຫຼອດເວລາ',
-        'ຄວາມລັບ ແລະ ຄວາມຖືກຕ້ອງບໍ່ສາມາດຢູ່ຮ່ວມກັບຄວາມພ້ອມໃຊ້ງານສູງໄດ້',
-        'ຄວາມຊັກຊ້າຂອງເຄືອຂ່າຍຫຼຸດລົງເມື່ອຈຳນວນ Node ເພີ່ມຂຶ້ນ',
-      ],
-      correctIndex: 0,
-      correctAnswer: 'ລະບົບແຈກຢາຍສາມາດຕອບສະໜອງໄດ້ສູງສຸດພຽງ 2 ໃນ 3 ຄຸນລັກສະນະພ້ອມກັນ: ຄວາມສອດຄ່ອງ (Consistency), ຄວາມພ້ອມໃຊ້ງານ (Availability) ແລະ ຄວາມທົນທານຕໍ່ການແບ່ງສ່ວນເຄືອຂ່າຍ (Partition Tolerance)',
-      topic: 'ທິດສະດີ CAP ແລະ ລະບົບແຈກຢາຍ',
-    },
-  ];
-
-  const essayPoolLa = [
-    {
-      content: 'ອະທິບາຍຄວາມແຕກຕ່າງຫຼັກລະຫວ່າງສະຖາປັດຕະຍະກຳ Monolithic ແລະ Microservices. ວິເຄາະຂໍ້ດີ ແລະ ຂໍ້ເສຍໃນດ້ານການຂະຫຍາຍຕົວ, ຄວາມໜ້າເຊື່ອຖື ແລະ ຄ່າໃຊ້ຈ່າຍ.',
-      rubric: '1. ແນວຄິດ Monolith vs Microservices (0.5 ຄະແນນ)\n2. ການປຽບທຽບການຂະຫຍາຍຕົວ (0.5 ຄະແນນ)\n3. ການແຍກບັນຫາ ແລະ ຄວາມທົນທານ (0.5 ຄະແນນ)\n4. ຄວາມຊັບຊ້ອນໃນການຄຸ້ມຄອງ (0.5 ຄະແນນ)',
-      topic: 'Monolith vs Microservices',
-    },
-  ];
-
-  // 4. POOL TIẾNG VIỆT (VIETNAMESE)
-  const awsMcPoolVi = [
-    {
-      content: 'Dịch vụ nào của AWS cung cấp khả năng lưu trữ đối tượng không giới hạn với độ bền 99.999999999% (11 số 9)?',
-      options: ['Amazon S3', 'Amazon EBS', 'Amazon EFS', 'AWS Storage Gateway'],
-      correctIndex: 0,
-      correctAnswer: 'Amazon S3',
-      topic: 'Lưu trữ đối tượng (S3)',
-    },
-    {
-      content: 'Trong AWS, mô hình điện toán Serverless cho phép chạy mã nguồn theo sự kiện mà không cần quản lý máy chủ là gì?',
-      options: ['AWS Lambda', 'Amazon EC2', 'Amazon ECS', 'AWS Elastic Beanstalk'],
-      correctIndex: 0,
-      correctAnswer: 'AWS Lambda',
-      topic: 'Điện toán phi máy chủ (Serverless)',
-    },
-    {
-      content: 'Cơ chế nào được dùng để cô lập mạng ảo riêng an toàn cho các tài nguyên EC2, RDS và Lambda trong một tài khoản AWS?',
-      options: ['Amazon VPC (Virtual Private Cloud)', 'Amazon Route 53', 'AWS Direct Connect', 'Amazon CloudFront'],
-      correctIndex: 0,
-      correctAnswer: 'Amazon VPC (Virtual Private Cloud)',
-      topic: 'Mạng ảo riêng (VPC)',
-    },
-    {
-      content: 'Để quản trị danh tính và phân quyền chi tiết (Least Privilege) cho người dùng và các dịch vụ trên AWS, dịch vụ cốt lõi là gì?',
-      options: ['AWS IAM (Identity and Access Management)', 'Amazon Cognito', 'AWS Shield', 'Amazon GuardDuty'],
-      correctIndex: 0,
-      correctAnswer: 'AWS IAM (Identity and Access Management)',
-      topic: 'Bảo mật & Quản trị danh tính (IAM)',
-    },
-    {
-      content: 'Dịch vụ cơ sở dữ liệu NoSQL nào trên AWS hỗ trợ khóa phân vùng (Partition Key), độ trễ phản hồi đơn vị ms và co giãn quy mô tự động?',
-      options: ['Amazon DynamoDB', 'Amazon RDS MySQL', 'Amazon Aurora Serverless', 'Amazon DocumentDB'],
-      correctIndex: 0,
-      correctAnswer: 'Amazon DynamoDB',
-      topic: 'Cơ sở dữ liệu NoSQL (DynamoDB)',
-    },
-    {
-      content: 'Dịch vụ nào cung cấp máy chủ ảo có thể cấu hình linh hoạt về CPU, RAM, lưu trữ và băng thông mạng trên đám mây AWS?',
-      options: ['Amazon EC2 (Elastic Compute Cloud)', 'AWS Batch', 'AWS Elastic Beanstalk', 'Amazon Lightsail'],
-      correctIndex: 0,
-      correctAnswer: 'Amazon EC2 (Elastic Compute Cloud)',
-      topic: 'Máy chủ ảo (EC2)',
-    },
-    {
-      content: 'Mạng lưới phân phối nội dung (CDN) toàn cầu giúp tăng tốc truyền tải nội dung tĩnh và động với độ trễ thấp trên AWS là gì?',
-      options: ['Amazon CloudFront', 'AWS Global Accelerator', 'Amazon Route 53', 'AWS Direct Connect'],
-      correctIndex: 0,
-      correctAnswer: 'Amazon CloudFront',
-      topic: 'Mạng phân phối nội dung (CloudFront CDN)',
-    },
-    {
-      content: 'Dịch vụ DNS có tính sẵn sàng cao, hỗ trợ quản lý định tuyến tên miền và kiểm tra tình trạng dịch vụ (Health Check) trên AWS là gì?',
-      options: ['Amazon Route 53', 'AWS Direct Connect', 'Amazon CloudFront', 'AWS Transit Gateway'],
-      correctIndex: 0,
-      correctAnswer: 'Amazon Route 53',
-      topic: 'Hệ thống phân giải tên miền (Route 53)',
-    },
-    {
-      content: 'Hàng đợi thông điệp phi máy chủ (Message Queue) giúp giải phóng phụ thuộc (Decoupling) giữa các microservices trên AWS là gì?',
-      options: ['Amazon SQS (Simple Queue Service)', 'Amazon SNS', 'Amazon EventBridge', 'Amazon Kinesis'],
-      correctIndex: 0,
-      correctAnswer: 'Amazon SQS (Simple Queue Service)',
-      topic: 'Hàng đợi thông điệp (SQS)',
-    },
-    {
-      content: 'Dịch vụ giám sát, thu thập số liệu (metrics), theo dõi nhật ký (logs) và cấu hình cảnh báo tài nguyên trên AWS là gì?',
-      options: ['Amazon CloudWatch', 'AWS CloudTrail', 'AWS Config', 'AWS X-Ray'],
-      correctIndex: 0,
-      correctAnswer: 'Amazon CloudWatch',
-      topic: 'Giám sát & Cảnh báo (CloudWatch)',
-    },
-  ];
-
-  const archMcPoolVi = [
-    {
-      content: 'Trong mô hình Kiến trúc Hướng Dịch vụ (SOA) và Microservices, đặc điểm nào sau đây là quan trọng nhất?',
-      options: [
-        'Các dịch vụ có tính kết nối lỏng (Loosely Coupled) và giao tiếp qua các giao thức chuẩn',
-        'Tất cả dịch vụ phải chia sẻ chung một bảng cơ sở dữ liệu quan hệ duy nhất',
-        'Toàn bộ ứng dụng phải được đóng gói và triển khai đồng thời trong một tệp nhị phân',
-        'Không được phép phân tán các dịch vụ trên nhiều máy chủ khác nhau',
-      ],
-      correctIndex: 0,
-      correctAnswer: 'Các dịch vụ có tính kết nối lỏng (Loosely Coupled) và giao tiếp qua các giao thức chuẩn',
-      topic: 'Kiến trúc Microservices',
-    },
-    {
-      content: 'Design Pattern nào giải quyết bài toán ngăn chặn sự cố dây chuyền (Cascading Failure) khi một dịch vụ phụ thuộc gặp lỗi hoặc quá tải?',
-      options: ['Circuit Breaker Pattern', 'Singleton Pattern', 'Factory Pattern', 'Adapter Pattern'],
-      correctIndex: 0,
-      correctAnswer: 'Circuit Breaker Pattern',
-      topic: 'Resilience Patterns (Circuit Breaker)',
-    },
-    {
-      content: 'Định lý CAP chỉ ra rằng một hệ thống cơ sở dữ liệu phân tán chỉ có thể đồng thời thỏa mãn tối đa 2 trong 3 yếu tố nào?',
-      options: [
-        'Tính nhất quán (Consistency), Tính sẵn sàng (Availability), Khả năng chịu lỗi phân vùng mạng (Partition Tolerance)',
-        'Tính bảo mật (Confidentiality), Tính toàn vẹn (Integrity), Tính xác thực (Authenticity)',
-        'Tính tuần tự (Concurrency), Tính nguyên tử (Atomicity), Hiệu năng (Performance)',
-        'Băng thông (Capacity), Độ trễ (Access speed), Độ bền bỉ (Persistence)',
-      ],
-      correctIndex: 0,
-      correctAnswer: 'Tính nhất quán (Consistency), Tính sẵn sàng (Availability), Khả năng chịu lỗi phân vùng mạng (Partition Tolerance)',
-      topic: 'Định lý CAP & Hệ phân tán',
-    },
-  ];
-
-  const essayPoolVi = [
-    {
-      content: 'Trình bày sự khác biệt cốt lõi giữa Kiến trúc Đơn khối (Monolithic) và Kiến trúc Vi dịch vụ (Microservices). Phân tích ưu và nhược điểm của từng mô hình về mặt khả năng mở rộng (Scalability), độ tin cậy (Reliability) và chi phí vận hành (Operational Cost).',
-      rubric: '1. Khái niệm và so sánh Monolith vs Microservices (0.5đ)\n2. Phân tích Scalability (co giãn độc lập vs toàn bộ khối) (0.5đ)\n3. Phân tích Reliability và Fault Isolation (cô lập sự cố) (0.5đ)\n4. Đánh giá chi phí vận hành, giám sát phân tán và mạng (0.5đ)',
-      topic: 'Kiến trúc Monolith vs Microservices',
-    },
-    {
-      content: 'Giải thích nguyên lý hoạt động của cơ chế xác thực Stateless Token-based bằng JSON Web Token (JWT) trong hệ thống Microservices. Nêu rõ các rủi ro bảo mật tiềm ẩn và biện pháp khắc phục.',
-      rubric: '1. Cấu trúc 3 phần của JWT: Header, Payload, Signature (0.5đ)\n2. Cơ chế xác thực không trạng thái (Stateless) tại API Gateway (0.5đ)\n3. Rủi ro lộ Token và phương án xoay vòng Refresh Token (0.5đ)\n4. Cơ chế thu hồi quyền hạn qua Redis blacklist / Token Revocation (0.5đ)',
-      topic: 'Bảo mật JWT & API Gateway',
-    },
-  ];
-
-  // Lựa chọn bộ câu hỏi theo ngôn ngữ đã nhận diện
-  const { awsPool, archPool, essayPool, essayPrefix, rubricPrefix, localizedSubject, localizedTopic } = {
-    de: {
-      awsPool: awsMcPoolDe,
-      archPool: archMcPoolDe,
-      essayPool: essayPoolDe,
-      essayPrefix: (n: number) => `[Offene Frage ${n}]`,
-      rubricPrefix: 'Bewertungsraster / Musterlösung:\n',
-      localizedSubject: 'Cloud Computing & Systemarchitektur',
-      localizedTopic: 'AWS-Systemarchitektur',
-    },
-    en: {
-      awsPool: awsMcPoolEn,
-      archPool: archMcPoolEn,
-      essayPool: essayPoolEn,
-      essayPrefix: (n: number) => `[Essay Question ${n}]`,
-      rubricPrefix: 'Scoring Rubric:\n',
-      localizedSubject: 'Cloud Computing & System Architecture',
-      localizedTopic: 'AWS System Architecture',
-    },
-    la: {
-      awsPool: awsMcPoolLa,
-      archPool: archMcPoolLa,
-      essayPool: essayPoolLa,
-      essayPrefix: (n: number) => `[ຄຳຖາມອັດຕະໄນ ${n}]`,
-      rubricPrefix: 'ເກນການໃຫ້ຄະແນນ:\n',
-      localizedSubject: 'ຄລາວຄອມພິວຕິ້ງ ແລະ ສະຖາປັດຕະຍະກຳລະບົບ',
-      localizedTopic: 'ສະຖາປັດຕະຍະກຳ AWS',
-    },
-    vi: {
-      awsPool: awsMcPoolVi,
-      archPool: archMcPoolVi,
-      essayPool: essayPoolVi,
-      essayPrefix: (n: number) => `[Câu hỏi tự luận ${n}]`,
-      rubricPrefix: 'Barem chấm điểm chi tiết:\n',
-      localizedSubject: 'Điện toán đám mây & Kiến trúc hệ thống',
-      localizedTopic: 'Kiến trúc hệ thống',
-    },
-  }[detectedLang];
-
-  const finalSubject = subject && !subject.includes('Điện toán') && !subject.includes('Kiến trúc') ? subject : localizedSubject;
-  const finalTopic = topic && !topic.includes('Kiến trúc') ? topic : localizedTopic;
-
-  if (isEssay) {
-    const list: Question[] = [];
-    for (let i = 0; i < targetCount; i++) {
-      const template = essayPool[i % essayPool.length];
-      const qNum = i + 1;
-      list.push({
-        id: `q-essay-${Date.now()}-${qNum}`,
-        questionId: `q-essay-${Date.now()}-${qNum}`,
-        bankId,
-        content: `${essayPrefix(qNum)}: ${template.content}`,
-        type: 'ESSAY',
-        options: [],
-        correctIndex: -1,
-        correctAnswer: `${rubricPrefix}${template.rubric}`,
-        score: 2,
-        subject: finalSubject,
-        topic: template.topic || finalTopic,
-        difficulty: 'MEDIUM',
-        imageUrl: '',
-      });
-    }
-    return list;
-  }
-
-  // Nếu là trắc nghiệm: Lựa chọn pool phù hợp
-  const chosenPool = (p.includes('soa') || p.includes('architektur') || p.includes('architecture') || p.includes('kiến trúc') || p.includes('pattern') || p.includes('microservice'))
-    ? [...archPool, ...awsPool]
-    : [...awsPool, ...archPool];
-
-  const result: Question[] = [];
-  for (let i = 0; i < targetCount; i++) {
-    const item = chosenPool[i % chosenPool.length];
-    const qNum = i + 1;
-    result.push({
-      id: `q-gen-${Date.now()}-${qNum}`,
-      questionId: `q-gen-${Date.now()}-${qNum}`,
-      bankId,
-      content: `${item.content}`,
-      type: 'SINGLE_CHOICE',
-      options: [...item.options],
-      correctIndex: item.correctIndex,
-      correctAnswer: item.correctAnswer,
-      score: 1,
-      subject: finalSubject,
-      topic: item.topic || finalTopic,
-      difficulty: i % 2 === 0 ? 'EASY' : 'MEDIUM',
-      imageUrl: '',
-    });
-  }
-
-  return result;
 };
 
 /**
@@ -2632,36 +1229,6 @@ export const parseQuestionsFromDoc = async (payload: ParseDocRequest): Promise<P
   const activeModel = normalizeGeminiModel(payload.model || localStoredModel || import.meta.env.VITE_GEMINI_MODEL || 'gemini-3.6-flash');
   const targetLang = payload.lang || (typeof window !== 'undefined' ? localStorage.getItem('cloudexam_lang') || 'vi' : 'vi');
 
-  // 1. Chế độ Mock
-  if (isMockMode()) {
-    await new Promise((r) => setTimeout(r, 1000));
-    let parsed: Question[] = [];
-    if (rawText) {
-      parsed = parseQuestionsFromRawText(rawText, bankId, subject, topic);
-    } else if (payload.fileBase64) {
-      const textFromB64 = await extractTextFromBase64Docx(payload.fileBase64);
-      if (textFromB64) {
-        parsed = parseQuestionsFromRawText(textFromB64, bankId, subject, topic);
-      }
-    }
-    if (parsed.length === 0) {
-      parsed = generateTopicQuestions(bankId, subject, topic, rawText, targetLang);
-    }
-    if (payload.autoSave !== false && parsed.length > 0) {
-      for (const q of parsed) {
-        saveLocalQuestion(q);
-      }
-    }
-    return {
-      message: `[MOCK] Google Gemini đã tạo thành công ${parsed.length} câu hỏi trắc nghiệm.`,
-      count: parsed.length,
-      bankId,
-      saved: true,
-      source: 'Google Gemini (Mock Engine)',
-      questions: parsed,
-    };
-  }
-
   // 2. Trích xuất tài liệu có sẵn bằng regex client-side (Đảm bảo bóc tách khi văn bản chứa sẵn "Câu 1: ... A. ... B. ...")
   let parsed: Question[] = [];
 
@@ -2755,29 +1322,14 @@ export const parseQuestionsFromDoc = async (payload: ParseDocRequest): Promise<P
     console.warn('[CloudExam] API Gateway /questions/parse-doc trả về lỗi:', err.response?.status, err.message);
   }
 
-  // 5. Fallback tạo câu hỏi theo chủ đề nếu các kênh AI gặp sự cố
-  if (parsed.length === 0) {
-    parsed = generateTopicQuestions(bankId, subject, topic, rawText, targetLang);
-  }
-
-  if (payload.autoSave !== false && parsed.length > 0) {
-    await Promise.all(
-      parsed.map((q) =>
-        createQuestion(q).catch((saveErr) => {
-          console.warn(`Lỗi lưu câu hỏi ${q.id}:`, saveErr);
-        })
-      )
-    );
-  }
-
-  return {
-    message: `Đã số hóa thành công ${parsed.length} câu hỏi trắc nghiệm từ tệp Word.`,
-    count: parsed.length,
-    bankId,
-    saved: true,
-    source: 'Google Gemini Fallback',
-    questions: parsed,
+  // 5. Không còn câu hỏi: không tự bịa đề, báo lỗi rõ ràng
+  const noQuestionsMsg: Record<string, string> = {
+    vi: 'Không thể trích xuất câu hỏi từ nội dung đã nhập. Vui lòng kiểm tra lại tệp hoặc cấu hình API Key Gemini.',
+    en: 'Could not extract any questions from the provided content. Please check the file or configure a Gemini API key.',
+    de: 'Aus dem eingegebenen Inhalt konnten keine Fragen extrahiert werden. Bitte prüfen Sie die Datei oder hinterlegen Sie einen Gemini-API-Schlüssel.',
+    la: 'ບໍ່ສາມາດດຶງຄຳຖາມຈາກເນື້ອຫາທີ່ໃສ່ໄດ້. ກະລຸນາກວດສອບໄຟລ໌ ຫຼື ຕັ້ງຄ່າ API Key Gemini.',
   };
+  throw new Error(noQuestionsMsg[targetLang] || noQuestionsMsg.en);
 };
 
 export const parseDocWithGemini = parseQuestionsFromDoc;
@@ -2807,63 +1359,39 @@ export const fetchSessionResults = async (sessionId: string): Promise<SessionRes
     const res = await api.get(`/sessions/${sessionId}/results`);
     return res.data;
   } catch {
-    // Nếu API Gateway trả về lỗi quyền/sub-resource, truy vấn trực tiếp session object từ DynamoDB
+    // API Gateway không có route con /results: dựng kết quả từ session object
     const [sessRes, candRes] = await Promise.all([
-      api.get(`/sessions/${sessionId}`).catch(() => null),
+      api.get(`/sessions/${sessionId}`),
       api.get('/candidates').catch(() => null),
     ]);
 
-    const sessionData = sessRes?.data;
-    const candidatesList: Candidate[] = Array.isArray(candRes?.data) ? candRes?.data : candRes?.data?.items || DEFAULT_CANDIDATES;
+    const sessionData = sessRes.data;
+    const rawCands = candRes?.data;
+    const candidatesList: Candidate[] = Array.isArray(rawCands) ? rawCands : rawCands?.items || [];
     const submissionsMap = sessionData?.submissions || {};
 
-    let results: CandidateSessionResult[] = Object.entries(submissionsMap).map(([email, sub]: [string, any]) => {
-      const cand = candidatesList.find((c) => c.email.toLowerCase() === email.toLowerCase());
-      return {
-        id: sub.id || `${sessionId}#${email}`,
-        studentCode: cand?.studentCode || sub.studentCode || '',
-        name: cand?.name || sub.name || email,
-        email,
-        candidateEmail: email,
-        score: sub.score ?? 0,
-        maxScore: sub.maxScore ?? 10,
-        correctCount: sub.correctCount ?? 0,
-        totalQuestions: sub.totalQuestions ?? 10,
-        submittedAt: sub.submittedAt || '',
-        status: sub.status || 'COMPLETED',
-      };
-    });
-
-    // Kết hợp kết quả nộp bài thi cục bộ nếu có
-    try {
-      const localResults = JSON.parse(localStorage.getItem(`cloudexam_results_${sessionId}`) || '[]');
-      if (Array.isArray(localResults)) {
-        for (const lr of localResults) {
-          if (!results.some((r) => r.candidateEmail === lr.candidateEmail)) {
-            const cand = candidatesList.find((c) => c.email.toLowerCase() === (lr.candidateEmail || '').toLowerCase());
-            results.push({
-              id: `${sessionId}#${lr.candidateEmail}`,
-              studentCode: cand?.studentCode || lr.studentCode || '',
-              name: cand?.name || lr.name || lr.candidateEmail,
-              email: lr.candidateEmail,
-              candidateEmail: lr.candidateEmail,
-              score: lr.score ?? 0,
-              maxScore: 10,
-              correctCount: lr.correctCount ?? 0,
-              totalQuestions: lr.totalQuestions ?? 5,
-              submittedAt: lr.submittedAt || new Date().toISOString(),
-              status: 'COMPLETED',
-            });
-          }
-        }
+    const results: CandidateSessionResult[] = Object.entries(submissionsMap).map(
+      ([email, sub]: [string, any]) => {
+        const cand = candidatesList.find((c) => c.email.toLowerCase() === email.toLowerCase());
+        return {
+          id: sub.id || `${sessionId}#${email}`,
+          studentCode: cand?.studentCode || sub.studentCode || '',
+          name: cand?.name || sub.name || email,
+          email,
+          candidateEmail: email,
+          score: sub.score ?? 0,
+          maxScore: sub.maxScore ?? 10,
+          correctCount: sub.correctCount ?? 0,
+          totalQuestions: sub.totalQuestions ?? 0,
+          submittedAt: sub.submittedAt || '',
+          status: sub.status || 'COMPLETED',
+        };
       }
-    } catch (e) {
-      // ignore
-    }
+    );
 
     return {
       sessionId,
-      sessionName: sessionData?.name || 'Ca thi Kiến trúc & Phát triển Phần mềm',
+      sessionName: sessionData?.name || '',
       status: sessionData?.status || 'RUNNING',
       totalSubmissions: results.length,
       results,
@@ -2926,8 +1454,9 @@ export const saveExamProgress = async (
       answers,
     });
     return res.data;
-  } catch {
-    return { saved: true, updatedAt: new Date().toISOString() };
+  } catch (err) {
+    console.warn('[ExamProgress] Không lưu được tiến độ lên Cloud:', err);
+    return { saved: false, updatedAt: new Date().toISOString() };
   }
 };
 
@@ -2935,165 +1464,5 @@ export const sendSessionReport = async (sessionId: string): Promise<{ message: s
   const res = await api.post(`/sessions/${sessionId}/send-report`);
   return res.data;
 };
-
-// ============================================================================
-// 10. QUY TRÌNH ĐỒNG BỘ DỮ LIỆU CHUẨN XÁC VỚI AWS CLOUD (DYNAMODB & COGNITO)
-// ============================================================================
-
-export const clearLocalCaches = () => {
-  try {
-    localStorage.removeItem(LOCAL_CUSTOM_BANKS_KEY);
-    localStorage.removeItem(LOCAL_CUSTOM_QUESTIONS_KEY);
-    localStorage.removeItem(LOCAL_DELETED_BANKS_KEY);
-  } catch (e) {
-    console.warn('Lỗi xóa local cache:', e);
-  }
-};
-
-export interface SyncLocalToCloudPayload {
-  banks?: QuestionBank[];
-  questions?: Question[];
-  candidates?: Candidate[];
-  sessions?: ExamSession[];
-}
-
-export interface SyncCloudResult {
-  deletedQuestions: number;
-  addedQuestions: number;
-  addedBanks: number;
-  deletedCandidates: number;
-  addedCandidates: number;
-  sessionsUpdated: number;
-  syncedBanks: number;
-  syncedQuestions: number;
-  syncedCandidates: number;
-  syncedSessions: number;
-  totalSynced: number;
-  message: string;
-}
-
-/**
- * ĐỒNG BỘ DỮ LIỆU TỪ LOCAL LÊN CLOUD DYNAMODB (LOCAL -> CLOUD PUSH)
- * Ban đầu toàn bộ dữ liệu (Ngân hàng đề, Câu hỏi AI, Thí sinh, Ca thi) nằm ở Local.
- * Khi người dùng bấm nút "Đồng bộ", toàn bộ dữ liệu Local được gửi lên Cloud DynamoDB qua API Gateway.
- * Tuyệt đối không xóa, không đè ngược dữ liệu cũ từ Cloud xuống làm mất dữ liệu Local.
- */
-export const syncLocalDataToCloud = async (
-  payload?: SyncLocalToCloudPayload
-): Promise<SyncCloudResult> => {
-  let syncedBanks = 0;
-  let syncedQuestions = 0;
-  let syncedCandidates = 0;
-  let syncedSessions = 0;
-
-  // 1. Thu thập và đẩy toàn bộ Ngân hàng đề từ Local lên Cloud DynamoDB
-  const localBanksMap = new Map<string, QuestionBank>();
-  for (const b of DEFAULT_QUESTION_BANKS) localBanksMap.set(b.id, b);
-  for (const b of getLocalBanks()) localBanksMap.set(b.id, b);
-  for (const b of (payload?.banks || [])) localBanksMap.set(b.id, b);
-
-  for (const bank of localBanksMap.values()) {
-    try {
-      await api.post('/question-banks', {
-        id: bank.id,
-        bankId: bank.id,
-        name: bank.name,
-        subject: bank.subject,
-        description: bank.description,
-        ownerEmail: bank.ownerEmail,
-        createdBy: bank.createdBy,
-      });
-      syncedBanks++;
-    } catch (e) {
-      console.warn('Lỗi đẩy ngân hàng đề lên Cloud:', bank.id, e);
-    }
-  }
-
-  // 2. Thu thập và đẩy toàn bộ Câu hỏi (trắc nghiệm, tự luận, AI, Word import) từ Local lên Cloud
-  const localQuestionsMap = new Map<string, Question>();
-  for (const q of DEFAULT_QUESTIONS) localQuestionsMap.set(q.id, q);
-  for (const q of getLocalQuestions()) localQuestionsMap.set(q.id, q);
-  for (const q of (payload?.questions || [])) localQuestionsMap.set(q.id, q);
-
-  for (const q of localQuestionsMap.values()) {
-    try {
-      await api.post('/questions', {
-        id: q.id,
-        questionId: q.id,
-        bankId: q.bankId || 'bank-cloud-01',
-        content: q.content,
-        type: q.type || 'SINGLE_CHOICE',
-        options: q.options || [],
-        correctIndex: q.correctIndex ?? 0,
-        correctAnswer: q.correctAnswer || (q.options ? q.options[q.correctIndex] : ''),
-        score: q.score ?? 1,
-        subject: q.subject || 'Điện toán đám mây',
-        topic: q.topic || 'Software Architecture',
-        difficulty: q.difficulty || 'MEDIUM',
-        imageUrl: q.imageUrl || '',
-      });
-      syncedQuestions++;
-    } catch (e) {
-      console.warn('Lỗi đẩy câu hỏi lên Cloud:', q.id, e);
-    }
-  }
-
-  // 3. Thu thập và đẩy toàn bộ Thí sinh từ Local lên Cloud (bao gồm Phạm Tuấn Phong và thí sinh mới thêm)
-  const localCandidatesMap = new Map<string, Candidate>();
-  for (const c of DEFAULT_CANDIDATES) localCandidatesMap.set(c.email.toLowerCase(), c);
-  for (const c of getLocalCandidates()) localCandidatesMap.set(c.email.toLowerCase(), c);
-  for (const c of (payload?.candidates || [])) localCandidatesMap.set(c.email.toLowerCase(), c);
-
-  for (const cand of localCandidatesMap.values()) {
-    try {
-      await api.post('/candidates', {
-        studentCode: cand.studentCode,
-        name: cand.name,
-        email: cand.email,
-        className: cand.className,
-        faceImageUrl: cand.faceImageUrl,
-      });
-      syncedCandidates++;
-    } catch (e) {
-      console.warn('Lỗi đẩy thí sinh lên Cloud:', cand.email, e);
-    }
-  }
-
-  // 4. Thu thập và đẩy toàn bộ Ca thi từ Local lên Cloud
-  const localSessionsMap = new Map<string, ExamSession>();
-  for (const s of DEFAULT_SESSIONS) localSessionsMap.set(s.id, s);
-  for (const s of getLocalSessions()) localSessionsMap.set(s.id, s);
-  for (const s of (payload?.sessions || [])) localSessionsMap.set(s.id, s);
-
-  for (const sess of localSessionsMap.values()) {
-    try {
-      await api.post('/sessions', sess).catch(async () => {
-        await api.put(`/sessions/${sess.id}`, sess);
-      });
-      syncedSessions++;
-    } catch (e) {
-      console.warn('Lỗi đẩy ca thi lên Cloud:', sess.id, e);
-    }
-  }
-
-  const totalSynced = syncedBanks + syncedQuestions + syncedCandidates + syncedSessions;
-
-  return {
-    deletedQuestions: 0,
-    addedQuestions: syncedQuestions,
-    addedBanks: syncedBanks,
-    deletedCandidates: 0,
-    addedCandidates: syncedCandidates,
-    sessionsUpdated: syncedSessions,
-    syncedBanks,
-    syncedQuestions,
-    syncedCandidates,
-    syncedSessions,
-    totalSynced,
-    message: `Đã gửi thành công toàn bộ dữ liệu Local lên Cloud (${syncedBanks} ngân hàng đề, ${syncedQuestions} câu hỏi, ${syncedCandidates} thí sinh, ${syncedSessions} ca thi)!`,
-  };
-};
-
-export const syncCloudDatabaseToProduction = syncLocalDataToCloud;
 
 export default api;

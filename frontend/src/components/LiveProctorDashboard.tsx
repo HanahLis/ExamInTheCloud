@@ -49,7 +49,7 @@ export const LiveProctorDashboard = ({
   );
 
   const [selectedSessionId, setSelectedSessionId] = useState<string>(() => {
-    return runningSessions[0]?.id || sessions[0]?.id || 'EX-VNU-2026-01';
+    return runningSessions[0]?.id || sessions[0]?.id || '';
   });
 
   useEffect(() => {
@@ -110,8 +110,8 @@ export const LiveProctorDashboard = ({
   const handleSavePin = async () => {
     if (!activeSession) return;
     const cleanPin = newPin.trim();
-    if (!cleanPin || cleanPin.length < 4) {
-      alert('Mật khẩu phòng thi phải từ 4 đến 8 ký tự!');
+    if (!/^\d{6}$/.test(cleanPin)) {
+      alert('Mật khẩu phòng thi phải gồm đúng 6 chữ số!');
       return;
     }
     await updateSessionDetails(activeSession.id, { roomPassword: cleanPin });
@@ -195,32 +195,7 @@ export const LiveProctorDashboard = ({
   };
 
   // 7. Nhật ký an ninh & Cảnh báo Amazon SNS
-  const [securityEvents, setSecurityEvents] = useState<SecurityAuditItem[]>([
-    {
-      id: 'sec-1',
-      time: new Date(Date.now() - 1000 * 60 * 8).toLocaleTimeString(dateLocale, { hour: '2-digit', minute: '2-digit', second: '2-digit' }),
-      level: 'SUCCESS',
-      type: 'FACE_REKOGNITION',
-      message: 'Thí sinh Trần Minh Đức (24020001) đối soát sinh trắc học Rekognition thành công (Tương đồng: 94.2%).',
-      candidateEmail: '24020001@vnu.edu.vn',
-    },
-    {
-      id: 'sec-2',
-      time: new Date(Date.now() - 1000 * 60 * 7).toLocaleTimeString(dateLocale, { hour: '2-digit', minute: '2-digit', second: '2-digit' }),
-      level: 'INFO',
-      type: 'DEVICE_LOCK',
-      message: 'Tài khoản 24020001@vnu.edu.vn đã được KHÓA CỨNG vào thiết bị (Fingerprint: dev-7c4a...). Ngăn chặn mở trên máy thứ 2.',
-      candidateEmail: '24020001@vnu.edu.vn',
-    },
-    {
-      id: 'sec-3',
-      time: new Date(Date.now() - 1000 * 60 * 4).toLocaleTimeString(dateLocale, { hour: '2-digit', minute: '2-digit', second: '2-digit' }),
-      level: 'DANGER',
-      type: 'SNS_ALERT',
-      message: 'Cảnh báo khẩn cấp Amazon SNS: Nghi vấn gian lận danh tính - Thí sinh Nguyễn VĂN BẢY (24020007) đối soát Rekognition chỉ đạt 41.5% (< 80%).',
-      candidateEmail: '24020007@vnu.edu.vn',
-    },
-  ]);
+  const [securityEvents, setSecurityEvents] = useState<SecurityAuditItem[]>([]);
 
   const addSecurityEvent = (item: Omit<SecurityAuditItem, 'id' | 'time'>) => {
     const newItem: SecurityAuditItem = {
@@ -313,26 +288,29 @@ export const LiveProctorDashboard = ({
     : 'SCHEDULED';
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-slate-50 via-slate-100/70 to-indigo-50/30 text-slate-800 flex flex-col justify-between">
+    <div className="min-h-screen bg-slate-50 text-slate-800 flex flex-col justify-between">
       {/* 1. Header Bàn Cán bộ coi thi */}
-      <header className="bg-white/95 backdrop-blur-md border-b border-indigo-100 px-4 md:px-8 py-3 sticky top-0 z-40 shadow-xs">
+      <header className="bg-white border-b border-slate-200 px-4 md:px-8 py-3 sticky top-0 z-40">
         <div className="max-w-7xl mx-auto flex flex-wrap justify-between items-center gap-3">
           <div className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-2xl bg-gradient-to-tr from-indigo-600 via-indigo-700 to-purple-600 text-white flex items-center justify-center shadow-md shadow-indigo-200">
-              <span className="text-xl">🛡️</span>
+            <div className="w-9 h-9 rounded-lg bg-slate-900 text-white flex items-center justify-center">
+              <svg className="w-4.5 h-4.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z" />
+              </svg>
             </div>
             <div>
               <div className="flex items-center gap-2">
-                <h1 className="text-sm md:text-base font-extrabold text-slate-900 tracking-tight">
-                  BÀN GIÁM SÁT PHÒNG THI (LIVE PROCTOR CONSOLE)
+                <h1 className="text-sm md:text-base font-semibold text-slate-900 tracking-tight">
+                  Bàn giám sát phòng thi
                 </h1>
-                <span className="text-[10px] font-bold px-2.5 py-0.5 rounded-full bg-indigo-50 text-indigo-700 border border-indigo-200 flex items-center gap-1">
-                  <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse"></span>
-                  Giám sát trực tuyến
+                <span className="text-[10px] font-medium px-2 py-0.5 rounded-full bg-emerald-50 text-emerald-700 border border-emerald-200 flex items-center gap-1.5">
+                  <span className="w-1.5 h-1.5 rounded-full bg-emerald-500"></span>
+                  Trực tuyến
                 </span>
               </div>
               <p className="text-[11px] text-slate-500">
-                Cán bộ coi thi: <strong className="text-slate-800 font-semibold">{user.name || 'Giám thị'}</strong> ({user.email}) • Mã giám thị: <span className="font-mono font-bold text-indigo-600">{user.studentCode || 'GT002'}</span>
+                {user.name || 'Giám thị'} · {user.email}
+                {user.studentCode && <span className="font-mono"> · {user.studentCode}</span>}
               </p>
             </div>
           </div>
@@ -343,7 +321,7 @@ export const LiveProctorDashboard = ({
             {/* Nút đăng xuất */}
             <button
               onClick={logout}
-              className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-slate-100 hover:bg-rose-50 text-slate-600 hover:text-rose-700 rounded-xl text-xs font-semibold border border-slate-200 transition cursor-pointer"
+              className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-white hover:bg-slate-50 text-slate-600 rounded-lg text-xs font-medium border border-slate-200 transition cursor-pointer"
             >
               <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" />
@@ -356,8 +334,10 @@ export const LiveProctorDashboard = ({
 
       {/* Thông báo PIN / Thao tác */}
       {pinNotice && (
-        <div className="bg-emerald-600 text-white text-xs font-semibold py-2 px-4 text-center sticky top-[57px] z-30 shadow-md flex items-center justify-center gap-2 animate-fadeIn">
-          <span>✓</span>
+        <div className="bg-slate-900 text-white text-xs font-medium py-2 px-4 text-center sticky top-[57px] z-30 flex items-center justify-center gap-2">
+          <svg className="w-3.5 h-3.5 text-emerald-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M5 13l4 4L19 7" />
+          </svg>
           <span>{pinNotice}</span>
         </div>
       )}
@@ -365,15 +345,15 @@ export const LiveProctorDashboard = ({
       {/* 2. Nội dung chính của Proctor Console */}
       <main className="max-w-7xl w-full mx-auto p-4 md:p-8 flex-1 space-y-6">
         {/* Bộ chọn ca thi & Thanh điều khiển thời gian thực */}
-        <div className="bg-white rounded-3xl p-4 md:p-6 border border-slate-200/90 shadow-sm flex flex-wrap justify-between items-center gap-4">
+        <div className="bg-white rounded-2xl p-4 md:p-5 border border-slate-200 flex flex-wrap justify-between items-center gap-4">
           <div className="flex items-center gap-3 flex-wrap">
-            <span className="text-xs font-bold text-slate-500 uppercase tracking-wider flex items-center gap-1.5">
-              <span>📋</span> Ca thi đang giám sát:
+            <span className="text-[11px] font-medium text-slate-500 uppercase tracking-wide">
+              Ca thi đang giám sát
             </span>
             <select
               value={selectedSessionId}
               onChange={(e) => setSelectedSessionId(e.target.value)}
-              className="bg-slate-50 border border-slate-300 rounded-xl px-3.5 py-2 text-xs font-bold text-slate-800 outline-none focus:ring-2 focus:ring-indigo-200 focus:border-indigo-500 cursor-pointer min-w-[280px]"
+              className="bg-white border border-slate-300 rounded-lg px-3 py-2 text-xs font-medium text-slate-800 outline-none focus:border-indigo-500 focus:ring-4 focus:ring-indigo-500/10 cursor-pointer min-w-[280px]"
             >
               {sessions.map((s) => (
                 <option key={s.id} value={s.id}>
@@ -383,26 +363,26 @@ export const LiveProctorDashboard = ({
             </select>
 
             <span
-              className={`text-[11px] font-bold px-3 py-1 rounded-full border ${
+              className={`text-[11px] font-medium px-2.5 py-1 rounded-lg border ${
                 currentStatus === 'RUNNING'
-                  ? 'bg-emerald-50 text-emerald-700 border-emerald-300 animate-pulse'
+                  ? 'bg-emerald-50 text-emerald-700 border-emerald-200'
                   : currentStatus === 'SCHEDULED'
-                  ? 'bg-amber-50 text-amber-700 border-amber-300'
-                  : 'bg-slate-100 text-slate-500 border-slate-300'
+                  ? 'bg-amber-50 text-amber-700 border-amber-200'
+                  : 'bg-slate-100 text-slate-500 border-slate-200'
               }`}
             >
-              ● {currentStatus === 'RUNNING' ? 'Đang diễn ra' : currentStatus === 'SCHEDULED' ? 'Chưa bắt đầu' : 'Đã kết thúc'}
+              {currentStatus === 'RUNNING' ? 'Đang diễn ra' : currentStatus === 'SCHEDULED' ? 'Chưa bắt đầu' : 'Đã kết thúc'}
             </span>
           </div>
 
-          <div className="flex items-center gap-3">
-            <div className="flex items-center gap-2 text-xs text-slate-500 bg-slate-50 px-3 py-1.5 rounded-xl border border-slate-200">
-              <span className={`w-2 h-2 rounded-full ${autoRefresh ? 'bg-emerald-500 animate-ping' : 'bg-slate-400'}`}></span>
-              <span>Tự động cập nhật: <strong>{autoRefresh ? `${countdown}s` : 'Tắt'}</strong></span>
+          <div className="flex items-center gap-2.5 flex-wrap">
+            <div className="flex items-center gap-2 text-[11px] text-slate-500 bg-slate-50 px-3 py-1.5 rounded-lg border border-slate-200">
+              <span className={`w-1.5 h-1.5 rounded-full ${autoRefresh ? 'bg-emerald-500' : 'bg-slate-400'}`}></span>
+              <span>Tự động cập nhật <strong className="text-slate-700 font-medium">{autoRefresh ? `${countdown}s` : 'Đã tắt'}</strong></span>
               <button
                 type="button"
                 onClick={() => setAutoRefresh(!autoRefresh)}
-                className="ml-1 text-[10px] text-indigo-600 hover:underline font-bold"
+                className="ml-1 text-[10px] text-indigo-600 hover:underline font-medium cursor-pointer"
               >
                 {autoRefresh ? 'Dừng' : 'Bật'}
               </button>
@@ -412,7 +392,7 @@ export const LiveProctorDashboard = ({
               type="button"
               onClick={handleManualRefresh}
               disabled={isRefreshing}
-              className="inline-flex items-center gap-1.5 px-3 py-2 bg-indigo-50 hover:bg-indigo-100 text-indigo-700 rounded-xl text-xs font-bold border border-indigo-200 transition cursor-pointer"
+              className="inline-flex items-center gap-1.5 px-3 py-2 bg-white hover:bg-slate-50 text-slate-700 rounded-lg text-xs font-medium border border-slate-300 transition cursor-pointer disabled:opacity-50"
             >
               <svg className={`w-3.5 h-3.5 ${isRefreshing ? 'animate-spin' : ''}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
@@ -423,9 +403,11 @@ export const LiveProctorDashboard = ({
             <button
               type="button"
               onClick={() => setShowAddCandModal(true)}
-              className="inline-flex items-center gap-1.5 px-3.5 py-2 bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-500 hover:to-teal-500 text-white rounded-xl text-xs font-bold shadow-sm shadow-emerald-200 transition cursor-pointer"
+              className="inline-flex items-center gap-1.5 px-3.5 py-2 bg-slate-900 hover:bg-slate-800 text-white rounded-lg text-xs font-medium transition cursor-pointer"
             >
-              <span>➕</span>
+              <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 6v6m0 0v6m0-6h6m-6 0H6" />
+              </svg>
               <span>Bổ sung thí sinh khẩn cấp</span>
             </button>
           </div>
@@ -434,89 +416,86 @@ export const LiveProctorDashboard = ({
         {/* Cụm 1: Kiểm soát cửa ngõ phòng thi & Mật khẩu phòng thi 6 số */}
         {activeSession && (
           <div className="grid grid-cols-1 lg:grid-cols-12 gap-5">
-            {/* Card Mật khẩu phòng thi (Gatekeeper PIN) */}
-            <div className="lg:col-span-5 bg-gradient-to-br from-indigo-900 via-indigo-950 to-slate-900 text-white rounded-3xl p-6 shadow-xl relative overflow-hidden flex flex-col justify-between">
-              <div className="absolute top-0 right-0 p-8 opacity-10 pointer-events-none">
-                <span className="text-9xl">🔒</span>
-              </div>
+            {/* Card Mật khẩu phòng thi */}
+            <div className="lg:col-span-5 bg-slate-900 text-white rounded-2xl p-6 relative overflow-hidden flex flex-col justify-between">
+              <svg
+                className="pointer-events-none absolute -right-14 -top-16 w-64 h-64 text-indigo-400/15"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth="1"
+                viewBox="0 0 200 200"
+              >
+                <circle cx="100" cy="100" r="90" />
+                <circle cx="100" cy="100" r="62" />
+                <circle cx="100" cy="100" r="34" />
+              </svg>
 
-              <div className="space-y-3 relative z-10">
-                <div className="flex justify-between items-start gap-2">
-                  <span className="text-[11px] font-bold uppercase tracking-wider text-indigo-300 bg-indigo-800/60 px-3 py-1 rounded-full border border-indigo-700/80">
-                    Cửa ngõ phòng thi (Gate Access)
+              <div className="space-y-4 relative">
+                <div className="flex justify-between items-center gap-2">
+                  <span className="text-[10px] font-medium uppercase tracking-wider text-slate-400">
+                    Mã phòng thi
                   </span>
-                  <span className="text-[11px] font-mono text-indigo-200">
-                    ID: #{activeSession.id}
-                  </span>
+                  <span className="text-[11px] font-mono text-slate-400">#{activeSession.id}</span>
                 </div>
 
-                <h2 className="text-lg font-bold tracking-tight text-white leading-tight">
-                  {activeSession.name}
-                </h2>
+                <h2 className="text-lg font-semibold tracking-tight leading-tight">{activeSession.name}</h2>
 
-                <div className="pt-2">
-                  <p className="text-[11px] font-semibold text-indigo-300 mb-1 flex items-center gap-1.5">
-                    <span>🔑</span> MẬT KHẨU PHÒNG THI (6 KÝ TỰ CUNG CẤP CHO THÍ SINH):
-                  </p>
-                  <div className="flex items-center gap-3">
-                    <div className="bg-white/10 backdrop-blur-md border border-white/20 rounded-2xl px-5 py-2 text-2xl md:text-3xl font-mono font-black tracking-[0.3em] text-amber-300 shadow-inner">
-                      {activeSession.roomPassword || '123456'}
+                <div>
+                  <p className="text-[11px] text-slate-400 mb-2">Mật khẩu thí sinh dùng để vào phòng</p>
+                  <div className="flex flex-wrap items-center gap-2.5">
+                    <div className="bg-white/5 border border-white/10 rounded-xl px-5 py-2 text-2xl md:text-3xl font-mono tracking-[0.3em] text-white">
+                      {activeSession.roomPassword || '—'}
                     </div>
-                    <button
-                      type="button"
-                      onClick={() => handleCopyPin(activeSession.roomPassword || '123456')}
-                      className="px-3.5 py-2.5 bg-white/20 hover:bg-white/30 text-white rounded-xl text-xs font-bold border border-white/20 transition cursor-pointer flex items-center gap-1.5"
-                      title="Sao chép mật khẩu"
-                    >
-                      <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z" />
-                      </svg>
-                      <span>Copy</span>
-                    </button>
+                    {activeSession.roomPassword && (
+                      <button
+                        type="button"
+                        onClick={() => handleCopyPin(activeSession.roomPassword || '')}
+                        className="px-3 py-2 bg-white/5 hover:bg-white/10 text-slate-200 rounded-lg text-xs font-medium border border-white/10 transition cursor-pointer flex items-center gap-1.5"
+                      >
+                        <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z" />
+                        </svg>
+                        <span>Copy</span>
+                      </button>
+                    )}
                     <button
                       type="button"
                       onClick={() => {
                         setNewPin(`${Math.floor(100000 + Math.random() * 900000)}`);
                         setShowEditPinModal(true);
                       }}
-                      className="px-3 py-2.5 bg-indigo-600/80 hover:bg-indigo-600 text-white rounded-xl text-xs font-semibold border border-indigo-500 transition cursor-pointer"
-                      title="Đổi mật khẩu mới"
+                      className="px-3 py-2 bg-indigo-600 hover:bg-indigo-500 text-white rounded-lg text-xs font-medium transition cursor-pointer"
                     >
-                      <span>Đổi PIN</span>
+                      Đổi PIN
                     </button>
                   </div>
-                  <p className="text-[10px] text-indigo-300/80 mt-1.5">
-                    * Thí sinh bắt buộc phải nhập đúng mã 6 số này sau khi xác thực để bước vào phòng thi.
-                  </p>
                 </div>
               </div>
 
               {/* Điều khiển trạng thái ca thi */}
-              <div className="pt-4 border-t border-white/10 flex items-center justify-between gap-3 text-xs">
-                <span className="text-indigo-200 text-[11px]">
-                  Thời gian: {new Date(activeSession.startTime).toLocaleTimeString(dateLocale, { hour: '2-digit', minute: '2-digit' })} - {new Date(activeSession.endTime).toLocaleTimeString(dateLocale, { hour: '2-digit', minute: '2-digit' })}
+              <div className="pt-4 mt-6 border-t border-white/10 flex items-center justify-between gap-3 text-xs">
+                <span className="text-slate-400 text-[11px]">
+                  {new Date(activeSession.startTime).toLocaleTimeString(dateLocale, { hour: '2-digit', minute: '2-digit' })} – {new Date(activeSession.endTime).toLocaleTimeString(dateLocale, { hour: '2-digit', minute: '2-digit' })}
                 </span>
                 <div className="flex items-center gap-2">
                   {onUpdateSessionStatus && (
-                    <>
-                      {currentStatus === 'RUNNING' ? (
-                        <button
-                          type="button"
-                          onClick={() => onUpdateSessionStatus(activeSession.id, 'SCHEDULED')}
-                          className="px-2.5 py-1 bg-amber-500/30 hover:bg-amber-500/50 text-amber-200 border border-amber-400/40 rounded-lg text-[11px] font-bold cursor-pointer"
-                        >
-                          ⏸️ Tạm dừng
-                        </button>
-                      ) : (
-                        <button
-                          type="button"
-                          onClick={() => onUpdateSessionStatus(activeSession.id, 'RUNNING')}
-                          className="px-2.5 py-1 bg-emerald-500/30 hover:bg-emerald-500/50 text-emerald-200 border border-emerald-400/40 rounded-lg text-[11px] font-bold cursor-pointer"
-                        >
-                          ▶️ Bắt đầu
-                        </button>
-                      )}
-                    </>
+                    currentStatus === 'RUNNING' ? (
+                      <button
+                        type="button"
+                        onClick={() => onUpdateSessionStatus(activeSession.id, 'SCHEDULED')}
+                        className="px-2.5 py-1 bg-white/5 hover:bg-white/10 text-amber-300 border border-white/10 rounded-lg text-[11px] font-medium cursor-pointer"
+                      >
+                        Tạm dừng
+                      </button>
+                    ) : (
+                      <button
+                        type="button"
+                        onClick={() => onUpdateSessionStatus(activeSession.id, 'RUNNING')}
+                        className="px-2.5 py-1 bg-white/5 hover:bg-white/10 text-emerald-300 border border-white/10 rounded-lg text-[11px] font-medium cursor-pointer"
+                      >
+                        Bắt đầu
+                      </button>
+                    )
                   )}
                 </div>
               </div>
@@ -524,108 +503,98 @@ export const LiveProctorDashboard = ({
 
             {/* 4 Thẻ KPI Giám Sát */}
             <div className="lg:col-span-7 grid grid-cols-2 md:grid-cols-4 gap-3.5">
-              {/* KPI 1 */}
-              <div className="bg-white p-5 rounded-3xl border border-slate-200/80 shadow-xs flex flex-col justify-between">
-                <div className="flex items-center justify-between text-slate-500 text-xs font-semibold">
+              <div className="bg-white p-4 rounded-xl border border-slate-200 flex flex-col justify-between">
+                <div className="flex items-center justify-between text-slate-500 text-[11px] font-medium">
                   <span>Tổng thí sinh</span>
-                  <span className="text-base">👥</span>
+                  <svg className="w-4 h-4 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="1.8" d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0z" />
+                  </svg>
                 </div>
                 <div className="my-2">
-                  <span className="text-2xl md:text-3xl font-extrabold text-slate-900">{stats.total}</span>
-                  <span className="text-xs text-slate-400 ml-1">thí sinh</span>
+                  <span className="text-2xl md:text-3xl font-semibold text-slate-900">{stats.total}</span>
                 </div>
-                <div className="text-[10px] text-slate-500 font-medium bg-slate-50 px-2 py-1 rounded-lg">
-                  Đã phân công vào ca
-                </div>
+                <div className="text-[10px] text-slate-400">Đã phân công vào ca</div>
               </div>
 
-              {/* KPI 2: Khóa định thiết bị (Device Lock) */}
-              <div className="bg-white p-5 rounded-3xl border border-emerald-200 shadow-xs flex flex-col justify-between bg-gradient-to-br from-emerald-50/30 to-white">
-                <div className="flex items-center justify-between text-emerald-700 text-xs font-bold">
-                  <span>Khóa thiết bị 🔒</span>
-                  <span className="text-base">🖥️</span>
+              <div className="bg-white p-4 rounded-xl border border-slate-200 flex flex-col justify-between">
+                <div className="flex items-center justify-between text-slate-500 text-[11px] font-medium">
+                  <span>Đã khóa thiết bị</span>
+                  <svg className="w-4 h-4 text-emerald-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="1.8" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
+                  </svg>
                 </div>
                 <div className="my-2">
-                  <span className="text-2xl md:text-3xl font-extrabold text-emerald-700">{stats.locked}</span>
-                  <span className="text-xs text-emerald-600 ml-1">đã khóa</span>
+                  <span className="text-2xl md:text-3xl font-semibold text-emerald-600">{stats.locked}</span>
                 </div>
-                <div className="text-[10px] text-emerald-700 font-bold bg-emerald-50 px-2 py-1 rounded-lg border border-emerald-100 flex items-center gap-1">
-                  <span>✓</span> Chống 2 máy song song
-                </div>
+                <div className="text-[10px] text-slate-400">Ghim một thiết bị</div>
               </div>
 
-              {/* KPI 3: Đang làm bài */}
-              <div className="bg-white p-5 rounded-3xl border border-indigo-200 shadow-xs flex flex-col justify-between bg-gradient-to-br from-indigo-50/30 to-white">
-                <div className="flex items-center justify-between text-indigo-700 text-xs font-bold">
+              <div className="bg-white p-4 rounded-xl border border-slate-200 flex flex-col justify-between">
+                <div className="flex items-center justify-between text-slate-500 text-[11px] font-medium">
                   <span>Đang thi</span>
-                  <span className="text-base">✍️</span>
+                  <svg className="w-4 h-4 text-indigo-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="1.8" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
+                  </svg>
                 </div>
                 <div className="my-2">
-                  <span className="text-2xl md:text-3xl font-extrabold text-indigo-700">{Math.max(0, stats.locked - stats.submitted)}</span>
-                  <span className="text-xs text-indigo-600 ml-1">thí sinh</span>
+                  <span className="text-2xl md:text-3xl font-semibold text-indigo-600">{Math.max(0, stats.locked - stats.submitted)}</span>
                 </div>
-                <div className="text-[10px] text-indigo-600 font-medium bg-indigo-50 px-2 py-1 rounded-lg border border-indigo-100">
-                  Lưu nháp Atomic Updates
-                </div>
+                <div className="text-[10px] text-slate-400">Đã điểm danh</div>
               </div>
 
-              {/* KPI 4: Đã nộp bài */}
-              <div className="bg-white p-5 rounded-3xl border border-purple-200 shadow-xs flex flex-col justify-between bg-gradient-to-br from-purple-50/30 to-white">
-                <div className="flex items-center justify-between text-purple-700 text-xs font-bold">
+              <div className="bg-white p-4 rounded-xl border border-slate-200 flex flex-col justify-between">
+                <div className="flex items-center justify-between text-slate-500 text-[11px] font-medium">
                   <span>Đã nộp bài</span>
-                  <span className="text-base">🏁</span>
+                  <svg className="w-4 h-4 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="1.8" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+                  </svg>
                 </div>
                 <div className="my-2">
-                  <span className="text-2xl md:text-3xl font-extrabold text-purple-700">{stats.submitted}</span>
-                  <span className="text-xs text-purple-600 ml-1">bài nộp</span>
+                  <span className="text-2xl md:text-3xl font-semibold text-slate-900">{stats.submitted}</span>
                 </div>
-                <div className="text-[10px] text-purple-600 font-medium bg-purple-50 px-2 py-1 rounded-lg border border-purple-100">
-                  Chấm điểm tự động SQS
-                </div>
+                <div className="text-[10px] text-slate-400">Kết quả chấm tự động</div>
               </div>
             </div>
           </div>
         )}
 
-        {/* Cụm 2 & 3: Lưới Giám Sát Thí Sinh Trực Tiếp & Hộp Cảnh Báo An Ninh Amazon SNS */}
+        {/* Cụm 2 & 3: Lưới Giám Sát Thí Sinh Trực Tiếp & Nhật Ký An Ninh */}
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
           {/* CỘT TRÁI (8 CỘT): Lưới Thí Sinh Trong Phòng Thi */}
-          <div className="lg:col-span-8 bg-white rounded-3xl p-6 border border-slate-200/80 shadow-xs space-y-4">
+          <div className="lg:col-span-8 bg-white rounded-2xl p-5 border border-slate-200 space-y-4">
             <div className="flex flex-wrap justify-between items-center gap-3">
               <div>
-                <h3 className="text-sm font-bold text-slate-900 tracking-tight flex items-center gap-2">
-                  <span className="text-base">👥</span>
-                  <span>DANH SÁCH THÍ SINH PHÒNG THI</span>
-                  <span className="text-xs font-semibold px-2 py-0.5 rounded-full bg-slate-100 text-slate-600">
+                <h3 className="text-sm font-semibold text-slate-900 tracking-tight flex items-center gap-2">
+                  <span>Danh sách thí sinh</span>
+                  <span className="text-[10px] font-medium px-2 py-0.5 rounded-full bg-slate-100 text-slate-600">
                     {filteredCandidates.length}/{stats.total}
                   </span>
                 </h3>
                 <p className="text-[11px] text-slate-500">
-                  Theo dõi trạng thái điểm danh sinh trắc học và khóa định phần cứng thời gian thực
+                  Trạng thái điểm danh và khóa thiết bị theo thời gian thực
                 </p>
               </div>
 
               {/* Bộ lọc tab */}
-              <div className="flex items-center gap-1 bg-slate-100 p-1 rounded-xl text-xs font-semibold">
+              <div className="flex items-center gap-1 bg-slate-100 p-1 rounded-lg text-[11px] font-medium">
                 <button
                   type="button"
                   onClick={() => setFilterStatus('ALL')}
-                  className={`px-2.5 py-1 rounded-lg transition cursor-pointer ${filterStatus === 'ALL' ? 'bg-white text-slate-900 shadow-2xs font-bold' : 'text-slate-500 hover:text-slate-900'}`}
+                  className={`px-2.5 py-1 rounded-md transition cursor-pointer ${filterStatus === 'ALL' ? 'bg-white text-slate-900 shadow-sm' : 'text-slate-500 hover:text-slate-900'}`}
                 >
                   Tất cả ({stats.total})
                 </button>
                 <button
                   type="button"
                   onClick={() => setFilterStatus('LOCKED')}
-                  className={`px-2.5 py-1 rounded-lg transition cursor-pointer flex items-center gap-1 ${filterStatus === 'LOCKED' ? 'bg-white text-emerald-700 shadow-2xs font-bold' : 'text-slate-500 hover:text-emerald-700'}`}
+                  className={`px-2.5 py-1 rounded-md transition cursor-pointer ${filterStatus === 'LOCKED' ? 'bg-white text-emerald-700 shadow-sm' : 'text-slate-500 hover:text-emerald-700'}`}
                 >
-                  <span>🔒 Khóa máy</span>
-                  <span>({stats.locked})</span>
+                  Khóa máy ({stats.locked})
                 </button>
                 <button
                   type="button"
                   onClick={() => setFilterStatus('SUBMITTED')}
-                  className={`px-2.5 py-1 rounded-lg transition cursor-pointer ${filterStatus === 'SUBMITTED' ? 'bg-white text-purple-700 shadow-2xs font-bold' : 'text-slate-500 hover:text-purple-700'}`}
+                  className={`px-2.5 py-1 rounded-md transition cursor-pointer ${filterStatus === 'SUBMITTED' ? 'bg-white text-slate-900 shadow-sm' : 'text-slate-500 hover:text-slate-900'}`}
                 >
                   Đã nộp ({stats.submitted})
                 </button>
@@ -638,8 +607,8 @@ export const LiveProctorDashboard = ({
                 type="text"
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
-                placeholder="Tìm thí sinh theo Họ tên, Mã sinh viên (2402xxxx) hoặc Email..."
-                className="w-full pl-9 pr-4 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs outline-none focus:bg-white focus:border-indigo-400 focus:ring-2 focus:ring-indigo-100 transition"
+                placeholder="Tìm theo họ tên, mã sinh viên hoặc email"
+                className="w-full pl-9 pr-4 py-2 bg-white border border-slate-300 rounded-lg text-xs outline-none focus:border-indigo-500 focus:ring-4 focus:ring-indigo-500/10 transition"
               />
               <svg className="w-4 h-4 text-slate-400 absolute left-3 top-2.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
@@ -648,21 +617,23 @@ export const LiveProctorDashboard = ({
 
             {/* Danh sách Thẻ Thí sinh */}
             {filteredCandidates.length === 0 ? (
-              <div className="text-center py-12 space-y-2 border border-dashed border-slate-200 rounded-2xl">
-                <span className="text-3xl">🔍</span>
-                <p className="text-xs font-semibold text-slate-600">Không tìm thấy thí sinh nào phù hợp</p>
-                <p className="text-[11px] text-slate-400">Thử thay đổi bộ lọc hoặc thêm thí sinh vào ca thi</p>
+              <div className="text-center py-12 space-y-1.5 border border-dashed border-slate-200 rounded-xl">
+                <svg className="w-6 h-6 mx-auto text-slate-300" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="1.8" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+                </svg>
+                <p className="text-xs font-medium text-slate-600">Không tìm thấy thí sinh phù hợp</p>
+                <p className="text-[11px] text-slate-400">Thay đổi bộ lọc hoặc bổ sung thí sinh vào ca thi</p>
               </div>
             ) : (
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-3.5 pt-1">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-3 pt-1">
                 {filteredCandidates.map((c) => (
                   <div
                     key={c.email}
-                    className={`p-4 rounded-2xl border transition-all duration-200 flex flex-col justify-between space-y-3 ${
+                    className={`p-4 rounded-xl border transition-colors flex flex-col justify-between space-y-3 ${
                       c.isLocked
-                        ? 'border-emerald-300 bg-gradient-to-br from-emerald-50/20 via-white to-white shadow-xs'
+                        ? 'border-emerald-200 bg-emerald-50/30'
                         : c.isSubmitted
-                        ? 'border-purple-200 bg-purple-50/10'
+                        ? 'border-slate-200 bg-slate-50/50'
                         : 'border-slate-200 bg-white hover:border-slate-300'
                     }`}
                   >
@@ -673,20 +644,21 @@ export const LiveProctorDashboard = ({
                           <img
                             src={c.faceImageUrl}
                             alt={c.name}
-                            className="w-12 h-14 rounded-xl object-cover border border-slate-200 shadow-2xs bg-slate-100"
+                            className="w-11 h-13 rounded-lg object-cover border border-slate-200 bg-slate-100"
                             onError={(e) => {
-                              // Fallback nếu ảnh không tải được
                               (e.target as HTMLElement).style.display = 'none';
                             }}
                           />
                         ) : (
-                          <div className="w-12 h-14 rounded-xl bg-slate-100 border border-slate-200 flex items-center justify-center text-slate-400 font-bold text-xs">
-                            TS
+                          <div className="w-11 h-13 rounded-lg bg-slate-100 border border-slate-200 flex items-center justify-center text-slate-400 font-medium text-xs">
+                            {c.name.trim().charAt(0).toUpperCase() || '?'}
                           </div>
                         )}
                         {c.isLocked && (
-                          <span className="absolute -top-1 -right-1 w-5 h-5 rounded-full bg-emerald-600 text-white flex items-center justify-center text-[10px] shadow-sm font-bold" title="Đã khóa định thiết bị">
-                            🔒
+                          <span className="absolute -top-1 -right-1 w-4 h-4 rounded-full bg-emerald-600 text-white flex items-center justify-center" title="Đã khóa thiết bị">
+                            <svg className="w-2.5 h-2.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M5 13l4 4L19 7" />
+                            </svg>
                           </span>
                         )}
                       </div>
@@ -694,10 +666,10 @@ export const LiveProctorDashboard = ({
                       {/* Thông tin thí sinh */}
                       <div className="flex-1 min-w-0 space-y-1">
                         <div className="flex items-center justify-between gap-1">
-                          <h4 className="text-xs font-bold text-slate-900 truncate" title={c.name}>
+                          <h4 className="text-xs font-semibold text-slate-900 truncate" title={c.name}>
                             {c.name}
                           </h4>
-                          <span className="text-[10px] font-mono font-bold px-1.5 py-0.5 rounded-md bg-slate-100 text-slate-700">
+                          <span className="text-[10px] font-mono px-1.5 py-0.5 rounded bg-slate-100 text-slate-600 shrink-0">
                             {c.studentCode}
                           </span>
                         </div>
@@ -708,18 +680,19 @@ export const LiveProctorDashboard = ({
 
                         <div className="flex flex-wrap gap-1 pt-1">
                           {c.isLocked ? (
-                            <span className="inline-flex items-center gap-1 text-[10px] font-bold text-emerald-800 bg-emerald-100/80 px-2 py-0.5 rounded-md border border-emerald-200">
-                              <span className="w-1.5 h-1.5 rounded-full bg-emerald-600 animate-pulse"></span>
-                              <span>Đã khóa thiết bị ({c.deviceToken ? c.deviceToken.slice(0, 8) + '...' : 'Active'})</span>
+                            <span className="inline-flex items-center gap-1.5 text-[10px] font-medium text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded border border-emerald-200">
+                              <span className="w-1.5 h-1.5 rounded-full bg-emerald-500"></span>
+                              Đã khóa thiết bị
                             </span>
                           ) : c.isSubmitted ? (
-                            <span className="inline-flex items-center gap-1 text-[10px] font-bold text-purple-800 bg-purple-100/80 px-2 py-0.5 rounded-md border border-purple-200">
-                              <span>🏁</span>
-                              <span>Đã nộp bài (Điểm: {c.score ?? 'Đã ghi nhận'})</span>
+                            <span className="inline-flex items-center gap-1.5 text-[10px] font-medium text-slate-600 bg-slate-100 px-2 py-0.5 rounded">
+                              <span className="w-1.5 h-1.5 rounded-full bg-slate-400"></span>
+                              Đã nộp bài{c.score !== null ? ` · ${c.score} điểm` : ''}
                             </span>
                           ) : (
-                            <span className="inline-flex items-center gap-1 text-[10px] font-medium text-slate-500 bg-slate-100 px-2 py-0.5 rounded-md">
-                              <span>⏳</span> Chưa vào phòng thi
+                            <span className="inline-flex items-center gap-1.5 text-[10px] font-medium text-slate-500 bg-slate-100 px-2 py-0.5 rounded">
+                              <span className="w-1.5 h-1.5 rounded-full bg-slate-300"></span>
+                              Chưa vào phòng
                             </span>
                           )}
                         </div>
@@ -729,7 +702,7 @@ export const LiveProctorDashboard = ({
                     {/* Thao tác của Giám thị */}
                     <div className="pt-2 border-t border-slate-100 flex items-center justify-between gap-2">
                       <span className="text-[10px] text-slate-400">
-                        {c.isLocked ? 'Thiết bị đang ghim máy' : 'Chưa điểm danh'}
+                        {c.isLocked ? `Thiết bị ${c.deviceToken ? c.deviceToken.slice(0, 8) : 'đã ghim'}` : 'Chưa điểm danh'}
                       </span>
 
                       <div className="flex items-center gap-1.5">
@@ -738,42 +711,10 @@ export const LiveProctorDashboard = ({
                             type="button"
                             onClick={() => handleUnlockCandidate(c.email, c.name)}
                             disabled={unlockLoadingEmail === c.email}
-                            className="px-2.5 py-1 bg-amber-50 hover:bg-amber-100 text-amber-800 border border-amber-300 rounded-lg text-[11px] font-bold transition cursor-pointer flex items-center gap-1"
-                            title="Mở khóa thiết bị khi thí sinh gặp sự cố máy móc cần chuyển máy"
+                            className="px-2.5 py-1 bg-white hover:bg-amber-50 text-amber-800 border border-amber-300 rounded-md text-[11px] font-medium transition cursor-pointer disabled:opacity-50"
+                            title="Mở khóa để thí sinh chuyển sang máy khác"
                           >
-                            <span>🔓</span>
-                            <span>{unlockLoadingEmail === c.email ? 'Đang mở...' : 'Mở khóa máy'}</span>
-                          </button>
-                        )}
-                        {!c.isLocked && (
-                          <button
-                            type="button"
-                            onClick={async () => {
-                              if (!activeSession) return;
-                              // Khóa thủ công cho thí sinh
-                              const currentLocks = activeSession.lockedCandidates || {};
-                              const token = `token-${Math.random().toString(36).slice(2, 8)}`;
-                              const updatedLocks = {
-                                ...currentLocks,
-                                [c.email.toLowerCase()]: {
-                                  locked: true,
-                                  deviceToken: token,
-                                  lockedAt: new Date().toISOString(),
-                                },
-                              };
-                              await updateSessionDetails(activeSession.id, { lockedCandidates: updatedLocks });
-                              addSecurityEvent({
-                                level: 'SUCCESS',
-                                type: 'PROCTOR_ACTION',
-                                message: `Giám thị đã xác thực và khóa định thiết bị thủ công cho thí sinh ${c.name} (${c.email}).`,
-                                candidateEmail: c.email,
-                              });
-                              await onRefresh();
-                            }}
-                            className="px-2 py-1 bg-slate-100 hover:bg-indigo-50 text-slate-700 hover:text-indigo-700 border border-slate-200 rounded-lg text-[11px] font-semibold transition cursor-pointer"
-                            title="Xác thực & Khóa thiết bị trực tiếp cho thí sinh"
-                          >
-                            <span>Khóa máy</span>
+                            {unlockLoadingEmail === c.email ? 'Đang mở...' : 'Mở khóa máy'}
                           </button>
                         )}
                       </div>
@@ -784,77 +725,80 @@ export const LiveProctorDashboard = ({
             )}
           </div>
 
-          {/* CỘT PHẢI (4 CỘT): Nhật Ký An Ninh & Cảnh Báo Khẩn Cấp Amazon SNS */}
+          {/* CỘT PHẢI (4 CỘT): Nhật Ký An Ninh & Cảnh Báo */}
           <div className="lg:col-span-4 space-y-4">
-            <div className="bg-white rounded-3xl p-5 border border-slate-200/80 shadow-xs space-y-3">
+            <div className="bg-white rounded-2xl p-5 border border-slate-200 space-y-3">
               <div className="flex items-center justify-between">
-                <h3 className="text-xs font-bold text-slate-900 uppercase tracking-wider flex items-center gap-1.5">
-                  <span>🚨</span> NHẬT KÝ AN NINH (SNS AUDIT)
+                <h3 className="text-xs font-semibold text-slate-900 tracking-tight">
+                  Nhật ký an ninh
                 </h3>
-                <span className="text-[10px] font-bold text-indigo-600 bg-indigo-50 px-2 py-0.5 rounded-full border border-indigo-100">
+                <span className="text-[10px] font-medium text-slate-500 bg-slate-100 px-2 py-0.5 rounded-full">
                   Thời gian thực
                 </span>
               </div>
-              <p className="text-[11px] text-slate-500 leading-snug">
-                Hệ thống tự động phát hiện thi hộ qua Rekognition & phát cảnh báo khẩn cấp tới Amazon SNS Topic.
+              <p className="text-[11px] text-slate-500 leading-relaxed">
+                Sự kiện sinh trắc học, khóa thiết bị và cảnh báo gửi qua Amazon SNS.
               </p>
 
               {/* Feed các sự kiện an ninh */}
-              <div className="space-y-2.5 max-h-[380px] overflow-y-auto pr-1">
-                {securityEvents.map((ev) => (
-                  <div
-                    key={ev.id}
-                    className={`p-3 rounded-xl border text-xs space-y-1 ${
-                      ev.level === 'DANGER'
-                        ? 'bg-rose-50/80 border-rose-200 text-rose-900'
-                        : ev.level === 'WARN'
-                        ? 'bg-amber-50/80 border-amber-200 text-amber-900'
-                        : ev.level === 'SUCCESS'
-                        ? 'bg-emerald-50/80 border-emerald-200 text-emerald-900'
-                        : 'bg-slate-50 border-slate-200 text-slate-700'
-                    }`}
-                  >
-                    <div className="flex items-center justify-between text-[10px] font-semibold">
-                      <span className="flex items-center gap-1">
-                        {ev.level === 'DANGER' && <span>🚨 KHẨN CẤP</span>}
-                        {ev.level === 'WARN' && <span>⚠️ CẢNH BÁO</span>}
-                        {ev.level === 'SUCCESS' && <span>✓ AN TOÀN</span>}
-                        {ev.level === 'INFO' && <span>ℹ THÔNG TIN</span>}
-                      </span>
-                      <span className="font-mono text-slate-400">{ev.time}</span>
-                    </div>
-                    <p className="text-[11px] font-medium leading-relaxed">{ev.message}</p>
+              <div className="space-y-2 max-h-[360px] overflow-y-auto pr-1">
+                {securityEvents.length === 0 ? (
+                  <div className="py-8 text-center border border-dashed border-slate-200 rounded-lg">
+                    <p className="text-[11px] text-slate-400">Chưa có sự kiện an ninh trong ca thi này</p>
                   </div>
-                ))}
+                ) : (
+                  securityEvents.map((ev) => (
+                    <div
+                      key={ev.id}
+                      className={`p-3 rounded-lg border text-xs space-y-1 ${
+                        ev.level === 'DANGER'
+                          ? 'bg-rose-50 border-rose-200 text-rose-900'
+                          : ev.level === 'WARN'
+                          ? 'bg-amber-50 border-amber-200 text-amber-900'
+                          : ev.level === 'SUCCESS'
+                          ? 'bg-emerald-50 border-emerald-200 text-emerald-900'
+                          : 'bg-slate-50 border-slate-200 text-slate-700'
+                      }`}
+                    >
+                      <div className="flex items-center justify-between text-[10px] font-medium">
+                        <span>
+                          {ev.level === 'DANGER' && 'Khẩn cấp'}
+                          {ev.level === 'WARN' && 'Cảnh báo'}
+                          {ev.level === 'SUCCESS' && 'An toàn'}
+                          {ev.level === 'INFO' && 'Thông tin'}
+                        </span>
+                        <span className="font-mono text-slate-400">{ev.time}</span>
+                      </div>
+                      <p className="text-[11px] leading-relaxed">{ev.message}</p>
+                    </div>
+                  ))
+                )}
               </div>
 
-              {/* Nút gửi cảnh báo thủ công qua SNS */}
+              {/* Nút gửi báo cáo qua SNS */}
               <div className="pt-2 border-t border-slate-100">
                 <button
                   type="button"
                   onClick={handleTriggerSnsAlert}
                   disabled={sendingSns}
-                  className="w-full py-2.5 bg-gradient-to-r from-rose-600 to-amber-600 hover:from-rose-500 hover:to-amber-500 text-white rounded-xl text-xs font-bold shadow-xs transition cursor-pointer flex items-center justify-center gap-2"
+                  className="w-full py-2.5 bg-white hover:bg-slate-50 disabled:opacity-50 text-slate-700 border border-slate-300 rounded-lg text-xs font-medium transition cursor-pointer flex items-center justify-center gap-2"
                 >
-                  <span>📢</span>
-                  <span>{sendingSns ? 'Đang phát cảnh báo SNS...' : 'Bắn cảnh báo khẩn cấp (Amazon SNS)'}</span>
+                  <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
+                  </svg>
+                  <span>{sendingSns ? 'Đang gửi báo cáo...' : 'Gửi báo cáo ca thi qua SNS'}</span>
                 </button>
-                <p className="text-[10px] text-slate-400 text-center mt-1">
-                  Gửi báo cáo an ninh tức thì về hòm thư Hội đồng thi
-                </p>
               </div>
             </div>
 
             {/* Hướng dẫn nghiệp vụ coi thi */}
-            <div className="bg-gradient-to-br from-indigo-50/80 to-purple-50/40 rounded-3xl p-5 border border-indigo-100 space-y-2 text-xs text-indigo-950">
-              <h4 className="font-bold flex items-center gap-1.5 text-indigo-900">
-                <span>📖</span> QUY TRÌNH COI THI CLOUDEXAM
-              </h4>
-              <ul className="space-y-1.5 text-[11px] text-slate-600 list-disc pl-4 leading-relaxed">
-                <li>Đọc <strong>Mật khẩu phòng thi (6 số)</strong> cho thí sinh khi bắt đầu giờ làm bài.</li>
-                <li>Thí sinh điểm danh Rekognition thành công sẽ tự động nhận <strong>Ổ khóa xanh 🔒</strong> ghim thiết bị.</li>
-                <li>Nếu thí sinh bị hỏng máy, bấm <strong>"Mở khóa máy"</strong> để cho phép chuyển máy thi khác.</li>
-                <li>Nếu có thí sinh đến muộn chính đáng, bấm <strong>"Bổ sung thí sinh khẩn cấp"</strong> để cấp quyền vào thi ngay.</li>
+            <div className="bg-white rounded-2xl p-5 border border-slate-200 space-y-2 text-xs">
+              <h4 className="font-semibold text-slate-900">Quy trình coi thi</h4>
+              <ul className="space-y-1.5 text-[11px] text-slate-500 list-disc pl-4 leading-relaxed">
+                <li>Đọc mật khẩu phòng thi cho thí sinh khi bắt đầu giờ làm bài.</li>
+                <li>Thí sinh điểm danh thành công sẽ tự động khóa vào thiết bị đang dùng.</li>
+                <li>Nếu thí sinh gặp sự cố máy, chọn "Mở khóa máy" để cho phép chuyển máy.</li>
+                <li>Thí sinh đến muộn có thể được bổ sung khẩn cấp vào ca thi.</li>
               </ul>
             </div>
           </div>
@@ -863,39 +807,42 @@ export const LiveProctorDashboard = ({
 
       {/* MODAL 1: Đổi mật khẩu phòng thi 6 số */}
       {showEditPinModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/60 backdrop-blur-xs p-4">
-          <div className="bg-white rounded-3xl max-w-sm w-full p-6 space-y-4 shadow-2xl border border-slate-200">
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/50 p-4">
+          <div className="bg-white rounded-2xl max-w-sm w-full p-6 space-y-4 shadow-xl border border-slate-200">
             <div className="flex items-center justify-between">
-              <h3 className="text-sm font-bold text-slate-900 flex items-center gap-1.5">
-                <span>🔑</span> ĐỔI MẬT KHẨU PHÒNG THI
+              <h3 className="text-sm font-semibold text-slate-900">
+                Đổi mật khẩu phòng thi
               </h3>
               <button
                 type="button"
                 onClick={() => setShowEditPinModal(false)}
-                className="text-slate-400 hover:text-slate-600 font-bold"
+                className="p-1 text-slate-400 hover:text-slate-600 cursor-pointer"
               >
-                ✕
+                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M6 18L18 6M6 6l12 12" />
+                </svg>
               </button>
             </div>
-            <p className="text-xs text-slate-500">
-              Mật khẩu phòng thi mới sẽ có hiệu lực ngay lập tức. Thí sinh chưa vào phòng sẽ dùng mã này để đăng nhập.
+            <p className="text-xs text-slate-500 leading-relaxed">
+              Mật khẩu mới có hiệu lực ngay. Thí sinh chưa vào phòng sẽ dùng mã này để đăng nhập.
             </p>
             <div>
-              <label className="block text-xs font-semibold text-slate-700 mb-1">Mật khẩu PIN mới (4 - 8 số)</label>
+              <label className="block text-xs font-medium text-slate-700 mb-1.5">Mật khẩu mới (6 chữ số)</label>
               <div className="flex items-center gap-2">
                 <input
                   type="text"
+                  inputMode="numeric"
                   value={newPin}
-                  onChange={(e) => setNewPin(e.target.value)}
-                  maxLength={8}
-                  className="flex-1 px-3.5 py-2.5 bg-slate-50 border border-slate-300 rounded-xl text-center text-xl font-mono font-black tracking-widest outline-none focus:ring-2 focus:ring-indigo-300"
+                  onChange={(e) => setNewPin(e.target.value.replace(/\D/g, ''))}
+                  maxLength={6}
+                  className="flex-1 px-3.5 py-2.5 bg-white border border-slate-300 rounded-lg text-center text-lg font-mono tracking-widest outline-none focus:border-indigo-500 focus:ring-4 focus:ring-indigo-500/10"
                 />
                 <button
                   type="button"
                   onClick={() => setNewPin(`${Math.floor(100000 + Math.random() * 900000)}`)}
-                  className="px-3 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-bold rounded-xl"
+                  className="px-3 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-medium rounded-lg cursor-pointer"
                 >
-                  Sinh ngẫu nhiên
+                  Tạo ngẫu nhiên
                 </button>
               </div>
             </div>
@@ -903,16 +850,16 @@ export const LiveProctorDashboard = ({
               <button
                 type="button"
                 onClick={() => setShowEditPinModal(false)}
-                className="px-4 py-2 bg-slate-100 text-slate-600 rounded-xl text-xs font-semibold hover:bg-slate-200 cursor-pointer"
+                className="px-4 py-2 bg-white border border-slate-300 text-slate-600 rounded-lg text-xs font-medium hover:bg-slate-50 cursor-pointer"
               >
                 Hủy
               </button>
               <button
                 type="button"
                 onClick={handleSavePin}
-                className="px-4 py-2 bg-indigo-600 text-white rounded-xl text-xs font-bold hover:bg-indigo-700 shadow-sm transition cursor-pointer"
+                className="px-4 py-2 bg-indigo-600 text-white rounded-lg text-xs font-semibold hover:bg-indigo-700 transition cursor-pointer"
               >
-                Lưu mật khẩu mới
+                Lưu mật khẩu
               </button>
             </div>
           </div>
@@ -921,28 +868,30 @@ export const LiveProctorDashboard = ({
 
       {/* MODAL 2: Bổ sung nhanh thí sinh khẩn cấp */}
       {showAddCandModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/60 backdrop-blur-xs p-4">
-          <div className="bg-white rounded-3xl max-w-md w-full p-6 space-y-4 shadow-2xl border border-slate-200">
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/50 p-4">
+          <div className="bg-white rounded-2xl max-w-md w-full p-6 space-y-4 shadow-xl border border-slate-200">
             <div className="flex items-center justify-between">
-              <h3 className="text-sm font-bold text-slate-900 flex items-center gap-1.5">
-                <span>➕</span> BỔ SUNG THÍ SINH KHẨN CẤP
+              <h3 className="text-sm font-semibold text-slate-900">
+                Bổ sung thí sinh khẩn cấp
               </h3>
               <button
                 type="button"
                 onClick={() => setShowAddCandModal(false)}
-                className="text-slate-400 hover:text-slate-600 font-bold"
+                className="p-1 text-slate-400 hover:text-slate-600 cursor-pointer"
               >
-                ✕
+                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M6 18L18 6M6 6l12 12" />
+                </svg>
               </button>
             </div>
-            <p className="text-xs text-slate-500">
-              Chọn thí sinh có sẵn trong danh sách hồ sơ trường hoặc nhập trực tiếp email sinh viên để cấp quyền vào phòng thi ngay lập tức.
+            <p className="text-xs text-slate-500 leading-relaxed">
+              Chọn thí sinh có sẵn trong danh mục hoặc nhập email để cấp quyền vào phòng thi.
             </p>
 
             <div className="space-y-3">
               <div>
-                <label className="block text-xs font-semibold text-slate-700 mb-1">
-                  Chọn thí sinh chưa có trong ca thi:
+                <label className="block text-xs font-medium text-slate-700 mb-1.5">
+                  Thí sinh chưa có trong ca thi
                 </label>
                 <select
                   value={selectedAddEmail}
@@ -950,9 +899,9 @@ export const LiveProctorDashboard = ({
                     setSelectedAddEmail(e.target.value);
                     if (e.target.value) setCustomAddEmail('');
                   }}
-                  className="w-full px-3.5 py-2.5 bg-slate-50 border border-slate-300 rounded-xl text-xs font-semibold text-slate-800 outline-none focus:ring-2 focus:ring-indigo-300"
+                  className="w-full px-3 py-2.5 bg-white border border-slate-300 rounded-lg text-xs text-slate-800 outline-none focus:border-indigo-500 focus:ring-4 focus:ring-indigo-500/10"
                 >
-                  <option value="">-- Chọn thí sinh từ danh mục trường --</option>
+                  <option value="">Chọn từ danh mục</option>
                   {candidatesNotInSession.map((c) => (
                     <option key={c.email} value={c.email}>
                       {c.name} ({c.studentCode}) — {c.email}
@@ -961,13 +910,13 @@ export const LiveProctorDashboard = ({
                 </select>
               </div>
 
-              <div className="relative flex items-center justify-center text-xs text-slate-400">
-                <span className="bg-white px-2">hoặc nhập email mới</span>
+              <div className="relative flex items-center justify-center text-[11px] text-slate-400">
+                <span className="bg-white px-2">hoặc nhập email</span>
               </div>
 
               <div>
-                <label className="block text-xs font-semibold text-slate-700 mb-1">
-                  Email thí sinh:
+                <label className="block text-xs font-medium text-slate-700 mb-1.5">
+                  Email thí sinh
                 </label>
                 <input
                   type="email"
@@ -976,8 +925,8 @@ export const LiveProctorDashboard = ({
                     setCustomAddEmail(e.target.value);
                     if (e.target.value) setSelectedAddEmail('');
                   }}
-                  placeholder="Ví dụ: 24020099@vnu.edu.vn"
-                  className="w-full px-3.5 py-2 bg-slate-50 border border-slate-300 rounded-xl text-xs outline-none focus:bg-white focus:ring-2 focus:ring-indigo-300"
+                  placeholder="vidu@vnu.edu.vn"
+                  className="w-full px-3 py-2.5 bg-white border border-slate-300 rounded-lg text-xs outline-none focus:border-indigo-500 focus:ring-4 focus:ring-indigo-500/10"
                 />
               </div>
             </div>
@@ -986,7 +935,7 @@ export const LiveProctorDashboard = ({
               <button
                 type="button"
                 onClick={() => setShowAddCandModal(false)}
-                className="px-4 py-2 bg-slate-100 text-slate-600 rounded-xl text-xs font-semibold hover:bg-slate-200 cursor-pointer"
+                className="px-4 py-2 bg-white border border-slate-300 text-slate-600 rounded-lg text-xs font-medium hover:bg-slate-50 cursor-pointer"
               >
                 Hủy
               </button>
@@ -994,9 +943,9 @@ export const LiveProctorDashboard = ({
                 type="button"
                 onClick={handleAddCandidateEmergency}
                 disabled={!selectedAddEmail && !customAddEmail}
-                className="px-4 py-2 bg-gradient-to-r from-emerald-600 to-teal-600 text-white rounded-xl text-xs font-bold hover:from-emerald-500 hover:to-teal-500 shadow-sm disabled:opacity-50 transition cursor-pointer"
+                className="px-4 py-2 bg-indigo-600 text-white rounded-lg text-xs font-semibold hover:bg-indigo-700 disabled:opacity-50 transition cursor-pointer"
               >
-                Cấp quyền vào phòng thi ngay
+                Cấp quyền vào phòng thi
               </button>
             </div>
           </div>
@@ -1004,8 +953,8 @@ export const LiveProctorDashboard = ({
       )}
 
       {/* Footer */}
-      <footer className="bg-white/80 border-t border-slate-200/80 py-3 px-4 text-center text-xs text-slate-500">
-        CloudExam Live Proctor Console • Hệ thống giám sát phòng thi trực tuyến bảo mật cao • Amazon Rekognition & SNS Security
+      <footer className="border-t border-slate-200 py-3 px-4 text-center text-[11px] text-slate-400">
+        CloudExam · Bàn giám sát phòng thi
       </footer>
     </div>
   );

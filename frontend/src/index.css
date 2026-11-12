@@ -1,8 +1,8 @@
 @import "tailwindcss";
 
 /* ==============================================================================
-   CLOUDEXAM EDUCATIONAL PASTEL DESIGN SYSTEM (UI/UX PRO MAX - SOFT UI EVOLUTION)
-   Tone màu pastel trang nhã, dịu mắt, độ tương phản chuẩn WCAG 4.5:1+ cho giáo dục
+   CLOUDEXAM DESIGN TOKENS
+   Neutral slate surfaces, single indigo accent, WCAG AA text contrast
    ============================================================================== */
 
 :root {
@@ -22,7 +22,6 @@ body {
   -moz-osx-font-smoothing: grayscale;
 }
 
-/* Custom scrollbar thanh lịch, mềm mại */
 ::-webkit-scrollbar {
   width: 6px;
   height: 6px;
@@ -42,28 +41,3 @@ body {
   background: #94a3b8;
 }
 
-/* Hiệu ứng tương tác mượt mà theo chuẩn UI Pro Max */
-.interactive-card {
-  transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
-}
-
-.interactive-card:hover {
-  transform: translateY(-2px);
-  box-shadow: 0 10px 25px -5px rgba(99, 102, 241, 0.08), 0 8px 10px -6px rgba(0, 0, 0, 0.04);
-}
-
-/* Animation nhẹ nhàng cho các thông báo */
-@keyframes fadeInScale {
-  from {
-    opacity: 0;
-    transform: scale(0.98);
-  }
-  to {
-    opacity: 1;
-    transform: scale(1);
-  }
-}
-
-.animate-fade-in-scale {
-  animation: fadeInScale 0.25s cubic-bezier(0.16, 1, 0.3, 1) forwards;
-}
