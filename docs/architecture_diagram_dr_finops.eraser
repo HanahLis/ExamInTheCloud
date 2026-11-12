@@ -1,70 +1,176 @@
 // ==============================================================================
-// CLOUDEXAM — HÌNH 2.6: PHÂN HỆ ĐIỀU PHỐI CA THI, DR ĐA VÙNG & FINOPS (TÍNH NĂNG 8 & SPRINT 3)
-// Phiên bản chuẩn hóa v3.0 · Tên chuẩn CloudExam · Đánh số nhãn tham chiếu [L-xx]
+// CLOUDEXAM — HÌNH 2.6: KIẾN TRÚC TRIỂN KHAI HẠ TẦNG ENTERPRISE (THROTTLED SYNC & S3 DIRECT)
 // Cú pháp: Eraser.io Diagram-as-Code (https://app.eraser.io)
+// Chuẩn mực: Throttled Draft Sync · S3 Direct Presign Upload · Idempotent SQS · Zero-Trust VPC
+// Phiên bản chuẩn hóa v4.2 – Đồng bộ 100% với Codebase & Báo cáo Chương 1, Chương 2
 // ==============================================================================
 
 direction right
 
 // ------------------------------------------------------------------------------
-// CỘT 1: ĐỊNH TUYẾN TOÀN CẦU & ĐIỀU PHỐI VÒNG ĐỜI CA THI (CONTROL PLANE)
+// CỘT 1: BIÊN TOÀN CẦU, AN NINH & DEVOPS PROVISIONING (GLOBAL & CI/CD ZONE)
 // ------------------------------------------------------------------------------
-"1. ĐỊNH TUYẾN & VÒNG ĐỜI CA THI" [color: blue] {
-  GlobalDNS [icon: aws-route-53, label: "CloudExam Global Latency Router\n(Amazon Route 53 · Health Check)"]
-  ExamStateMachine [icon: aws-step-functions, label: "CloudExam Exam State Machine\n(AWS Step Functions)"]
-  NotificationTopic [icon: aws-sns, label: "CloudExam Notification Topic\n(Amazon SNS Topic)"]
-}
-
-// ------------------------------------------------------------------------------
-// CỘT 2: VÙNG CHÍNH VÀ DỰ PHÒNG DR ĐA VÙNG (MULTI-REGION SERVERLESS DATA & COMPUTE)
-// ------------------------------------------------------------------------------
-"2. VÙNG CHÍNH VÀ DỰ PHÒNG DR" [color: amber] {
-  "Singapore (Primary Region: ap-southeast-1)" {
-    PrimaryAPIGW [icon: aws-api-gateway, label: "CloudExam Primary API Gateway\n(Singapore Active Endpoint)"]
-    PrimaryCompute [icon: aws-lambda, label: "CloudExam Primary Compute Server\n(Core API & Grading Workers)"]
-    PrimaryDB [icon: aws-dynamodb, label: "CloudExam Primary Datastore\n(DynamoDB Global Tables)"]
-    PrimaryStorage [icon: aws-s3, label: "CloudExam Primary Media Storage\n(Amazon S3 Bucket)"]
+"1. BIÊN TOÀN CẦU & CI/CD PROVISIONING" [color: blue] {
+  "Tự động hóa Hạ tầng & CI/CD Pipeline" {
+    DevOpsEngineers [icon: users, label: "CloudExam DevOps Engineers\n(Nhóm 14 · Git Push & Terraform IaC)"]
+    CICDRunner [icon: github, label: "CloudExam CI/CD Pipeline\n(GitHub Actions · OIDC STS Role)"]
+    TerraformCLI [icon: terraform, label: "CloudExam IaC Provisioner\n(HashiCorp Terraform CLI v1.8+)"]
   }
 
-  "Jakarta (Disaster Recovery: ap-southeast-3)" {
-    BackupAPIGW [icon: aws-api-gateway, label: "CloudExam Secondary API Gateway\n(Jakarta Standby Target)"]
-    BackupCompute [icon: aws-lambda, label: "CloudExam DR Compute Server\n(Zero Idle Cost · Auto-Scale)"]
-    ReplicaDB [icon: aws-dynamodb, label: "CloudExam Replica Datastore\n(DynamoDB Global · RPO < 1s)"]
-    ReplicaStorage [icon: aws-s3, label: "CloudExam Replica Storage\n(S3 CRR Nhân bản ngầm)"]
+  "Lớp Biên Toàn cầu & An ninh Mạng (Global Edge)" {
+    Users [icon: users, label: "CloudExam Multi-Country Users\n(Thí sinh · Giảng viên · Giám thị)"]
+    HardwareCam [icon: camera, label: "Hardware Webcam\n(HTML5 MediaDevices API · Mirror Mode)"]
+    LocalCache [icon: database, label: "Client-Side Storage\n(localStorage & IndexedDB · 0ms lag)"]
+    TurnstileShield [icon: shield, label: "CloudExam Anti-Bot Shield\n(Cloudflare Turnstile · Token <0.1s)"]
+    Route53DNS [icon: aws-route-53, label: "CloudExam Global Latency Router\n(Amazon Route 53 Anycast DNS)"]
+    EdgeWAF [icon: aws-waf, label: "CloudExam Edge Firewall Shield\n(AWS WAFv2 · Rate Limit 2,000 req/5m)"]
+    EdgeCDN [icon: aws-cloudfront, label: "CloudExam Central Ingress CDN\n(Amazon CloudFront Edge Cache <20ms)"]
+    TenantRouter [icon: aws-lambda, label: "CloudExam Edge Tenant Router\n(CloudFront Functions · JS <1ms · vn/lao/de)"]
   }
 }
 
 // ------------------------------------------------------------------------------
-// CỘT 3: GIÁM SÁT VẬN HÀNH & FINOPS (OBSERVABILITY & GOVERNANCE)
+// CỘT 2: VÙNG VẬT LÝ AWS REGION: ap-southeast-1 (SINGAPORE)
 // ------------------------------------------------------------------------------
-"3. GIÁM SÁT VẬN HÀNH & FINOPS" [color: purple] {
-  TelemetryEngine [icon: aws-cloudwatch, label: "CloudExam Observability Engine\n(Amazon CloudWatch Logs & Alarms)"]
-  BudgetGuard [icon: aws-cloudwatch, label: "CloudExam FinOps Budget Guard\n(AWS Budgets · Ngưỡng 0.50 USD)"]
-  IAMSecurity [icon: aws-iam, label: "CloudExam Least-Privilege Controller\n(AWS IAM Execution Roles)"]
+"2. AWS REGION: ap-southeast-1 (SINGAPORE)" [color: amber] {
+  "Cửa ngõ API, Định danh & State IaC (Public Facing)" {
+    S3StateBackend [icon: aws-s3, label: "CloudExam Terraform State Store\n(Amazon S3 Bucket · Versioned & KMS)"]
+    DynamoDBLock [icon: aws-dynamodb, label: "CloudExam Terraform Lock Table\n(DynamoDB: CloudExam-Terraform-Lock)"]
+    CognitoAuth [icon: aws-cognito, label: "CloudExam Auth Server\n(Amazon Cognito User Pool · PKCE & OTP)"]
+    CentralAPIGW [icon: aws-api-gateway, label: "CloudExam Central API Gateway\n(Regional REST API · Cognito Auth)"]
+    WebBucket [icon: aws-s3, label: "CloudExam Web Hosting Bucket\n(Amazon S3 · Region Singapore · OAC)"]
+  }
+
+  "Amazon VPC Bảo mật & Mạng Xương sống ($0 Gateway Endpoints)" {
+    VPCEndpoints [icon: aws-vpc, label: "AWS Gateway VPC Endpoints\n(S3 & DynamoDB · $0.00 Cost · Zero-Trust)"]
+    
+    "Cụm 3 Vi dịch vụ Lambda Graviton2 ARM64 (Python 3.12)" {
+      PresignLambda [icon: aws-lambda, label: "CloudExam Media Presign Service\n(api_handler.py · 128MB · TTL 300s)"]
+      AcademicLambda [icon: aws-lambda, label: "CloudExam Academic CRUD Controller\n(api_handler.py · 256MB · Cascade Delete)"]
+      ParserLambda [icon: aws-lambda, label: "CloudExam AI Question Parser Server\n(api_handler.py · Gemini 1.5 + Regex 0.05s)"]
+      IngestionLambda [icon: aws-lambda, label: "CloudExam Exam Ingestion Server\n(api_handler.py · SQS Producer & Turnstile)"]
+      BiometricLambda [icon: aws-lambda, label: "CloudExam Biometric Verify Server\n(face_verify_handler.py · 512MB · Mutex Lock)"]
+      GradingLambda [icon: aws-lambda, label: "CloudExam Grading Worker Server\n(grading_worker.py · Idempotent Batch 10)"]
+    }
+
+    "Hàng đợi SQS, Điều phối & CSDL Phân tán Chống Hot Partition" {
+      SubmissionBuffer [icon: aws-sqs, label: "CloudExam Submission Buffer\n(Amazon SQS Standard Queue · ACK <50ms)"]
+      SubmissionDLQ [icon: aws-sqs, label: "CloudExam Submission DLQ\n(Amazon SQS Dead-Letter Queue · 14 Days)"]
+      ExamStateMachine [icon: aws-step-functions, label: "CloudExam Exam State Machine\n(AWS Step Functions · Native Wait $0)"]
+      NotificationTopic [icon: aws-sns, label: "CloudExam Notification Topic\n(Amazon SNS Topic · Alerts & Reports)"]
+      MediaBucket [icon: aws-s3, label: "CloudExam Media Storage Bucket\n(questions/ & faces/ & temp-faces/ TTL 60s)"]
+      AcademicDB [icon: aws-dynamodb, label: "CloudExam Academic Datastore\n(Questions, Candidates, Banks · 2 GSIs)"]
+      ShardedSubmissionDB [icon: aws-dynamodb, label: "CloudExam Submissions Store\n(CloudExam_Submissions_dev · Sparse GSI)"]
+      SessionMetaDB [icon: aws-dynamodb, label: "CloudExam Session Metadata Store\n(CloudExam_Sessions_dev · Passcode 6 số & Mutex)"]
+    }
+  }
+
+  "Giám sát Vận hành Nội vùng (Regional Observability Engine)" {
+    CloudWatchLogs [icon: aws-cloudwatch, label: "CloudExam Observability Engine\n(Amazon CloudWatch Logs Insights)"]
+    CloudWatchAlarms [icon: aws-cloudwatch, label: "CloudExam Metric Alarms\n(Amazon CloudWatch DLQ & 5XX Alarms)"]
+  }
+}
+
+// ------------------------------------------------------------------------------
+// CỘT 3: AI ENGINE, LIVE CACHE & QUẢN TRỊ FINOPS (AI & FINOPS GOVERNANCE)
+// ------------------------------------------------------------------------------
+"3. AI ENGINE, LIVE CACHE & QUẢN TRỊ FINOPS" [color: purple] {
+  "Dịch vụ AI Nội vùng & Đa Đám mây ($0 Multi-Cloud Tier)" {
+    GenAIEngine [icon: google-cloud, label: "Google Gemini 1.5 Flash API\n(Structured JSON · Fallback Regex NLP 0.05s)"]
+    RekognitionCompare [icon: aws-rekognition, label: "Amazon Rekognition CompareFaces\n(Biometric 1:1 Match · Similarity >= 80%)"]
+    LiveCache [icon: redis, label: "Upstash Serverless Redis\n(Live Leaderboard · Sorted Set ZADD < 5ms)"]
+  }
+
+  "Quản trị Ngân sách FinOps Toàn cầu (Global Billing)" {
+    BudgetGuard [icon: aws-cloudwatch, label: "CloudExam FinOps Budget Guard\n(AWS Budgets us-east-1 · Alert $5.00 / $25.00)"]
+    OnCallAdmins [icon: users, label: "CloudExam On-Call Admins\n(Nhóm 14 · System Alert Receivers)"]
+  }
 }
 
 // ==============================================================================
-// LUỒNG TƯƠNG TÁC TÍNH NĂNG
+// ĐIỀU HƯỚNG GIAO THỐC & MÃ LUỒNG TRIỂN KHAI VẬT LÝ [D-xx]
 // ==============================================================================
 
-// 1. Tự động hóa vòng đời ca thi bằng Step Functions
-ExamStateMachine > PrimaryDB: "[L-23] Tự động kích hoạt: SCHEDULED -> RUNNING"
-ExamStateMachine > PrimaryDB: "Cưỡng chế khóa đề: RUNNING -> CLOSED"
-ExamStateMachine > NotificationTopic: "[L-24] sns:Publish (Phát bảng điểm tổng kết tới Giảng viên)"
+// 1. Luồng Tự động hóa Hạ tầng CI/CD & Terraform IaC
+DevOpsEngineers > CICDRunner: "1. Git Push Code & Terraform Config"
+CICDRunner > TerraformCLI: "2. Trigger Pipeline (OIDC Role Assumption)"
+TerraformCLI > S3StateBackend: "Đọc/ghi tệp terraform.tfstate (KMS Encrypted)"
+TerraformCLI > DynamoDBLock: "Mutex Lock chống xung đột cập nhật hạ tầng"
+TerraformCLI > CentralAPIGW: "3. Tự động Provisioning VPC & Tài nguyên AWS"
+CICDRunner > WebBucket: "4. npm run build -> S3 Sync React 19 SPA Code"
 
-// 2. Đồng bộ dữ liệu đa vùng (Singapore <-> Jakarta)
-PrimaryDB <> ReplicaDB: "DynamoDB Global Tables Sync 2 chiều (RPO < 1s)"
-PrimaryStorage > ReplicaStorage: "S3 Cross-Region Replication (CRR)"
+// 2. Phân phối biên & Tải giao diện Web SPA
+Users > Route53DNS: "[D-01a] DNS Anycast (UDP/TCP 53): vn. / lao. / de. / us.cloudexam.id.vn"
+Route53DNS > EdgeWAF: "[D-01b] Phân giải DNS HTTPS TLS 1.3 (Port 443)"
+EdgeWAF > EdgeCDN: "[D-01c] Sàng lọc WAF Web ACL (Rate Limit 2,000 req/5m)"
+EdgeCDN > TenantRouter: "[D-02a] Hook Viewer Request tại Biên"
+TenantRouter > EdgeCDN: "[D-02b] Inject Header: x-tenant-id (vn/lao/de/default)"
+EdgeCDN > WebBucket: "[D-02c] S3 GetObject (SigV4 Origin Access Control OAC)"
+EdgeCDN > Users: "[D-02d] Phân phối Web SPA Caching (<20ms)"
 
-// 3. Cơ chế định tuyến và chuyển đổi dự phòng (Failover)
-GlobalDNS > PrimaryAPIGW: "Định tuyến lưu lượng bình thường (Primary Active)"
-GlobalDNS .> BackupAPIGW: "Tự động chuyển tiếp traffic sang Jakarta khi sự cố"
-PrimaryAPIGW > PrimaryCompute: "Forward In-Region Traffic"
-BackupAPIGW > BackupCompute: "Kích hoạt DR Compute khi có traffic chuyển vùng"
-BackupCompute > ReplicaDB: "Bảo đảm nghiệp vụ ca thi không bị gián đoạn (RTO < 2m)"
+// 3. Định danh và Cổng vào API Gateway
+Users <..> CognitoAuth: "[D-03] HTTPS POST: OAuth 2.0 PKCE / In-App Email OTP"
+Users > CentralAPIGW: "[D-04] HTTPS REST (Port 443 + Bearer JWT + x-tenant-id)"
+CentralAPIGW > CognitoAuth: "Xác thực chữ ký số RSA (RS256) qua JWKS"
 
-// 4. Giám sát độ trễ và quản trị ngân sách 0 USD
-PrimaryAPIGW > TelemetryEngine: "Access Logs & Latency P99"
-PrimaryCompute > TelemetryEngine: "Execution Metrics & Error Traces"
-TelemetryEngine > BudgetGuard: "Trigger Email cảnh báo khi chi phí > 0.50 USD"
-IAMSecurity > PrimaryCompute: "Cấp quyền thực thi tối thiểu (Least Privilege)"
+// 4. Định tuyến Cụm Lambda qua API Gateway
+CentralAPIGW > PresignLambda: "[D-05a] POST /questions/presign (Proxy SigV4)"
+CentralAPIGW > AcademicLambda: "[D-05b] REST CRUD /banks, /sessions, /candidates"
+CentralAPIGW > ParserLambda: "[D-05c] POST /questions/parse-doc (Proxy SigV4)"
+CentralAPIGW > IngestionLambda: "[D-05d] POST /exam/submit & POST /exam/save-progress"
+CentralAPIGW > BiometricLambda: "[D-05e] POST /auth/face-verify (Proxy SigV4)"
+
+// 5. Soạn đề thi AI qua Gemini 1.5 Flash (kèm Fallback Regex NLP)
+PresignLambda > MediaBucket: "[D-06] Boto3: s3:generate_presigned_url (TTL 300s questions/)"
+Users > MediaBucket: "[D-07] Direct HTTPS PUT ảnh câu hỏi (0MB qua backend)"
+ParserLambda > GenAIEngine: "[D-09] REST HTTPS: Gemini 1.5 Flash API (Structured JSON)"
+GenAIEngine > ParserLambda: "[D-10] Structured JSON MCQs [A,B,C,D] hoặc Regex NLP Fallback (0.05s)"
+ParserLambda > VPCEndpoints: "[D-11a] Ghi câu hỏi qua Gateway VPC Endpoint"
+VPCEndpoints > AcademicDB: "dynamodb:BatchWriteItem (CloudExam_Questions_dev)"
+AcademicLambda > VPCEndpoints: "[D-11b] Ghi Banks & Candidates qua Gateway Endpoint"
+VPCEndpoints > AcademicDB: "dynamodb:PutItem / BatchWriteItem"
+AcademicLambda > SessionMetaDB: "[D-11d] Boto3: dynamodb:PutItem (status: SCHEDULED, roomPassword 6 số)"
+
+// 6. Luồng Điểm danh Sinh trắc học S3 Direct Upload & Mutex Khóa Máy
+Users > HardwareCam: "[D-12] HTML5 MediaDevices: Chụp Frame Webcam (Mirror Mode)"
+Users > MediaBucket: "[D-14a] Direct HTTPS PUT: temp-faces/EX01_2402.jpg (TTL 60s, 0MB qua API GW)"
+Users > CentralAPIGW: "POST /auth/face-verify {sessionId, studentCode, passcode, deviceToken}"
+BiometricLambda > SessionMetaDB: "Kiểm tra Passcode 6 số & Mutex lockedCandidates (Chống đăng nhập 2 máy)"
+BiometricLambda > RekognitionCompare: "[D-15] CompareFaces S3 Source faces/ vs S3 Target temp-faces/ (>= 80%)"
+BiometricLambda > ShardedSubmissionDB: "[D-16] Khớp >= 80%: UpdateItem (status = CHECKED_IN)"
+BiometricLambda -.-> NotificationTopic: "[D-17] Lệch < 80%: sns:Publish cảnh báo Giám thị"
+
+// 7. Đồng bộ Nháp Throttled 60s/10 câu & Nộp bài SQS Idempotent & Live Leaderboard
+Users > LocalCache: "Mỗi click: Ghi ngay localStorage / IndexedDB (0ms lag)"
+Users > CentralAPIGW: "[D-18a] POST /exam/save-progress (Chỉ gửi sau 60s hoặc gom đủ 10 câu)"
+IngestionLambda > VPCEndpoints: "[D-18b] Ghi nháp phân tán vào ShardedSubmissions"
+VPCEndpoints > ShardedSubmissionDB: "UpdateItem vào PK: SUB#{sessionId}#{studentCode} (status: IN_PROGRESS)"
+Users > TurnstileShield: "Client Challenge Token (<0.1s)"
+Users > CentralAPIGW: "POST /exam/submit (Kèm Turnstile Token)"
+IngestionLambda > IngestionLambda: "Xác thực Turnstile Token với Cloudflare API"
+IngestionLambda > SubmissionBuffer: "[D-19] Boto3: sqs:SendMessage (<50ms ACK, chống bão nộp bài)"
+SubmissionBuffer > GradingLambda: "[D-20] SQS Event Source Mapping (Batch Size = 10)"
+GradingLambda > VPCEndpoints: "[D-21a] BatchGetItem đáp án gốc từ AcademicDB 1 lần duy nhất"
+GradingLambda > ShardedSubmissionDB: "[D-21b] Idempotent Write: Ghi điểm, COMPLETED, kích hoạt Sparse GSI"
+GradingLambda > LiveCache: "[D-21c] HTTPS REST ZADD cập nhật Live Leaderboard (<5ms)"
+SubmissionBuffer -.-> SubmissionDLQ: "[D-22] SQS Redrive Policy (maxReceiveCount = 3)"
+
+// 8. Tự động hóa vòng đời ca thi bằng Step Functions & Cứu bài Auto-Finalize
+AcademicLambda > ExamStateMachine: "[D-11e] Boto3: states:StartExecution (sessionId)"
+ExamStateMachine > SessionMetaDB: "[D-23] Native Wait State $0: SCHEDULED -> RUNNING -> CLOSED"
+ExamStateMachine > IngestionLambda: "AutoFinalizeTask: Quét bài nháp IN_PROGRESS của thí sinh mất mạng đẩy vào SQS"
+ExamStateMachine > NotificationTopic: "[D-24] sns:Publish phát email tổng kết cho Giảng viên"
+
+// 9. Giám sát Vận hành & Quản trị Ngân sách FinOps
+CentralAPIGW -.-> CloudWatchLogs: "Đẩy Access Logs & HTTP Errors"
+PresignLambda -.-> CloudWatchLogs: "Structured JSON Logs & Traces"
+AcademicLambda -.-> CloudWatchLogs: "CRUD Audit Logs"
+ParserLambda -.-> CloudWatchLogs: "Parser Latency Metrics"
+IngestionLambda -.-> CloudWatchLogs: "Submit Latency & SQS Metrics"
+BiometricLambda -.-> CloudWatchLogs: "Biometric Match Logs"
+GradingLambda -.-> CloudWatchLogs: "Grading Batch Metrics"
+SubmissionDLQ -.-> CloudWatchAlarms: "[D-25] Alarm: MessagesVisible > 0 (Có bài thi lỗi)"
+CloudWatchLogs -.-> CloudWatchAlarms: "Metric Filter: Lỗi 5xx > 1% hoặc Timeout"
+CloudWatchAlarms -.-> NotificationTopic: "sns:Publish phát báo động kỹ thuật"
+BudgetGuard -.-> NotificationTopic: "sns:Publish cảnh báo chi phí chạm ngưỡng ngân sách"
+NotificationTopic -.-> OnCallAdmins: "Gửi Email báo động trực tiếp tới Quản trị viên"

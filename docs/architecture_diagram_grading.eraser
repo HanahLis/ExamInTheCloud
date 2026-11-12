@@ -1,39 +1,41 @@
 // ==============================================================================
-// CLOUDEXAM — HÌNH 2.5: PHÂN HỆ PHÒNG THI, ĐỒNG BỘ TRẠNG THÁI & NỘP BÀI SQS
-// Phiên bản chuẩn hóa v4.0 · Bổ sung Transport Protocol chuẩn SigV4 & Toàn diện mã [L-xx]
+// CLOUDEXAM – HÌNH 2.5: SƠ ĐỒ KIẾN TRÚC PHÒNG THI TRỰC TUYẾN, ĐỆM TẢI SQS VÀ CHẤM ĐIỂM THEO LÔ
+// Phiên bản chuẩn hóa v4.1 – Bám sát Chapter 1 & Codebase (Local-First, Throttled Sync, SQS Buffer, Batch 10, Upstash Redis ZADD)
 // Cú pháp: Eraser.io Diagram-as-Code (https://app.eraser.io)
 // ==============================================================================
 
 direction right
 
 // ------------------------------------------------------------------------------
-// CỘT 1: THÍ SINH & PHÒNG THI TRỰC TUYẾN (EXAM ROOM ENGINE)
+// CỘT 1: THÍ SINH & PHÒNG THI TRỰC TUYẾN (EXAM ROOM CLIENT & EDGE SHIELD)
 // ------------------------------------------------------------------------------
 "1. THÍ SINH & PHÒNG THI TRỰC TUYẾN" [color: blue] {
   Candidate [icon: users, label: "CloudExam Candidates\n(Thí sinh làm bài thi trực tuyến)"]
-  ExamRoomClient [icon: react, label: "CloudExam Exam Room Engine\n(React 18 SPA · LocalStorage Backup)"]
-  AntiBotShield [icon: shield, label: "CloudExam Anti-Bot Shield\n(Cloudflare Turnstile)"]
-  APIGateway [icon: aws-api-gateway, label: "CloudExam Central API Gateway\n(Amazon API Gateway REST API)"]
+  ExamRoomClient [icon: react, label: "CloudExam Exam Room Client\n(React 19 SPA · Local-First Cache 0ms)"]
+  AntiBotShield [icon: shield, label: "CloudExam Anti-Bot Shield\n(Cloudflare Turnstile Invisible Token < 0.1s)"]
+  APIGateway [icon: aws-api-gateway, label: "CloudExam Central API Gateway\n(Amazon API Gateway REST API · Regional)"]
 }
 
 // ------------------------------------------------------------------------------
-// CỘT 2: XỬ LÝ SERVERLESS, ĐỆM TẢI SQS & CHẤM LÔ (COMPUTE & QUEUE)
+// CỘT 2: ĐỆM TẢI SQS, XỬ LÝ SERVERLESS & BẢNG XẾP HẠNG (QUEUE, COMPUTE & CACHE)
 // ------------------------------------------------------------------------------
-"2. ĐỒNG BỘ NGẦM, HÀNG ĐỢI SQS & CHẤM LÔ" [color: orange] {
-  ExamIngestionHandler [icon: aws-lambda, label: "CloudExam Ingestion Server\n(AWS Lambda · Producer & State Sync)"]
-  SubmissionQueue [icon: aws-sqs, label: "CloudExam Submission Buffer\n(Amazon SQS Standard Queue)"]
-  GradingWorker [icon: aws-lambda, label: "CloudExam Grading Worker Server\n(AWS Lambda · Batch 10)"]
-  DeadLetterQueue [icon: aws-sqs, label: "CloudExam Submission DLQ\n(Amazon SQS Dead-Letter Queue)"]
-  DLQAlarm [icon: aws-cloudwatch, label: "CloudExam DLQ Error Monitor\n(Amazon CloudWatch Alarm)"]
+"2. ĐỆM TẢI SQS, XỬ LÝ THEO LÔ & CACHE" [color: orange] {
+  ExamIngestionHandler [icon: aws-lambda, label: "CloudExam Ingestion Server\n(AWS Lambda · api_handler.py | SQS Producer)"]
+  SubmissionQueue [icon: aws-sqs, label: "CloudExam Submission Buffer\n(Amazon SQS Standard Queue · ACK < 50ms)"]
+  GradingWorker [icon: aws-lambda, label: "CloudExam Grading Worker Server\n(AWS Lambda · grading_worker.py | BatchSize 10)"]
+  LiveCache [icon: redis, label: "CloudExam Live Leaderboard Engine\n(Upstash Serverless Redis · Sorted Set ZADD < 5ms)"]
+  DeadLetterQueue [icon: aws-sqs, label: "CloudExam Submission DLQ\n(Amazon SQS Dead-Letter Queue · Retention 14d)"]
+  DLQAlarm [icon: aws-cloudwatch, label: "CloudExam DLQ Error Monitor\n(Amazon CloudWatch Metric Alarm)"]
 }
 
 // ------------------------------------------------------------------------------
-// CỘT 3: CSDL ĐÁP ÁN & LƯU TRỮ BỀN VỮNG (DATABASE PERSISTENCE)
+// CỘT 3: CSDL ĐÁP ÁN, BÀI LÀM VÀ LƯU TRỮ KẾT QUẢ (PERSISTENCE LAYER)
 // ------------------------------------------------------------------------------
 "3. CSDL KẾT QUẢ & LƯU TRỮ BỀN VỮNG" [color: green] {
-  "CSDL Đáp án & Lưu trữ Trạng thái" {
-    SessionsTable [icon: aws-dynamodb, label: "CloudExam Sessions Store\n(DynamoDB: CloudExam_Sessions_dev)"]
-    QuestionsTable [icon: aws-dynamodb, label: "CloudExam Questions Store\n(DynamoDB: CloudExam_Questions_dev)"]
+  "Hệ CSDL DynamoDB Bài làm & Đáp án" {
+    QuestionsTable [icon: aws-dynamodb, label: "CloudExam Questions Store\n(DynamoDB: CloudExam_Questions_dev · Đáp án chuẩn)"]
+    SubmissionsTable [icon: aws-dynamodb, label: "CloudExam Submissions Store\n(DynamoDB: CloudExam_Submissions_dev | Sparse GSI: SessionResultsIndex)"]
+    SessionsTable [icon: aws-dynamodb, label: "CloudExam Sessions Store\n(DynamoDB: CloudExam_Sessions_dev · Trạng thái ca thi)"]
   }
 }
 
@@ -41,27 +43,37 @@ direction right
 // LUỒNG TƯƠNG TÁC TÍNH NĂNG VỚI PROTOCOL CHUẨN XÁC & MÃ [L-xx] ĐẦY ĐỦ
 // ==============================================================================
 
-// --- NHÁNH 1: QUY TRÌNH C (ĐỒNG BỘ BÀI LÀM THỜI GIAN THỰC) ---
-Candidate > ExamRoomClient: "[Quy trình C] Chọn đáp án trắc nghiệm trên giao diện"
-ExamRoomClient > ExamRoomClient: "Local Cache: window.localStorage.setItem"
-ExamRoomClient > APIGateway: "[L-18a] HTTPS PATCH (Port 443 + Bearer JWT) /sessions/{id}/draft"
-APIGateway > ExamIngestionHandler: "[L-05e] AWS Lambda Proxy Integration (SigV4)"
-ExamIngestionHandler > SessionsTable: "[L-18b] HTTPS / AWS SDK Boto3 (SigV4) - Action: dynamodb:UpdateItem (Atomic Sync)"
+// --- NHÁNH 1: QUY TRÌNH C (LOCAL-FIRST & ĐỒNG BỘ BÀI LÀM ĐỆM TẢI) ---
+Candidate > ExamRoomClient: "[Quy trình C] Thao tác chọn đáp án trên giao diện làm bài"
+ExamRoomClient > ExamRoomClient: "Local-First: Ghi ngay lập tức vào window.localStorage (Độ trễ 0ms)"
+ExamRoomClient > APIGateway: "[L-18a] Throttled Micro-batching POST /exam/save-progress (Gom 10 câu hoặc 60s/lần)"
+APIGateway > ExamIngestionHandler: "[L-05e] AWS Lambda Proxy Integration (SigV4 IAM)"
+ExamIngestionHandler > SubmissionsTable: "[L-18b] AWS SDK Boto3 (SigV4) - Action: dynamodb:UpdateItem (Lưu bản nháp IN_PROGRESS)"
 
-// --- NHÁNH 2: QUY TRÌNH D (HẾT GIỜ / BẤM NỘP BÀI QUA SQS) ---
-Candidate > ExamRoomClient: "[Quy trình D] Hết giờ đếm ngược / Bấm Nộp bài"
-ExamRoomClient > AntiBotShield: "HTTPS GET (Request Turnstile Token < 0.1s)"
-AntiBotShield > ExamRoomClient: "cf-turnstile-response Token String"
-ExamRoomClient > APIGateway: "[L-18c] HTTPS POST (application/json) /exam/submit"
-APIGateway > ExamIngestionHandler: "[L-05f] AWS Lambda Proxy Integration (SigV4)"
+// --- NHÁNH 2: QUY TRÌNH D (NỘP BÀI, ĐỆM TẢI SQS & CHẤM ĐIỂM THEO LÔ) ---
+Candidate > ExamRoomClient: "[Quy trình D] Hết giờ đếm ngược hoặc Thí sinh bấm Nộp bài"
+ExamRoomClient > AntiBotShield: "HTTPS GET (Kích hoạt Cloudflare Turnstile lấy Token < 0.1s)"
+AntiBotShield > ExamRoomClient: "Chuỗi Token cf-turnstile-response"
+ExamRoomClient > APIGateway: "[L-18c] HTTPS POST (application/json) /exam/submit (Kèm Answers & Turnstile Token)"
+APIGateway > ExamIngestionHandler: "[L-05f] AWS Lambda Proxy Integration (SigV4 IAM)"
 
-// Đệm tải SQS & Chấm điểm tự động
-ExamIngestionHandler > SubmissionQueue: "[L-19] HTTPS / AWS SDK Boto3 (SigV4) - Action: sqs:SendMessage (<50ms ACK)"
-ExamIngestionHandler > ExamRoomClient: "HTTP 200 OK (Đã thu bài an toàn, chống sập mạng)"
+// Xác thực Bot và đẩy vào hàng đợi SQS
+ExamIngestionHandler > ExamIngestionHandler: "Verify Turnstile Token với Cloudflare API (Chặn 100% spam bot)"
+ExamIngestionHandler > SubmissionQueue: "[L-19] AWS SDK Boto3 (SigV4) - Action: sqs:SendMessage (Phản hồi tức thì ACK < 50ms)"
+ExamIngestionHandler > ExamRoomClient: "HTTP 200 OK (Đã thu bài an toàn, bảo vệ thí sinh tuyệt đối)"
 
-SubmissionQueue > GradingWorker: "[L-20] AWS SQS-to-Lambda Event Source Mapping (BatchSize = 10)"
-GradingWorker > QuestionsTable: "[L-21a] HTTPS / AWS SDK Boto3 (SigV4) - Action: dynamodb:BatchGetItem (Correct Answers)"
-GradingWorker > SessionsTable: "[L-21b] HTTPS / AWS SDK Boto3 (SigV4) - Action: dynamodb:UpdateItem (Score, COMPLETED)"
+// Xử lý chấm điểm theo lô và cập nhật Bảng xếp hạng trực tiếp
+SubmissionQueue > GradingWorker: "[L-20] AWS SQS-to-Lambda Event Source Mapping (BatchSize = 10, BatchWindow = 2s)"
+GradingWorker > QuestionsTable: "[L-21a] AWS SDK Boto3 (SigV4) - Action: dynamodb:BatchGetItem (Lấy toàn bộ đáp án 1 lần duy nhất)"
+GradingWorker > SubmissionsTable: "[L-21b] AWS SDK Boto3 (SigV4) - Action: dynamodb:UpdateItem (Ghi điểm, COMPLETED, Sparse GSI)"
+GradingWorker > LiveCache: "[L-21c] HTTPS REST ZADD (Cập nhật Upstash Redis Live Leaderboard < 5ms)"
 
-GradingWorker > DeadLetterQueue: "[L-22] SQS Redrive Policy (maxReceiveCount = 3 lỗi)"
+// Xử lý lỗi ngoại lệ qua Dead-Letter Queue
+GradingWorker > DeadLetterQueue: "[L-22] SQS Redrive Policy (maxReceiveCount = 3 lần thất bại)"
 DeadLetterQueue > DLQAlarm: "[L-25] CloudWatch Metric Alarm (ApproximateNumberOfMessagesVisible > 0)"
+
+// Thí sinh và Giảng viên theo dõi Bảng điểm trực tiếp
+ExamRoomClient > APIGateway: "GET /sessions/{id}/leaderboard"
+APIGateway > ExamIngestionHandler: "Proxy Handler"
+ExamIngestionHandler > LiveCache: "ZREVRANGE leaderboard:{sessionId} 0 4 (Lấy Top 5 < 5ms)"
+ExamIngestionHandler > ExamRoomClient: "HTTP 200 OK (Render bảng xếp hạng Real-time)"

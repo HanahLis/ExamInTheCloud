@@ -1,65 +1,72 @@
 // ==============================================================================
-// CLOUDEXAM — HÌNH 2.4: PHÂN HỆ ĐIỂM DANH SINH TRẮC HỌC & AI REKOGNITION (TÍNH NĂNG 4 & 5)
-// Phiên bản chuẩn hóa v4.0 · Bổ sung mã luồng [L-13a], [L-13b] & Protocol SigV4 chuẩn xác
+// CLOUDEXAM – HÌNH 2.4: SƠ ĐỒ KIẾN TRÚC ĐIỂM DANH SINH TRẮC HỌC VÀ GIÁM THỊ AI REKOGNITION
+// Phiên bản chuẩn hóa v4.1 – Bám sát Chapter 1 & Codebase (Webcam Mirror, Direct S3 temp-faces/, Rekognition >= 80%, Device Lock Mutex)
 // Cú pháp: Eraser.io Diagram-as-Code (https://app.eraser.io)
 // ==============================================================================
 
 direction right
 
 // ------------------------------------------------------------------------------
-// CỘT 1: THIẾT BỊ NGOẠI VI & THU NHẬN HÌNH ẢNH (EDGE CAPTURE)
+// CỘT 1: THIẾT BỊ NGOẠI VI & THU NHẬN HÌNH ẢNH (EDGE CAPTURE & WEBCAM)
 // ------------------------------------------------------------------------------
 "1. THIẾT BỊ NGOẠI VI & THU NHẬN ẢNH" [color: blue] {
-  Candidate [icon: users, label: "CloudExam Candidates\n(Thí sinh vào thi: /?exam={sessionId})"]
-  WebcamHardware [icon: camera, label: "CloudExam Hardware Webcam\n(HTML5 MediaDevices Peripheral)"]
-  ExamRoomClient [icon: react, label: "CloudExam Exam Room Client\n(React 18 · Canvas Capture)"]
+  Candidate [icon: users, label: "CloudExam Candidates\n(Thí sinh điểm danh vào ca thi)"]
+  WebcamHardware [icon: camera, label: "CloudExam Hardware Webcam\n(HTML5 MediaDevices Peripheral · Mirror Mode)"]
+  ExamRoomClient [icon: react, label: "CloudExam Exam Room Client\n(React 19 SPA · Canvas Blob Capture ~150KB)"]
 }
 
 // ------------------------------------------------------------------------------
 // CỘT 2: CỔNG API, LÕI XÁC THỰC & THỊ GIÁC AI (SERVERLESS AI VISION)
 // ------------------------------------------------------------------------------
 "2. CỔNG API & THỊ GIÁC AI" [color: amber] {
-  APIGateway [icon: aws-api-gateway, label: "CloudExam Central API Gateway\n(Amazon API Gateway REST API)"]
-  BiometricHandler [icon: aws-lambda, label: "CloudExam Biometric Verify Server\n(AWS Lambda · face_verify_handler.py)"]
-  RekognitionAI [icon: aws-rekognition, label: "CloudExam Face Match Engine\n(Amazon Rekognition SaaS)"]
+  APIGateway [icon: aws-api-gateway, label: "CloudExam Central API Gateway\n(Amazon API Gateway REST API · TLS 1.3)"]
+  BiometricHandler [icon: aws-lambda, label: "CloudExam Biometric Verify Server\n(AWS Lambda · face_verify_handler.py | 512MB)\nKiểm tra Passcode 6 số & Device Token Mutex Lock"]
+  RekognitionAI [icon: aws-rekognition, label: "CloudExam Face Match Engine\n(Amazon Rekognition CompareFaces ≥ 80.0%)"]
 }
 
 // ------------------------------------------------------------------------------
-// CỘT 3: KHO ẢNH THẺ GỐC, CSDL & HỆ THỐNG CẢNH BÁO (STORAGE & ALERTS)
+// CỘT 3: KHO ẢNH THẺ GỐC, CSDL & HỆ THỐNG CẢNH BÁO (STORAGE, DYNAMODB & SNS)
 // ------------------------------------------------------------------------------
 "3. ĐỐI SOÁT, CSDL & CẢNH BÁO" [color: green] {
-  FaceVault [icon: aws-s3, label: "CloudExam Face Photos Vault\n(Amazon S3 Bucket: faces/)"]
+  FaceVault [icon: aws-s3, label: "CloudExam Face Storage Bucket\n(Amazon S3 · faces/ gốc & temp-faces/ TTL 60s)"]
   
-  "CSDL Đối soát Hồ sơ & Ca thi" {
-    CandidatesTable [icon: aws-dynamodb, label: "CloudExam Candidates Store\n(DynamoDB: CloudExam_Candidates_dev)"]
-    SessionsTable [icon: aws-dynamodb, label: "CloudExam Sessions Store\n(DynamoDB: CloudExam_Sessions_dev)"]
+  "CSDL Đối soát Hồ sơ, Khóa Máy & Trạng thái" {
+    SessionsTable [icon: aws-dynamodb, label: "CloudExam Sessions Store\n(DynamoDB: CloudExam_Sessions_dev · lockedCandidates)"]
+    CandidatesTable [icon: aws-dynamodb, label: "CloudExam Candidates Store\n(DynamoDB: CloudExam_Candidates_dev · GSI: StudentCodeIndex)"]
+    SubmissionsTable [icon: aws-dynamodb, label: "CloudExam Submissions Store\n(DynamoDB: CloudExam_Submissions_dev · CHECKED_IN)"]
   }
 
-  AlertTopic [icon: aws-sns, label: "CloudExam Proctor Security Alert\n(Amazon SNS Topic)"]
+  AlertTopic [icon: aws-sns, label: "CloudExam Proctor Security Alert\n(Amazon SNS Topic · Cảnh báo gian lận thời gian thực)"]
 }
 
 // ==============================================================================
 // LUỒNG TƯƠNG TÁC TÍNH NĂNG VỚI PROTOCOL CHUẨN XÁC & ĐẦY ĐỦ MÃ [L-xx]
 // ==============================================================================
 
-// 1. Thao tác thí sinh và chụp webcam
-Candidate > ExamRoomClient: "Đăng nhập ca thi (Email + Passcode)"
-Candidate > WebcamHardware: "Căn chỉnh mặt trước camera webcam"
-WebcamHardware > ExamRoomClient: "[L-12] HTML5 navigator.mediaDevices.getUserMedia (Base64 JPEG Frame)"
-ExamRoomClient > APIGateway: "[L-13] HTTPS POST (application/json - Base64 Payload < 10MB) /auth/face-verify"
-APIGateway > BiometricHandler: "[L-05d] AWS Lambda Proxy Integration (SigV4)"
+// 1. Thao tác thí sinh, chụp webcam Mirror Mode và tải ảnh trực tiếp lên S3
+Candidate > ExamRoomClient: "Nhập MSSV, Mật khẩu ca thi 6 số và Cho phép truy cập Camera"
+ExamRoomClient > WebcamHardware: "Kích hoạt navigator.mediaDevices.getUserMedia"
+WebcamHardware > ExamRoomClient: "[L-12] Canvas 2D capture frame (Blob nhị phân ~150KB JPEG)"
+ExamRoomClient > FaceVault: "[L-13a] Direct HTTPS PUT Blob lên S3 temp-faces/ (Presigned URL TTL 60s, 0MB qua backend)"
 
-// 2. Kiểm tra điều kiện ca thi & Tải ảnh thẻ gốc
-BiometricHandler > SessionsTable: "[L-13a] HTTPS / AWS SDK Boto3 (SigV4) - Action: dynamodb:GetItem (Check RUNNING)"
-BiometricHandler > CandidatesTable: "[L-13b] HTTPS / AWS SDK Boto3 (SigV4) - Action: dynamodb:GetItem (Query GSI: StudentCodeIndex)"
-FaceVault > BiometricHandler: "[L-14] HTTPS / AWS SDK Boto3 (SigV4) - Action: s3:GetObject (faces/{MSSV}.jpg)"
+// 2. Gửi yêu cầu xác thực khuôn mặt kèm thông tin khóa thiết bị
+ExamRoomClient > APIGateway: "[L-13b] HTTPS POST (application/json) /auth/face-verify\n{sessionId, studentCode, passcode, deviceToken, tempFaceKey}"
+APIGateway > BiometricHandler: "[L-05d] AWS Lambda Proxy Integration (SigV4 IAM)"
 
-// 3. Thực thi đối soát AI Rekognition 1:1
-BiometricHandler > RekognitionAI: "[L-15] HTTPS / AWS SDK Boto3 (SigV4) - Action: rekognition:CompareFaces (Similarity >= 80%)"
-RekognitionAI > BiometricHandler: "HTTPS Response 200 (SimilarityScore %)"
+// 3. Kiểm tra tính hợp lệ của ca thi, mật khẩu phòng thi và khóa Mutex thiết bị
+BiometricHandler > SessionsTable: "[L-13c] AWS SDK Boto3 (SigV4) - dynamodb:GetItem (Kiểm tra SCHEDULED/RUNNING & Passcode 6 số)"
+BiometricHandler > SessionsTable: "Kiểm tra lockedCandidates Mutex: Chống đăng nhập đồng thời từ thiết bị thứ 2"
+BiometricHandler > CandidatesTable: "[L-13d] AWS SDK Boto3 (SigV4) - dynamodb:Query (Kiểm tra MSSV thuộc danh sách dự thi)"
 
-// 4. Phân nhánh kết quả và cấp quyền
-BiometricHandler > SessionsTable: "[L-16] HTTPS / AWS SDK Boto3 (SigV4) - Action: dynamodb:UpdateItem (CHECKED_IN)"
-BiometricHandler > ExamRoomClient: "HTTP 200 OK (Cấp quyền bước vào làm bài)"
-BiometricHandler > AlertTopic: "[L-17] HTTPS / AWS SDK Boto3 (SigV4) - Action: sns:Publish (Cảnh báo gian lận)"
-BiometricHandler > ExamRoomClient: "HTTP 403 Forbidden (Từ chối truy cập phòng thi)"
+// 4. Lấy ảnh thẻ gốc và thực thi đối soát AI Rekognition 1:1
+FaceVault > BiometricHandler: "[L-14] AWS SDK Boto3 (SigV4) - s3:GetObject (Đọc ảnh gốc faces/ và ảnh tạm temp-faces/)"
+BiometricHandler > RekognitionAI: "[L-15] AWS SDK Boto3 (SigV4) - rekognition:CompareFaces (Threshold ≥ 80.0%)"
+RekognitionAI > BiometricHandler: "Response (SimilarityScore % & BoundingBox)"
+
+// 5. Phân nhánh kết quả, kích hoạt khóa máy hoặc gửi cảnh báo SNS
+BiometricHandler > SubmissionsTable: "[L-16a] Đạt độ tương đồng ≥ 80%: UpdateItem (status: CHECKED_IN)"
+BiometricHandler > SessionsTable: "[L-16b] Ghi nhận lockedCandidates[studentCode] = deviceToken (Khóa cứng thiết bị)"
+BiometricHandler > ExamRoomClient: "HTTP 200 OK (Cấp phiên làm bài & điều hướng vào phòng thi)"
+
+BiometricHandler > AlertTopic: "[L-17] Mạo danh / Không khớp (< 80%): Action sns:Publish (Gửi email cảnh báo Giám thị)"
+BiometricHandler > ExamRoomClient: "HTTP 403 Forbidden (Từ chối truy cập do vi phạm nhận diện)"
