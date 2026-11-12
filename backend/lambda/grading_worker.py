@@ -135,20 +135,36 @@ def grade_submission(submission: dict) -> dict:
     total_score = Decimal("0")
     max_score = Decimal("0")
     correct_count = 0
-    total_questions = len(answers)
+    total_questions = 0
 
-    # 1. Truy vấn câu hỏi theo Batch (BatchGetItem - Task 20)
-    q_ids = list(answers.keys())
+    # 1. Lấy toàn bộ câu hỏi của ca thi (kể cả câu thí sinh bỏ trống) để tính đúng điểm tối đa
+    session_item = {}
+    try:
+        session_item = sessions_table.get_item(Key={"id": session_id}).get("Item") or {}
+    except Exception as sess_err:
+        print(f"[WARN] Không đọc được ca thi {session_id}: {str(sess_err)}")
+
+    q_ids = list(session_item.get("questionIds") or [])
+    for qid in answers.keys():
+        if qid not in q_ids:
+            q_ids.append(qid)
+
     questions_dict = fetch_questions_batch(q_ids)
 
-    # 2. Chấm điểm từng câu hỏi
-    for q_id, chosen_idx in answers.items():
+    # 2. Chấm điểm từng câu hỏi (câu bỏ trống vẫn vào mẫu số, không được cộng điểm)
+    for q_id in q_ids:
         q_item = questions_dict.get(q_id) or get_question_item(q_id)
         if not q_item:
             continue
 
         q_score = Decimal(str(q_item.get("score", 1)))
         max_score += q_score
+        total_questions += 1
+
+        if q_id not in answers:
+            continue
+        chosen_idx = answers.get(q_id)
+
         q_type = q_item.get("type", "SINGLE_CHOICE")
         if q_type == "ESSAY":
             # Đối với câu hỏi tự luận: Nếu thí sinh có nhập nội dung trả lời thì ghi nhận hoàn thành

@@ -166,6 +166,10 @@ export const ExamSessionTab = ({
     if (new Date(endTime) <= new Date(startTime)) {
       return alert(t('alert_end_after_start'));
     }
+    const cleanRoomPassword = roomPassword.trim();
+    if (cleanRoomPassword.length !== 6) {
+      return alert(t('alert_room_password_length'));
+    }
     if (selectedQuestions.length === 0) return alert(t('alert_select_at_least_one_question'));
     if (selectedCandidates.length === 0) return alert(t('alert_select_at_least_one_candidate'));
 
@@ -184,7 +188,7 @@ export const ExamSessionTab = ({
         status: initialStatus,
         questionIds: selectedQuestions,
         candidateEmails: selectedCandidates,
-        roomPassword: roomPassword.trim() || generateRoomPassword(),
+        roomPassword: cleanRoomPassword,
       });
 
       setName('');
@@ -329,6 +333,7 @@ export const ExamSessionTab = ({
                   type="text"
                   value={roomPassword}
                   onChange={(e) => setRoomPassword(e.target.value)}
+                  maxLength={6}
                   placeholder="123456"
                   className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs font-mono font-bold text-slate-800 tracking-wider outline-none focus:border-indigo-400"
                 />

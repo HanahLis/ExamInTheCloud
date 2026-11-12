@@ -1130,6 +1130,8 @@ export const getSessions = async (): Promise<ExamSession[]> => {
       status: resolveSessionStatus(s.status, s.startTime, s.endTime),
       questionIds: s.questionIds ?? [],
       candidateEmails: s.candidateEmails ?? [],
+      roomPassword: s.roomPassword,
+      lockedCandidates: s.lockedCandidates ?? {},
       link: s.link || `${typeof window !== 'undefined' ? window.location.origin : ''}/?exam=${s.id}`,
       createdAt: s.createdAt,
     }));
@@ -1195,16 +1197,7 @@ export const getSession = async (id: string): Promise<ExamSession> => {
         status: resolveSessionStatus(found.status, found.startTime, found.endTime),
       };
     }
-    return {
-      id,
-      name: 'Ca thi Kiến trúc Phần mềm (K69)',
-      startTime: new Date(Date.now() - 3600000).toISOString(),
-      endTime: new Date(Date.now() + 86400000 * 30).toISOString(),
-      status: 'RUNNING',
-      questionIds: ['q-se-001', 'q-se-002', 'q-se-003', 'q-se-004', 'q-se-005'],
-      candidateEmails: ['24020001@vnu.edu.vn', 'duc.tm24@vnu.edu.vn', 'annv@uet.vnu.edu.vn'],
-      link: `${typeof window !== 'undefined' ? window.location.origin : ''}/?exam=${id}`,
-    };
+    throw new Error('Không tìm thấy ca thi. Vui lòng kiểm tra lại đường dẫn hoặc liên hệ Giảng viên.');
   }
 };
 

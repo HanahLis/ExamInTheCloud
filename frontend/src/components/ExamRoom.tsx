@@ -391,10 +391,8 @@ export const ExamRoom = ({ sessionId, currentUserEmail = '', isOrganizer = false
 
   const handleSubmitExam = async (isAutoSubmit = false) => {
     if (TURNSTILE_SITE_KEY && !turnstileToken) {
-      if (!isAutoSubmit) {
-        alert(t('exam_turnstile_required'));
-        return;
-      }
+      alert(t(isAutoSubmit ? 'exam_time_up_turnstile_required' : 'exam_turnstile_required'));
+      return;
     }
     if (!isAutoSubmit && !confirm(t('exam_submit_confirm'))) return;
     setIsSubmitting(true);

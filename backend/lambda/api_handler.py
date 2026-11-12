@@ -1307,6 +1307,13 @@ def lambda_handler(event, context):
     )
     is_candidate = "Candidate" in user_groups or (is_student_code and not is_admin)
     is_admin_or_organizer = is_admin or is_organizer
+    # Tài khoản thí sinh không được thao tác ghi trên ngân hàng câu hỏi / thí sinh / ca thi
+    can_manage_content = is_admin_or_organizer and not is_candidate
+
+    def deny_if_cannot_manage():
+        return build_response(403, {
+            "error": "Chỉ Giảng viên/Ban tổ chức (Organizer) mới có quyền thực hiện thao tác này."
+        })
 
     try:
         body = json.loads(event.get("body") or "{}") if event.get("body") else {}
@@ -1318,6 +1325,8 @@ def lambda_handler(event, context):
         # 1. /questions API (Ngân hàng câu hỏi, Bóc tách đề thi AI & S3 Presigned URL)
         # =========================================================================
         if (resource_path == "/questions/parse-doc" or raw_path.endswith("/questions/parse-doc")) and http_method == "POST":
+            if not can_manage_content:
+                return deny_if_cannot_manage()
             # Task M-01: Bóc tách file Word đề thi qua Google Gemini AI
             raw_text = extract_text_from_doc_payload(body)
             if not raw_text:
@@ -1390,6 +1399,8 @@ def lambda_handler(event, context):
             })
 
         elif resource_path == "/questions/image-upload" and http_method == "POST":
+            if not can_manage_content:
+                return deny_if_cannot_manage()
             file_name = body.get("fileName", "image.jpg")
             content_type = body.get("contentType", "image/jpeg")
             prefix = body.get("prefix", "questions")
@@ -1476,6 +1487,8 @@ def lambda_handler(event, context):
                 return build_response(200, items)
 
             elif http_method == "POST":
+                if not can_manage_content:
+                    return deny_if_cannot_manage()
                 question_id = body.get("id") or body.get("questionId") or str(uuid.uuid4())
                 q_type = body.get("type", "SINGLE_CHOICE")
                 is_essay = q_type == "ESSAY"
@@ -1523,6 +1536,8 @@ def lambda_handler(event, context):
                 return build_response(200, item)
 
             elif http_method == "PUT":
+                if not can_manage_content:
+                    return deny_if_cannot_manage()
                 # Kiểm tra quyền sở hữu câu hỏi
                 q_res = questions_table.get_item(Key={"id": q_id})
                 existing_q = q_res.get("Item")
@@ -1564,6 +1579,8 @@ def lambda_handler(event, context):
                 return build_response(200, {"message": "Cập nhật thành công", "id": q_id})
 
             elif http_method == "DELETE":
+                if not can_manage_content:
+                    return deny_if_cannot_manage()
                 # Kiểm tra quyền sở hữu câu hỏi
                 q_res = questions_table.get_item(Key={"id": q_id})
                 existing_q = q_res.get("Item")
@@ -1594,6 +1611,8 @@ def lambda_handler(event, context):
                 return build_response(200, my_banks)
 
             elif http_method == "POST":
+                if not can_manage_content:
+                    return deny_if_cannot_manage()
                 # Hỗ trợ xóa ngân hàng câu hỏi qua POST action=DELETE (Đảm bảo tương thích API Gateway)
                 if body.get("action") == "DELETE" or body.get("_method") == "DELETE":
                     bank_id = body.get("id") or body.get("bankId") or query_params.get("id")
@@ -1642,6 +1661,8 @@ def lambda_handler(event, context):
                 return build_response(201, item)
 
             elif http_method == "DELETE":
+                if not can_manage_content:
+                    return deny_if_cannot_manage()
                 bank_id = query_params.get("id") or (body.get("id") if body else None) or (body.get("bankId") if body else None)
                 if not bank_id:
                     return build_response(400, {"error": "Thiếu id ngân hàng câu hỏi cần xóa."})
@@ -1673,6 +1694,8 @@ def lambda_handler(event, context):
         elif resource_path == "/question-banks/{id}":
             bank_id = path_parameters.get("id")
             if http_method == "DELETE":
+                if not can_manage_content:
+                    return deny_if_cannot_manage()
                 if not bank_id:
                     return build_response(400, {"error": "Thiếu id ngân hàng câu hỏi cần xóa."})
 
@@ -1726,6 +1749,8 @@ def lambda_handler(event, context):
                 return build_response(200, my_candidates)
 
             elif http_method == "POST":
+                if not can_manage_content:
+                    return deny_if_cannot_manage()
                 candidate_email = body.get("email")
                 if not candidate_email:
                     return build_response(400, {"error": "Thiếu email thí sinh."})
@@ -1830,6 +1855,8 @@ def lambda_handler(event, context):
                 return build_response(200, item)
 
             elif http_method == "DELETE":
+                if not can_manage_content:
+                    return deny_if_cannot_manage()
                 res = candidates_table.get_item(Key={"email": c_email})
                 item = res.get("Item")
                 if not item:
@@ -2141,6 +2168,8 @@ def lambda_handler(event, context):
         # Phục vụ Task 24: Truy vấn Sparse GSI SessionResultsIndex trên bảng Submissions (< 10ms)
         # =========================================================================
         elif resource_path == "/sessions/{id}/results" and http_method == "GET":
+            if not can_manage_content:
+                return deny_if_cannot_manage()
             s_id = path_parameters.get("id")
             res = sessions_table.get_item(Key={"id": s_id})
             session_item = res.get("Item")
@@ -2304,10 +2333,14 @@ def lambda_handler(event, context):
         # 3.3. /sessions/{id}/auto-finalize & /sessions/{id}/send-report APIs
         # =========================================================================
         elif (resource_path == "/sessions/{id}/auto-finalize" or raw_path.endswith("/auto-finalize")) and http_method == "POST":
+            if not can_manage_content:
+                return deny_if_cannot_manage()
             s_id = path_parameters.get("id")
             return handle_auto_finalize_session(s_id)
 
         elif (resource_path == "/sessions/{id}/send-report" or raw_path.endswith("/send-report")) and http_method == "POST":
+            if not can_manage_content:
+                return deny_if_cannot_manage()
             s_id = path_parameters.get("id")
             return handle_send_session_report(s_id)
 
@@ -2385,18 +2418,30 @@ def lambda_handler(event, context):
             if not session_id or not user_email_sub:
                 return build_response(400, {"error": "Thiếu sessionId hoặc thông tin thí sinh."})
 
-            # Kiểm tra trạng thái ca thi
+            # Kiểm tra ca thi tồn tại + trạng thái
             session_check = sessions_table.get_item(Key={"id": session_id})
             sess_item = session_check.get("Item")
-            if sess_item and sess_item.get("status") == "CLOSED":
+            if not sess_item:
+                return build_response(404, {"error": "Ca thi không tồn tại. Không thể nộp bài."})
+            if sess_item.get("status") == "CLOSED":
                 return build_response(400, {"error": "Ca thi đã kết thúc. Không thể nộp bài thêm."})
 
-            # Ưu tiên email thí sinh trong body nếu hợp lệ (Giảng viên xem trước/chấm hộ thí sinh),
+            # Ưu tiên email thí sinh trong body nếu thuộc danh sách ca thi (Giảng viên xem trước/chấm hộ thí sinh),
             # nếu không thì dùng email từ token (thí sinh tự nộp bài)
             body_email = (body.get("candidateEmail") or "").strip().lower()
-            session_emails = [e.lower() for e in (sess_item or {}).get("candidateEmails", [])]
-            if body_email and body_email in session_emails:
-                user_email_sub = body_email
+            session_emails = [e.lower() for e in sess_item.get("candidateEmails", [])]
+            organizer_preview = bool(claims.get("email")) and can_manage_content
+            if body_email:
+                if body_email in session_emails or organizer_preview:
+                    user_email_sub = body_email
+                else:
+                    return build_response(403, {
+                        "error": "Email thí sinh không thuộc danh sách của ca thi. Không thể nộp bài."
+                    })
+            elif session_emails and (user_email_sub or "").lower() not in session_emails and not organizer_preview:
+                return build_response(403, {
+                    "error": "Tài khoản không thuộc danh sách thí sinh của ca thi. Không thể nộp bài."
+                })
 
             submitted_at = datetime.now(timezone.utc).isoformat()
             submission_id = str(uuid.uuid4())
