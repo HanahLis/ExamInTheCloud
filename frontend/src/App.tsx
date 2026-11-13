@@ -10,8 +10,6 @@ import {
   resendConfirmationCode,
   setUserSelectedRole,
   hasUserChosenRole,
-  DATABASE_ACCOUNTS_MAP,
-  type AppRole,
 } from './services/auth';
 import {
   getQuestions,
@@ -23,7 +21,6 @@ import {
   createSession,
   updateSessionStatus,
   updateSessionCandidates,
-  syncLocalDataToCloud,
   resolveSessionStatus,
   type Question,
   type QuestionBank,
@@ -161,80 +158,6 @@ const parseRouteFromUrl = (): { tab: Tab; examId: string | null } => {
   return { tab: 'questions', examId: examParam || null };
 };
 
-export interface SystemAccount {
-  role: AppRole;
-  name: string;
-  email: string;
-  studentCode?: string;
-  unit: string;
-}
-
-const DATABASE_ACCOUNTS: SystemAccount[] = [
-  {
-    role: 'Organizer',
-    name: 'PGS. TS. Nguyễn Văn An',
-    email: 'annv@uet.vnu.edu.vn',
-    studentCode: 'GV001',
-    unit: 'Giảng viên Khoa Công nghệ Thông tin - ĐH Công nghệ (UET)',
-  },
-  {
-    role: 'Proctor',
-    name: 'Giám thị Laladoraema',
-    email: 'laladoraema@gmail.com',
-    studentCode: 'GT002',
-    unit: 'Cán bộ Giám thị - Hội đồng thi CloudExam',
-  },
-  {
-    role: 'Candidate',
-    name: 'Trần Minh Đức',
-    email: '24020001@vnu.edu.vn',
-    studentCode: '24020001',
-    unit: 'Sinh viên K69 - Khoa CNTT - UET',
-  },
-  {
-    role: 'Candidate',
-    name: 'Lê Thị Mai',
-    email: '24020002@vnu.edu.vn',
-    studentCode: '24020002',
-    unit: 'Sinh viên K69 - Khoa CNTT - UET',
-  },
-  {
-    role: 'Candidate',
-    name: 'Phạm Hoàng Long',
-    email: '24020003@vnu.edu.vn',
-    studentCode: '24020003',
-    unit: 'Sinh viên K69 - Khoa CNTT - UET',
-  },
-  {
-    role: 'Candidate',
-    name: 'Vũ Thùy Linh',
-    email: '24020004@vnu.edu.vn',
-    studentCode: '24020004',
-    unit: 'Sinh viên K69 - Khoa CNTT - UET',
-  },
-  {
-    role: 'Candidate',
-    name: 'Đỗ Quang Huy',
-    email: '24020005@vnu.edu.vn',
-    studentCode: '24020005',
-    unit: 'Sinh viên K69 - Khoa CNTT - UET',
-  },
-  {
-    role: 'Candidate',
-    name: 'Nguyễn Văn Sáu',
-    email: '24020006@vnu.edu.vn',
-    studentCode: '24020006',
-    unit: 'Sinh viên K69 - Khoa CNTT - UET',
-  },
-  {
-    role: 'Candidate',
-    name: 'Nguyễn VĂN BẢY',
-    email: '24020007@vnu.edu.vn',
-    studentCode: '24020007',
-    unit: 'Sinh viên K69 - Khoa CNTT - UET',
-  },
-];
-
 export default function App() {
   const { t } = useTranslation();
   const initialRoute = parseRouteFromUrl();
@@ -296,9 +219,7 @@ export default function App() {
     window.history.pushState({}, '', targetPath);
   };
 
-  // Trạng thái đồng bộ CSDL AWS Cloud
-  const [syncing, setSyncing] = useState(false);
-  const [syncNotice, setSyncNotice] = useState<string | null>(null);
+  const [notice, setNotice] = useState<string | null>(null);
 
   // Tab chuyển đổi Đăng nhập / Đăng ký
   const [authTab, setAuthTab] = useState<'signin' | 'signup'>('signin');
@@ -397,31 +318,6 @@ export default function App() {
       refreshAll();
     }
   }, [loggedIn, refreshAll]);
-
-  const handleSyncToCloud = async () => {
-    setSyncing(true);
-    setSyncNotice(null);
-    try {
-      const res = await syncLocalDataToCloud({
-        banks: questionBanks,
-        questions: questions,
-        candidates: candidates,
-        sessions: sessions,
-      });
-      setSyncNotice(
-        t('sync_cloud_success_detail', {
-          banks: res.syncedBanks ?? questionBanks.length,
-          questions: res.syncedQuestions ?? questions.length,
-          candidates: res.syncedCandidates ?? candidates.length,
-          sessions: res.syncedSessions ?? sessions.length,
-        }) || res.message
-      );
-    } catch (err: any) {
-      setSyncNotice(`${t('notice_sync_error')} ${err?.response?.data?.error || err?.message || err}`);
-    } finally {
-      setSyncing(false);
-    }
-  };
 
   if (window.location.pathname === '/callback') return <Callback />;
 
@@ -562,64 +458,45 @@ export default function App() {
     };
 
     return (
-      <div className="min-h-screen bg-gradient-to-br from-slate-50 via-indigo-50/30 to-sky-50/40 flex flex-col justify-between p-4 md:p-8">
+      <div className="min-h-screen bg-slate-50 flex flex-col justify-between p-4 md:p-8">
         {/* Top bar với Language & Country selector */}
         <header className="max-w-5xl w-full mx-auto flex justify-between items-center py-2">
           <div className="flex items-center gap-2.5">
-            <div className="w-9 h-9 rounded-xl bg-gradient-to-tr from-indigo-600 to-indigo-500 text-white flex items-center justify-center shadow-sm shadow-indigo-200">
+            <div className="w-9 h-9 rounded-lg bg-slate-900 text-white flex items-center justify-center">
               <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 14l9-5-9-5-9 5 9 5zm0 0l6.16-3.422a12.083 12.083 0 01.665 6.479A11.952 11.952 0 0012 20.055a11.952 11.952 0 00-6.824-2.998 12.078 12.078 0 01.665-6.479L12 14zm-4 6v-7.5" />
               </svg>
             </div>
-            <div>
-              <span className="font-bold text-slate-900 text-sm tracking-tight">{t('app_title')}</span>
-              <span className="hidden sm:inline-block ml-2 text-[11px] px-2 py-0.5 rounded-full bg-indigo-50 text-indigo-700 border border-indigo-100 font-medium">EduPortal</span>
-            </div>
+            <span className="font-semibold text-slate-900 text-sm tracking-tight">{t('app_title')}</span>
           </div>
           <CountryLanguageBar />
         </header>
 
         {/* Khối đăng nhập trung tâm 2 cột */}
-        <main className="max-w-4xl w-full mx-auto my-6 grid grid-cols-1 md:grid-cols-12 bg-white rounded-3xl border border-indigo-100/80 shadow-[0_20px_50px_-12px_rgba(99,102,241,0.12)] overflow-hidden">
-          {/* Cột trái: Thông tin học vụ & Giới thiệu hệ thống */}
-          <div className="md:col-span-5 bg-gradient-to-br from-indigo-50/80 via-purple-50/40 to-sky-50/50 p-6 md:p-8 flex flex-col justify-between border-b md:border-b-0 md:border-r border-indigo-100/60">
-            <div className="space-y-4">
-              <span className="inline-flex items-center gap-1.5 text-[11px] font-semibold text-indigo-700 bg-white/80 px-3 py-1 rounded-full border border-indigo-100 shadow-2xs">
-                <span className="w-1.5 h-1.5 rounded-full bg-indigo-500"></span>
+        <main className="max-w-4xl w-full mx-auto my-6 grid grid-cols-1 md:grid-cols-12 bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden">
+          {/* Cột trái: nhận diện thương hiệu */}
+          <div className="md:col-span-5 relative bg-slate-900 p-6 md:p-8 flex flex-col justify-between overflow-hidden">
+            <svg className="absolute -right-20 -bottom-24 w-72 h-72 text-white/[0.05]" viewBox="0 0 200 200" fill="none" aria-hidden="true">
+              <circle cx="100" cy="100" r="88" stroke="currentColor" strokeWidth="1" />
+              <circle cx="100" cy="100" r="64" stroke="currentColor" strokeWidth="1" />
+              <circle cx="100" cy="100" r="40" stroke="currentColor" strokeWidth="1" />
+              <circle cx="100" cy="100" r="3" fill="currentColor" />
+            </svg>
+
+            <div className="relative space-y-3">
+              <p className="text-[11px] font-medium tracking-[0.18em] uppercase text-indigo-300">
                 {t('login_hero_badge')}
-              </span>
-              <h2 className="text-xl md:text-2xl font-bold text-slate-900 tracking-tight leading-snug">
+              </p>
+              <h2 className="text-xl md:text-2xl font-semibold text-white tracking-tight leading-snug">
                 {t('login_hero_title')}
               </h2>
-              <p className="text-xs text-slate-600 leading-relaxed">
+              <p className="text-xs text-slate-400 leading-relaxed">
                 {t('login_hero_desc')}
               </p>
-
-              <div className="space-y-2.5 pt-2">
-                <div className="flex items-start gap-2.5 text-xs text-slate-700">
-                  <div className="w-5 h-5 rounded-full bg-emerald-100 text-emerald-700 flex items-center justify-center shrink-0 mt-0.5">
-                    ✓
-                  </div>
-                  <span>{t('login_feature_face')}</span>
-                </div>
-                <div className="flex items-start gap-2.5 text-xs text-slate-700">
-                  <div className="w-5 h-5 rounded-full bg-indigo-100 text-indigo-700 flex items-center justify-center shrink-0 mt-0.5">
-                    ✓
-                  </div>
-                  <span>{t('login_feature_ai')}</span>
-                </div>
-                <div className="flex items-start gap-2.5 text-xs text-slate-700">
-                  <div className="w-5 h-5 rounded-full bg-purple-100 text-purple-700 flex items-center justify-center shrink-0 mt-0.5">
-                    ✓
-                  </div>
-                  <span>{t('login_feature_cloud')}</span>
-                </div>
-              </div>
             </div>
 
-            <div className="pt-6 border-t border-indigo-100/70 text-[11px] text-slate-500 flex items-center justify-between">
-              <span>{t('login_university')}</span>
-              <span className="font-mono text-slate-400">v2.4.0</span>
+            <div className="relative pt-6 mt-8 border-t border-white/10 text-[11px] text-slate-400">
+              {t('login_university')}
             </div>
           </div>
 
@@ -660,65 +537,6 @@ export default function App() {
                   </p>
                 </div>
 
-                {/* Quick Demo Chips */}
-                <div className="p-3 bg-slate-50/80 rounded-2xl border border-slate-200/70 space-y-2">
-                  <span className="text-[11px] font-semibold text-slate-600 uppercase tracking-wider block">
-                    {t('login_quick_label')} (3 Cổng phân quyền độc lập)
-                  </span>
-                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
-                    <button
-                      type="button"
-                      onClick={() => {
-                        setLoginEmail('annv@uet.vnu.edu.vn');
-                        setLoginPassword('12345678');
-                      }}
-                      className="p-2.5 rounded-xl bg-purple-50/70 hover:bg-purple-100/80 border border-purple-200/60 text-left transition cursor-pointer group"
-                    >
-                      <div className="flex items-center gap-2">
-                        <span className="px-1.5 py-0.5 rounded-full bg-purple-200 text-purple-800 text-[10px] font-bold flex items-center justify-center shrink-0">GV</span>
-                        <div className="min-w-0">
-                          <p className="text-xs font-semibold text-purple-900 truncate">Nguyễn Văn An</p>
-                          <p className="text-[10px] text-purple-700 truncate font-mono">annv@uet...</p>
-                        </div>
-                      </div>
-                    </button>
-
-                    <button
-                      type="button"
-                      onClick={() => {
-                        setLoginEmail('laladoraema@gmail.com');
-                        setLoginPassword('12345678');
-                      }}
-                      className="p-2.5 rounded-xl bg-indigo-50/70 hover:bg-indigo-100/80 border border-indigo-200/60 text-left transition cursor-pointer group"
-                    >
-                      <div className="flex items-center gap-2">
-                        <span className="px-1.5 py-0.5 rounded-full bg-indigo-200 text-indigo-800 text-[10px] font-bold flex items-center justify-center shrink-0">GT</span>
-                        <div className="min-w-0">
-                          <p className="text-xs font-semibold text-indigo-900 truncate">Laladoraema</p>
-                          <p className="text-[10px] text-indigo-700 truncate font-mono">laladoraema...</p>
-                        </div>
-                      </div>
-                    </button>
-
-                    <button
-                      type="button"
-                      onClick={() => {
-                        setLoginEmail('24020001@vnu.edu.vn');
-                        setLoginPassword('12345678');
-                      }}
-                      className="p-2.5 rounded-xl bg-sky-50/70 hover:bg-sky-100/80 border border-sky-200/60 text-left transition cursor-pointer group"
-                    >
-                      <div className="flex items-center gap-2">
-                        <span className="px-1.5 py-0.5 rounded-full bg-sky-200 text-sky-800 text-[10px] font-bold flex items-center justify-center shrink-0">TS</span>
-                        <div className="min-w-0">
-                          <p className="text-xs font-semibold text-sky-900 truncate">Trần Minh Đức</p>
-                          <p className="text-[10px] text-sky-700 truncate font-mono">24020001...</p>
-                        </div>
-                      </div>
-                    </button>
-                  </div>
-                </div>
-
                 <form onSubmit={handleLogin} className="space-y-3.5">
                   <div>
                     <label className="block text-xs font-medium text-slate-700 mb-1">
@@ -727,7 +545,6 @@ export default function App() {
                     <div className="relative">
                       <input
                         type="email"
-                        list="vnu-accounts"
                         placeholder={t('login_email_placeholder')}
                         value={loginEmail}
                         onChange={(e) => setLoginEmail(e.target.value)}
@@ -736,13 +553,6 @@ export default function App() {
                         autoComplete="username"
                       />
                     </div>
-                    <datalist id="vnu-accounts">
-                      {DATABASE_ACCOUNTS.map((acc) => (
-                        <option key={acc.email} value={acc.email}>
-                          {acc.name} ({acc.role === 'Organizer' ? t('qb_lecturer_label') : acc.role === 'Proctor' ? 'Giám thị' : acc.studentCode})
-                        </option>
-                      ))}
-                    </datalist>
                   </div>
 
                   <div>
@@ -763,7 +573,7 @@ export default function App() {
                   <button
                     type="submit"
                     disabled={loginLoading}
-                    className="w-full py-2.5 bg-gradient-to-r from-indigo-600 to-indigo-700 hover:from-indigo-500 hover:to-indigo-600 text-white text-xs font-semibold rounded-xl shadow-md shadow-indigo-200 active:scale-[0.99] transition-all cursor-pointer disabled:opacity-50"
+                    className="w-full py-2.5 bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-semibold rounded-xl shadow-sm transition cursor-pointer disabled:opacity-50"
                   >
                     {loginLoading ? (
                       <span className="flex items-center justify-center gap-2">
@@ -818,15 +628,17 @@ export default function App() {
                       <button
                         type="button"
                         onClick={() => setRegRole('Candidate')}
-                        className={`p-2.5 rounded-xl border text-left transition cursor-pointer ${
+                        className={`p-3 rounded-xl border text-left transition cursor-pointer ${
                           regRole === 'Candidate'
-                            ? 'border-sky-500 bg-sky-50/70 ring-2 ring-sky-200'
-                            : 'border-slate-200 bg-slate-50/60 hover:bg-slate-50'
+                            ? 'border-indigo-600 bg-indigo-50/60 ring-1 ring-indigo-600'
+                            : 'border-slate-200 bg-white hover:border-slate-300'
                         }`}
                       >
-                        <div className="flex items-center gap-1.5 mb-0.5">
-                          <span className="text-base">🎓</span>
-                          <span className="text-xs font-bold text-slate-900">{t('register_role_candidate')}</span>
+                        <div className="flex items-center gap-2 mb-1">
+                          <svg className="w-4 h-4 text-slate-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 14l9-5-9-5-9 5 9 5zm0 0l6.16-3.422a12.083 12.083 0 01.665 6.479A11.952 11.952 0 0012 20.055a11.952 11.952 0 00-6.824-2.998 12.078 12.078 0 01.665-6.479L12 14zm-4 6v-7.5" />
+                          </svg>
+                          <span className="text-xs font-semibold text-slate-900">{t('register_role_candidate')}</span>
                         </div>
                         <p className="text-[10px] text-slate-500 leading-tight">{t('register_role_candidate_desc')}</p>
                       </button>
@@ -834,15 +646,17 @@ export default function App() {
                       <button
                         type="button"
                         onClick={() => setRegRole('Organizer')}
-                        className={`p-2.5 rounded-xl border text-left transition cursor-pointer ${
+                        className={`p-3 rounded-xl border text-left transition cursor-pointer ${
                           regRole === 'Organizer'
-                            ? 'border-indigo-600 bg-indigo-50/70 ring-2 ring-indigo-200'
-                            : 'border-slate-200 bg-slate-50/60 hover:bg-slate-50'
+                            ? 'border-indigo-600 bg-indigo-50/60 ring-1 ring-indigo-600'
+                            : 'border-slate-200 bg-white hover:border-slate-300'
                         }`}
                       >
-                        <div className="flex items-center gap-1.5 mb-0.5">
-                          <span className="text-base">👨‍🏫</span>
-                          <span className="text-xs font-bold text-slate-900">{t('register_role_organizer')}</span>
+                        <div className="flex items-center gap-2 mb-1">
+                          <svg className="w-4 h-4 text-slate-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
+                          </svg>
+                          <span className="text-xs font-semibold text-slate-900">{t('register_role_organizer')}</span>
                         </div>
                         <p className="text-[10px] text-slate-500 leading-tight">{t('register_role_organizer_desc')}</p>
                       </button>
@@ -923,7 +737,7 @@ export default function App() {
                   <button
                     type="submit"
                     disabled={regLoading}
-                    className="w-full py-2.5 bg-gradient-to-r from-indigo-600 to-indigo-700 hover:from-indigo-500 hover:to-indigo-600 text-white text-xs font-semibold rounded-xl shadow-md shadow-indigo-200 transition cursor-pointer disabled:opacity-50"
+                    className="w-full py-2.5 bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-semibold rounded-xl shadow-sm transition cursor-pointer disabled:opacity-50"
                   >
                     {regLoading ? (
                       <span className="flex items-center justify-center gap-2">
@@ -956,14 +770,14 @@ export default function App() {
         {/* MODAL NHẬP MÃ OTP KÍCH HOẠT TÀI KHOẢN COGNITO */}
         {showOtpModal && (
           <div className="fixed inset-0 z-50 bg-slate-900/60 backdrop-blur-sm flex items-center justify-center p-4">
-            <div className="bg-white rounded-3xl border border-indigo-100 shadow-2xl max-w-sm w-full p-6 space-y-4">
+            <div className="bg-white rounded-2xl border border-slate-200 shadow-xl max-w-sm w-full p-6 space-y-4">
               <div className="text-center space-y-1.5">
-                <div className="w-11 h-11 rounded-2xl bg-gradient-to-tr from-emerald-500 to-indigo-600 text-white flex items-center justify-center mx-auto shadow-md shadow-emerald-200">
+                <div className="w-11 h-11 rounded-xl bg-indigo-50 text-indigo-600 border border-indigo-100 flex items-center justify-center mx-auto">
                   <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
                   </svg>
                 </div>
-                <h3 className="text-base font-bold text-slate-900">{t('otp_modal_title')}</h3>
+                <h3 className="text-base font-semibold text-slate-900">{t('otp_modal_title')}</h3>
                 <p className="text-xs text-slate-500 leading-snug">
                   {t('otp_modal_desc')}{' '}
                   <span className="font-semibold text-slate-700 block font-mono">{otpEmail}</span>
@@ -996,7 +810,7 @@ export default function App() {
                 <button
                   type="submit"
                   disabled={otpLoading || otpCode.length < 4}
-                  className="w-full py-2.5 bg-gradient-to-r from-emerald-600 to-indigo-600 hover:from-emerald-500 hover:to-indigo-500 text-white text-xs font-semibold rounded-xl shadow-md transition cursor-pointer disabled:opacity-50"
+                  className="w-full py-2.5 bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-semibold rounded-xl shadow-sm transition cursor-pointer disabled:opacity-50"
                 >
                   {otpLoading ? (
                     <span className="flex items-center justify-center gap-2">
@@ -1032,38 +846,26 @@ export default function App() {
 
         {/* Footer bản quyền */}
         <footer className="text-center text-xs text-slate-400 py-2">
-          &copy; 2026 CloudExam • {t('footer_cloud_platform')}
+          &copy; 2026 CloudExam · {t('footer_cloud_platform')}
         </footer>
       </div>
     );
   }
 
-  const emailLower = (user.email || '').toLowerCase().trim();
-  const dbAccount = DATABASE_ACCOUNTS_MAP[emailLower];
-
-  // BẢO MẬT PHÂN QUYỀN (RBAC): Mỗi vai trò chỉ được ở 1 cổng riêng biệt tuyệt đối
-  const isProctor =
-    dbAccount?.role === 'Proctor' ||
-    user.groups.includes('Proctor') ||
-    emailLower === 'laladoraema@gmail.com';
-
-  const isCandidateOnly =
-    !isProctor &&
-    (dbAccount?.role === 'Candidate' ||
-      user.groups.includes('Candidate') ||
-      /^\d{8}@/.test(emailLower) ||
-      (emailLower.includes('@vnu.edu.vn') && !emailLower.includes('annv') && !emailLower.includes('phongpt')));
+  // RBAC: vai trò lấy từ Cognito groups
+  const isProctor = user.groups.includes('Proctor');
+  const isCandidateOnly = !isProctor && user.groups.includes('Candidate');
 
   const handleAddCandidate = async (candidate: Candidate) => {
     const saved = await createCandidate(candidate);
     setCandidates((prev) => [...prev.filter((c) => c.email !== saved.email), saved]);
-    setSyncNotice(`${t('notice_candidate_saved')} (${candidate.name} - ${candidate.email})`);
+    setNotice(t('notice_candidate_saved'));
   };
 
   const handleRemoveCandidate = async (email: string) => {
     await deleteCandidate(email);
     setCandidates((prev) => prev.filter((c) => c.email !== email));
-    setSyncNotice(`${t('notice_candidate_deleted')} (${email})`);
+    setNotice(t('notice_candidate_deleted'));
   };
 
   const handleCreateSession = async (
@@ -1090,14 +892,14 @@ export default function App() {
 
   const roleOnboardingModal = showRoleOnboarding ? (
     <div className="fixed inset-0 z-50 bg-slate-900/60 backdrop-blur-sm flex items-center justify-center p-4">
-      <div className="bg-white rounded-3xl border border-indigo-100 shadow-2xl max-w-md w-full p-6 sm:p-8 space-y-6 animate-in fade-in duration-200">
+      <div className="bg-white rounded-2xl border border-slate-200 shadow-xl max-w-md w-full p-6 sm:p-8 space-y-6">
         <div className="text-center space-y-2">
-          <div className="w-12 h-12 rounded-2xl bg-gradient-to-tr from-indigo-600 to-sky-500 text-white flex items-center justify-center mx-auto shadow-md shadow-indigo-200">
+          <div className="w-12 h-12 rounded-xl bg-slate-900 text-white flex items-center justify-center mx-auto">
             <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
             </svg>
           </div>
-          <h3 className="text-lg font-bold text-slate-900">{t('onboarding_role_title')}</h3>
+          <h3 className="text-lg font-semibold text-slate-900">{t('onboarding_role_title')}</h3>
           <p className="text-xs text-slate-500">
             {t('onboarding_role_subtitle')}{' '}
             <span className="font-semibold text-slate-700 font-mono block mt-0.5">{user.email}</span>
@@ -1108,18 +910,22 @@ export default function App() {
           <button
             type="button"
             onClick={() => setSelectedOnboardingRole('Candidate')}
-            className={`w-full p-4 rounded-2xl border text-left transition flex items-start gap-3.5 cursor-pointer ${
+            className={`w-full p-4 rounded-xl border text-left transition flex items-start gap-3.5 cursor-pointer ${
               selectedOnboardingRole === 'Candidate'
-                ? 'border-sky-500 bg-sky-50/70 ring-2 ring-sky-200 shadow-xs'
-                : 'border-slate-200 bg-slate-50/50 hover:bg-slate-50 hover:border-slate-300'
+                ? 'border-indigo-600 bg-indigo-50/60 ring-1 ring-indigo-600'
+                : 'border-slate-200 bg-white hover:border-slate-300'
             }`}
           >
-            <div className="text-2xl mt-0.5">🎓</div>
+            <div className="w-9 h-9 rounded-lg bg-slate-100 text-slate-600 border border-slate-200 flex items-center justify-center shrink-0">
+              <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 14l9-5-9-5-9 5 9 5zm0 0l6.16-3.422A12.083 12.083 0 0118.825 17 11.952 11.952 0 0112 20.055a11.952 11.952 0 01-6.825-3.055A12.083 12.083 0 0111.84 10.578L12 14z" />
+              </svg>
+            </div>
             <div className="flex-1 min-w-0">
               <div className="flex items-center justify-between">
-                <p className="text-xs font-bold text-slate-900">{t('register_role_candidate')}</p>
+                <p className="text-xs font-semibold text-slate-900">{t('register_role_candidate')}</p>
                 {selectedOnboardingRole === 'Candidate' && (
-                  <span className="w-2.5 h-2.5 rounded-full bg-sky-500"></span>
+                  <span className="w-2.5 h-2.5 rounded-full bg-indigo-600"></span>
                 )}
               </div>
               <p className="text-[11px] text-slate-500 mt-0.5">{t('register_role_candidate_desc')}</p>
@@ -1129,16 +935,20 @@ export default function App() {
           <button
             type="button"
             onClick={() => setSelectedOnboardingRole('Organizer')}
-            className={`w-full p-4 rounded-2xl border text-left transition flex items-start gap-3.5 cursor-pointer ${
+            className={`w-full p-4 rounded-xl border text-left transition flex items-start gap-3.5 cursor-pointer ${
               selectedOnboardingRole === 'Organizer'
-                ? 'border-indigo-600 bg-indigo-50/70 ring-2 ring-indigo-200 shadow-xs'
-                : 'border-slate-200 bg-slate-50/50 hover:bg-slate-50 hover:border-slate-300'
+                ? 'border-indigo-600 bg-indigo-50/60 ring-1 ring-indigo-600'
+                : 'border-slate-200 bg-white hover:border-slate-300'
             }`}
           >
-            <div className="text-2xl mt-0.5">👨‍🏫</div>
+            <div className="w-9 h-9 rounded-lg bg-slate-100 text-slate-600 border border-slate-200 flex items-center justify-center shrink-0">
+              <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
+              </svg>
+            </div>
             <div className="flex-1 min-w-0">
               <div className="flex items-center justify-between">
-                <p className="text-xs font-bold text-slate-900">{t('register_role_organizer')}</p>
+                <p className="text-xs font-semibold text-slate-900">{t('register_role_organizer')}</p>
                 {selectedOnboardingRole === 'Organizer' && (
                   <span className="w-2.5 h-2.5 rounded-full bg-indigo-600"></span>
                 )}
@@ -1155,7 +965,7 @@ export default function App() {
             setShowRoleOnboarding(false);
             window.location.reload();
           }}
-          className="w-full py-3 bg-gradient-to-r from-indigo-600 to-indigo-700 hover:from-indigo-500 hover:to-indigo-600 text-white text-xs font-semibold rounded-xl shadow-md shadow-indigo-200 transition cursor-pointer"
+          className="w-full py-3 bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-semibold rounded-xl shadow-sm transition cursor-pointer"
         >
           {t('onboarding_confirm_btn')}
         </button>
@@ -1165,33 +975,30 @@ export default function App() {
 
   // CỔNG THÍ SINH
   if (isCandidateOnly) {
-    const mySessions = sessions.filter(
-      (s) =>
-        !s.candidateEmails ||
-        s.candidateEmails.length === 0 ||
-        s.candidateEmails.some((e) => e.toLowerCase() === user.email.toLowerCase())
+    const mySessions = sessions.filter((s) =>
+      (s.candidateEmails || []).some((e) => e.toLowerCase() === user.email.toLowerCase())
     );
 
     return (
-      <div className="min-h-screen bg-gradient-to-br from-slate-50 via-indigo-50/20 to-sky-50/30 text-slate-700 flex flex-col justify-between">
+      <div className="min-h-screen bg-slate-50 text-slate-700 flex flex-col justify-between">
         {/* Header Cổng Thí Sinh */}
-        <header className="bg-white/80 backdrop-blur-md border-b border-indigo-100/80 px-4 md:px-8 py-3.5 sticky top-0 z-40 shadow-xs">
+        <header className="bg-white border-b border-slate-200 px-4 md:px-8 py-3.5 sticky top-0 z-40">
           <div className="max-w-6xl mx-auto flex flex-wrap justify-between items-center gap-3">
             <div className="flex items-center gap-3">
-              <div className="w-9 h-9 rounded-xl bg-gradient-to-tr from-sky-500 to-indigo-600 text-white flex items-center justify-center shadow-xs">
+              <div className="w-9 h-9 rounded-lg bg-slate-900 text-white flex items-center justify-center">
                 <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 14l9-5-9-5-9 5 9 5zm0 0l6.16-3.422a12.083 12.083 0 01.665 6.479A11.952 11.952 0 0012 20.055a11.952 11.952 0 00-6.824-2.998 12.078 12.078 0 01.665-6.479L12 14zm-4 6v-7.5" />
                 </svg>
               </div>
               <div>
                 <div className="flex items-center gap-2">
-                  <h1 className="text-sm font-bold text-slate-900 tracking-tight">{t('app_title')}</h1>
-                  <span className="text-[10px] font-semibold px-2 py-0.5 rounded-full bg-sky-50 text-sky-700 border border-sky-100">
+                  <h1 className="text-sm font-semibold text-slate-900 tracking-tight">{t('app_title')}</h1>
+                  <span className="text-[10px] font-medium px-2 py-0.5 rounded-md bg-slate-100 text-slate-600 border border-slate-200">
                     {t('student_portal')}
                   </span>
                 </div>
                 <p className="text-[11px] text-slate-500">
-                  {user.name} • {t('cand_table_code')}: <span className="font-mono font-semibold text-slate-700">{user.studentCode || 'N/A'}</span>
+                  {user.name} · {t('cand_table_code')}: <span className="font-mono font-medium text-slate-700">{user.studentCode || 'N/A'}</span>
                 </p>
               </div>
             </div>
@@ -1214,34 +1021,28 @@ export default function App() {
 
         {/* Nội dung danh sách ca thi của thí sinh */}
         <main className="max-w-4xl w-full mx-auto p-4 md:p-8 flex-1 space-y-6">
-          <div className="bg-gradient-to-r from-sky-500/10 via-indigo-500/10 to-purple-500/10 border border-indigo-100 rounded-3xl p-6 relative overflow-hidden">
-            <div className="relative z-10 space-y-1.5">
-              <span className="inline-flex items-center gap-1.5 text-[11px] font-semibold text-indigo-700 bg-white/90 px-3 py-1 rounded-full border border-indigo-100">
-                <span className="w-1.5 h-1.5 rounded-full bg-emerald-500"></span>
-                {t('welcome_student')}, {user.name}
-              </span>
-              <h2 className="text-lg md:text-xl font-bold text-slate-900 tracking-tight">
-                {t('assigned_sessions_title')}
-              </h2>
-              <p className="text-xs text-slate-600 max-w-xl">
-                {t('student_exam_notice')}
-              </p>
-            </div>
+          <div className="space-y-1">
+            <h2 className="text-base md:text-lg font-semibold text-slate-900 tracking-tight">
+              {t('assigned_sessions_title')}
+            </h2>
+            <p className="text-xs text-slate-500 max-w-xl">
+              {t('student_exam_notice')}
+            </p>
           </div>
 
-          <div className="bg-white rounded-3xl p-6 border border-slate-200/80 shadow-xs space-y-4">
+          <div className="bg-white rounded-2xl p-6 border border-slate-200 shadow-sm space-y-4">
             <div className="flex items-center justify-between">
-              <h3 className="text-xs font-bold text-slate-800 uppercase tracking-wider flex items-center gap-2">
-                <svg className="w-4 h-4 text-indigo-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <h3 className="text-xs font-semibold text-slate-700 flex items-center gap-2">
+                <svg className="w-4 h-4 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
                 </svg>
-                {t('assigned_sessions')} ({mySessions.length})
+                {t('assigned_sessions')} · {mySessions.length}
               </h3>
             </div>
 
             {mySessions.length === 0 ? (
               <div className="text-center py-12 space-y-2">
-                <div className="w-12 h-12 mx-auto rounded-2xl bg-slate-100 text-slate-400 flex items-center justify-center">
+                <div className="w-12 h-12 mx-auto rounded-xl bg-slate-100 text-slate-400 flex items-center justify-center">
                   <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
                   </svg>
@@ -1260,17 +1061,17 @@ export default function App() {
                   return (
                     <div
                       key={s.id}
-                      className="p-5 rounded-2xl border border-slate-200/80 bg-white hover:border-indigo-200 hover:shadow-md transition-all duration-200 flex flex-col justify-between space-y-4 group"
+                      className="p-5 rounded-xl border border-slate-200 bg-white hover:border-slate-300 hover:shadow-sm transition flex flex-col justify-between space-y-4"
                     >
                       <div className="space-y-2">
                         <div className="flex justify-between items-start gap-2">
-                          <span className="text-[10px] font-mono px-2 py-0.5 rounded-md bg-slate-100 text-slate-600 font-semibold">
+                          <span className="text-[10px] font-mono px-2 py-0.5 rounded-md bg-slate-100 text-slate-600 font-medium">
                             #{s.id}
                           </span>
                           <span
-                            className={`text-[10px] font-semibold px-2.5 py-1 rounded-full border ${
+                            className={`text-[10px] font-medium px-2.5 py-1 rounded-md border ${
                               isRunning
-                                ? 'bg-emerald-50 text-emerald-700 border-emerald-200 animate-pulse'
+                                ? 'bg-emerald-50 text-emerald-700 border-emerald-200'
                                 : isUpcoming
                                 ? 'bg-amber-50 text-amber-700 border-amber-200'
                                 : 'bg-slate-100 text-slate-500 border-slate-200'
@@ -1280,7 +1081,7 @@ export default function App() {
                           </span>
                         </div>
 
-                        <h4 className="font-bold text-slate-900 text-sm group-hover:text-indigo-600 transition">
+                        <h4 className="font-semibold text-slate-900 text-sm">
                           {s.name}
                         </h4>
 
@@ -1290,7 +1091,7 @@ export default function App() {
                               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
                             </svg>
                             <span>
-                              {new Date(s.startTime).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })} - {new Date(s.endTime).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })} ({new Date(s.startTime).toLocaleDateString()})
+                              {new Date(s.startTime).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })} - {new Date(s.endTime).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })} · {new Date(s.startTime).toLocaleDateString()}
                             </span>
                           </div>
                           <div className="flex items-center gap-1.5">
@@ -1305,11 +1106,11 @@ export default function App() {
                       <button
                         onClick={() => openExamRoom(s.id)}
                         disabled={isClosed}
-                        className={`w-full py-2.5 rounded-xl text-xs font-semibold flex items-center justify-center gap-2 transition cursor-pointer shadow-xs ${
+                        className={`w-full py-2.5 rounded-xl text-xs font-semibold flex items-center justify-center gap-2 transition cursor-pointer ${
                           isRunning
-                            ? 'bg-gradient-to-r from-emerald-600 to-teal-600 text-white hover:from-emerald-500 hover:to-teal-500 shadow-emerald-200 active:scale-[0.99]'
+                            ? 'bg-indigo-600 text-white hover:bg-indigo-700 shadow-sm'
                             : isUpcoming
-                            ? 'bg-indigo-600 text-white hover:bg-indigo-500'
+                            ? 'bg-slate-900 text-white hover:bg-slate-800'
                             : 'bg-slate-100 text-slate-400 cursor-not-allowed'
                         }`}
                       >
@@ -1326,8 +1127,8 @@ export default function App() {
           </div>
         </main>
 
-        <footer className="text-center text-xs text-slate-400 py-4 border-t border-slate-200/50">
-          &copy; 2026 CloudExam • {t('footer_uet_title')}
+        <footer className="text-center text-xs text-slate-400 py-4 border-t border-slate-200">
+          &copy; 2026 CloudExam · {t('footer_uet_title')}
         </footer>
 
         {roleOnboardingModal}
@@ -1355,20 +1156,20 @@ export default function App() {
 
   // CỔNG QUẢN LÝ (GIẢNG VIÊN / BAN TỔ CHỨC)
   return (
-    <div className="min-h-screen bg-slate-50/70 text-slate-700 flex flex-col justify-between">
+    <div className="min-h-screen bg-slate-50 text-slate-700 flex flex-col justify-between">
       {/* Header Giảng viên / Ban tổ chức */}
-      <header className="bg-white/85 backdrop-blur-md border-b border-indigo-100/70 px-4 md:px-8 py-3 sticky top-0 z-40 shadow-2xs">
+      <header className="bg-white border-b border-slate-200 px-4 md:px-8 py-3 sticky top-0 z-40">
         <div className="max-w-6xl mx-auto flex flex-wrap justify-between items-center gap-3">
           <div className="flex items-center gap-3">
-            <div className="w-9 h-9 rounded-xl bg-gradient-to-tr from-indigo-600 to-indigo-500 text-white flex items-center justify-center shadow-xs shadow-indigo-200">
+            <div className="w-9 h-9 rounded-lg bg-slate-900 text-white flex items-center justify-center">
               <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 14l9-5-9-5-9 5 9 5zm0 0l6.16-3.422a12.083 12.083 0 01.665 6.479A11.952 11.952 0 0012 20.055a11.952 11.952 0 00-6.824-2.998 12.078 12.078 0 01.665-6.479L12 14zm-4 6v-7.5" />
               </svg>
             </div>
             <div>
               <div className="flex items-center gap-2">
-                <h1 className="text-sm font-bold text-slate-900 tracking-tight">{t('app_title')}</h1>
-                <span className="text-[10px] font-semibold px-2 py-0.5 rounded-full bg-purple-50 text-purple-700 border border-purple-200 font-bold">
+                <h1 className="text-sm font-semibold text-slate-900 tracking-tight">{t('app_title')}</h1>
+                <span className="text-[10px] font-medium px-2 py-0.5 rounded-md bg-slate-100 text-slate-600 border border-slate-200">
                   {t('qb_lecturer_label')}
                 </span>
               </div>
@@ -1380,18 +1181,6 @@ export default function App() {
 
           <div className="flex items-center gap-2.5 text-xs flex-wrap">
             <CountryLanguageBar />
-
-            <button
-              onClick={handleSyncToCloud}
-              disabled={syncing}
-              className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-xl text-xs font-medium border border-slate-200/80 transition cursor-pointer disabled:opacity-50"
-              title={t('sync_cloud')}
-            >
-              <svg className={`w-3.5 h-3.5 text-indigo-600 ${syncing ? 'animate-spin' : ''}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
-              </svg>
-              <span>{syncing ? t('syncing_cloud') : t('sync_cloud')}</span>
-            </button>
 
             <button
               onClick={logout}
@@ -1408,28 +1197,34 @@ export default function App() {
 
       {/* Main Container */}
       <main className="max-w-6xl w-full mx-auto p-4 md:p-6 space-y-5 flex-1">
-        {syncNotice && (
-          <div className="bg-emerald-50/90 border border-emerald-200 text-emerald-800 text-xs px-4 py-3 rounded-2xl flex items-center justify-between shadow-2xs">
+        {notice && (
+          <div className="bg-emerald-50 border border-emerald-200 text-emerald-800 text-xs px-4 py-3 rounded-xl flex items-center justify-between">
             <div className="flex items-center gap-2">
-              <span className="w-5 h-5 rounded-full bg-emerald-100 text-emerald-700 flex items-center justify-center shrink-0">✓</span>
-              <span>{syncNotice}</span>
+              <svg className="w-4 h-4 text-emerald-600 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+              </svg>
+              <span>{notice}</span>
             </div>
-            <button onClick={() => setSyncNotice(null)} className="font-bold text-slate-400 hover:text-slate-700 cursor-pointer text-sm">✕</button>
+            <button onClick={() => setNotice(null)} className="text-emerald-600 hover:text-emerald-900 cursor-pointer" aria-label="Close">
+              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M6 18L18 6M6 6l12 12" />
+              </svg>
+            </button>
           </div>
         )}
 
         {/* Thanh chuyển Tab Segmented Control */}
-        <div className="bg-slate-100/90 p-1.5 rounded-2xl flex space-x-1 border border-slate-200/70 overflow-x-auto shadow-2xs">
+        <div className="bg-slate-100 p-1 rounded-xl flex space-x-1 border border-slate-200 overflow-x-auto">
           {TABS.map((tItem) => {
             const isActive = activeTab === tItem.id;
             return (
               <button
                 key={tItem.id}
                 onClick={() => navigateToTab(tItem.id)}
-                className={`flex-1 min-w-[130px] py-2 px-3.5 rounded-xl font-semibold text-xs transition-all duration-200 whitespace-nowrap cursor-pointer flex items-center justify-center gap-2 ${
+                className={`flex-1 min-w-[130px] py-2 px-3.5 rounded-lg font-medium text-xs transition whitespace-nowrap cursor-pointer flex items-center justify-center gap-2 ${
                   isActive
-                    ? 'bg-white text-indigo-700 shadow-sm border border-indigo-100/80 font-bold'
-                    : 'text-slate-600 hover:text-slate-900 hover:bg-white/50'
+                    ? 'bg-white text-slate-900 shadow-sm border border-slate-200'
+                    : 'text-slate-500 hover:text-slate-900'
                 }`}
               >
                 {tItem.id === 'questions' && (
@@ -1495,9 +1290,9 @@ export default function App() {
 
         {/* Tab 4: Phòng thi */}
         {activeTab === 'exam_test' && (
-          <div className="bg-white p-6 rounded-3xl border border-slate-200/80 shadow-xs space-y-4">
+          <div className="bg-white p-6 rounded-2xl border border-slate-200 shadow-sm space-y-4">
             <div>
-              <h3 className="text-sm font-bold text-slate-900 tracking-tight">
+              <h3 className="text-sm font-semibold text-slate-900 tracking-tight">
                 {t('exam_online_room')}
               </h3>
               <p className="text-xs text-slate-500 mt-0.5">
@@ -1514,15 +1309,15 @@ export default function App() {
                 {sessions.map((s) => (
                   <div
                     key={s.id}
-                    className="p-5 border border-slate-200/80 rounded-2xl bg-white hover:border-indigo-200 hover:shadow-md transition-all duration-200 space-y-3"
+                    className="p-5 border border-slate-200 rounded-xl bg-white hover:border-slate-300 hover:shadow-sm transition space-y-3"
                   >
                     <div className="flex justify-between items-start">
                       <div>
-                        <span className="text-[10px] font-mono font-semibold text-slate-500 block">#{s.id}</span>
-                        <h4 className="font-bold text-slate-900 text-sm mt-0.5">{s.name}</h4>
+                        <span className="text-[10px] font-mono font-medium text-slate-500 block">#{s.id}</span>
+                        <h4 className="font-semibold text-slate-900 text-sm mt-0.5">{s.name}</h4>
                       </div>
                       <span
-                        className={`text-[10px] font-semibold px-2.5 py-1 rounded-full border ${
+                        className={`text-[10px] font-medium px-2.5 py-1 rounded-md border ${
                           s.status === 'RUNNING'
                             ? 'bg-emerald-50 text-emerald-700 border-emerald-200'
                             : 'bg-slate-100 text-slate-600 border-slate-200'
@@ -1534,13 +1329,13 @@ export default function App() {
 
                     <p className="text-xs text-slate-500 flex items-center gap-2">
                       <span>{s.questionIds?.length || 0} {t('sess_questions_unit')}</span>
-                      <span>•</span>
+                      <span className="text-slate-300">·</span>
                       <span>{s.candidateEmails?.length || 0} {t('sess_candidates_unit')}</span>
                     </p>
 
                     <button
                       onClick={() => openExamRoom(s.id)}
-                      className="w-full py-2.5 bg-indigo-600 hover:bg-indigo-700 text-white font-semibold rounded-xl text-xs transition cursor-pointer shadow-xs active:scale-[0.99]"
+                      className="w-full py-2.5 bg-slate-900 hover:bg-slate-800 text-white font-semibold rounded-xl text-xs transition cursor-pointer"
                     >
                       {t('enter_exam')}
                     </button>
@@ -1552,8 +1347,8 @@ export default function App() {
         )}
       </main>
 
-      <footer className="text-center text-xs text-slate-400 py-4 border-t border-slate-200/50">
-        &copy; 2026 CloudExam • {t('footer_copyright')}
+      <footer className="text-center text-xs text-slate-400 py-4 border-t border-slate-200">
+        &copy; 2026 CloudExam · {t('footer_copyright')}
       </footer>
 
       {roleOnboardingModal}

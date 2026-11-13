@@ -345,326 +345,6 @@ def rule_based_parse_questions(raw_text: str, subject: str = "Điện toán đá
 
     push_question(cur_q)
 
-    if not questions:
-        raw_blocks = re.split(
-            r'(?i)(?:^|\n)\s*(?:câu\s*\d+|question\s*\d+|q\s*\.?\s*\d+|\d+[\.:\)]|\[(?:câu|question|q)\s*\.?\s*\d+\])(?:\s*\([^)]*\))?[:\.\-]?\s*',
-            raw_text
-        )
-        for block in raw_blocks:
-            block = block.strip()
-            if not block or len(block) < 15:
-                continue
-
-            opt_matches = list(re.finditer(
-                r'(?i)(?:^|\n|\s+)(?:\(?([A-F])\)|\(?([A-F])[\.:\-\)]|\[([A-F])\])\s*(.*?)(?=(?:(?:^|\n|\s+)(?:\(?[A-F][\.:\-\)]|\([A-F]\)|\[[A-F]\])|\s*(?:đáp\s*án|đ\/a|correct\s*(?:answer|option)|answer|ans|key)|\Z))',
-                block,
-                re.DOTALL
-            ))
-            if len(opt_matches) >= 2:
-                prompt_end = opt_matches[0].start()
-                content = block[:prompt_end].strip()
-                content = re.sub(
-                    r'^(?:câu\s*\d+|question\s*\d+|q\s*\.?\s*\d+|\d+[\.:\)])(?:\s*\([^)]*\))?[:\.\-]?\s*',
-                    '',
-                    content,
-                    flags=re.IGNORECASE
-                ).strip()
-                content = re.sub(r'^\([^)]*\)\s*[:\.\-]?\s*', '', content).strip()
-                content = re.sub(r'\s*\(\s*\d+(?:[\.,]\d+)?\s*(?:điểm|pts?|points?|marks?)\s*\)\s*$', '', content, flags=re.IGNORECASE).strip()
-
-                options = []
-                for m in opt_matches[:6]:
-                    opt_t = (m.group(4) or m.group(2) or '').strip()
-                    opt_t = re.sub(
-                        r'(?i)(?:đáp\s*án(?:\s*đúng)?|giải\s*thích|correct\s*(?:answer|option)|answer|ans|key|explanation|explain|rationale|reason).*',
-                        '',
-                        opt_t
-                    ).strip()
-                    options.append(opt_t)
-
-                while len(options) < 4:
-                    options.append(f"{default_opt_prefix} {len(options)+1}")
-
-                ans_match = re.search(
-                    r'(?i)(?:đáp\s*án(?:\s*đúng)?|đ\/a|correct\s*(?:answer|option)|answer(?:\s*is)?|right\s*answer|ans|key)[:\s]*\(?([A-D])\)?',
-                    block
-                )
-                correct_idx = 0
-                if ans_match:
-                    letter = ans_match.group(1).upper()
-                    correct_idx = ord(letter) - ord('A')
-                    if correct_idx < 0 or correct_idx >= len(options):
-                        correct_idx = 0
-
-                questions.append({
-                    "content": content or default_content,
-                    "options": options,
-                    "correctIndex": correct_idx,
-                    "correctAnswer": options[correct_idx] if len(options) > correct_idx else options[0],
-                    "difficulty": "MEDIUM",
-                    "score": 1,
-                    "subject": subject,
-                    "topic": topic
-                })
-
-    if not questions:
-        lower_text = raw_text.lower()
-        count_match = re.search(r'(\d+)\s*(?:câu|questions?)', raw_text, re.IGNORECASE)
-        target_count = min(50, max(1, int(count_match.group(1)))) if count_match else 5
-
-        if any(kw in lower_text for kw in ["aws", "cloud", "ec2", "s3", "lambda", "vpc", "dynamodb", "iam"]):
-            aws_pool = [
-                {
-                    "content": "Dịch vụ nào của AWS cung cấp khả năng lưu trữ đối tượng không giới hạn với độ bền 99.999999999% (11 số 9)?",
-                    "options": ["Amazon S3", "Amazon EBS", "Amazon EFS", "AWS Storage Gateway"],
-                    "correctIndex": 0,
-                    "correctAnswer": "Amazon S3",
-                    "score": 1,
-                    "difficulty": "EASY",
-                    "subject": "Điện toán đám mây AWS",
-                    "topic": "Lưu trữ đối tượng (S3)"
-                },
-                {
-                    "content": "Trong AWS, mô hình điện toán Serverless cho phép chạy mã nguồn theo sự kiện mà không cần quản lý máy chủ là gì?",
-                    "options": ["AWS Lambda", "Amazon EC2", "Amazon ECS", "AWS Elastic Beanstalk"],
-                    "correctIndex": 0,
-                    "correctAnswer": "AWS Lambda",
-                    "score": 1,
-                    "difficulty": "EASY",
-                    "subject": "Điện toán đám mây AWS",
-                    "topic": "Điện toán phi máy chủ (Serverless)"
-                },
-                {
-                    "content": "Cơ chế nào được dùng để cô lập mạng ảo riêng an toàn cho các tài nguyên EC2, RDS và Lambda trong một tài khoản AWS?",
-                    "options": ["Amazon VPC (Virtual Private Cloud)", "Amazon Route 53", "AWS Direct Connect", "Amazon CloudFront"],
-                    "correctIndex": 0,
-                    "correctAnswer": "Amazon VPC (Virtual Private Cloud)",
-                    "score": 1,
-                    "difficulty": "MEDIUM",
-                    "subject": "Điện toán đám mây AWS",
-                    "topic": "Mạng ảo riêng (VPC)"
-                },
-                {
-                    "content": "Để quản trị danh tính và phân quyền chi tiết (Least Privilege) cho người dùng và các dịch vụ trên AWS, dịch vụ cốt lõi là gì?",
-                    "options": ["AWS IAM (Identity and Access Management)", "Amazon Cognito", "AWS Shield", "Amazon GuardDuty"],
-                    "correctIndex": 0,
-                    "correctAnswer": "AWS IAM (Identity and Access Management)",
-                    "score": 1,
-                    "difficulty": "EASY",
-                    "subject": "Điện toán đám mây AWS",
-                    "topic": "Bảo mật & Quản trị danh tính (IAM)"
-                },
-                {
-                    "content": "Dịch vụ cơ sở dữ liệu NoSQL nào trên AWS hỗ trợ khóa phân vùng (Partition Key), độ trễ phản hồi đơn vị ms và co giãn quy mô tự động?",
-                    "options": ["Amazon DynamoDB", "Amazon RDS MySQL", "Amazon Aurora Serverless", "Amazon DocumentDB"],
-                    "correctIndex": 0,
-                    "correctAnswer": "Amazon DynamoDB",
-                    "score": 1,
-                    "difficulty": "MEDIUM",
-                    "subject": "Điện toán đám mây AWS",
-                    "topic": "Cơ sở dữ liệu NoSQL (DynamoDB)"
-                },
-                {
-                    "content": "Dịch vụ nào cung cấp máy chủ ảo có thể cấu hình linh hoạt về CPU, RAM, lưu trữ và băng thông mạng trên đám mây AWS?",
-                    "options": ["Amazon EC2 (Elastic Compute Cloud)", "AWS Batch", "AWS Elastic Beanstalk", "Amazon Lightsail"],
-                    "correctIndex": 0,
-                    "correctAnswer": "Amazon EC2 (Elastic Compute Cloud)",
-                    "score": 1,
-                    "difficulty": "EASY",
-                    "subject": "Điện toán đám mây AWS",
-                    "topic": "Máy chủ ảo (EC2)"
-                },
-                {
-                    "content": "Mạng lưới phân phối nội dung (CDN) toàn cầu giúp tăng tốc truyền tải nội dung tĩnh và động với độ trễ thấp trên AWS là gì?",
-                    "options": ["Amazon CloudFront", "AWS Global Accelerator", "Amazon Route 53", "AWS Direct Connect"],
-                    "correctIndex": 0,
-                    "correctAnswer": "Amazon CloudFront",
-                    "score": 1,
-                    "difficulty": "EASY",
-                    "subject": "Điện toán đám mây AWS",
-                    "topic": "Mạng phân phối nội dung (CloudFront CDN)"
-                },
-                {
-                    "content": "Dịch vụ DNS có tính sẵn sàng cao, hỗ trợ quản lý định tuyến tên miền và kiểm tra tình trạng dịch vụ (Health Check) trên AWS là gì?",
-                    "options": ["Amazon Route 53", "AWS Direct Connect", "Amazon CloudFront", "AWS Transit Gateway"],
-                    "correctIndex": 0,
-                    "correctAnswer": "Amazon Route 53",
-                    "score": 1,
-                    "difficulty": "MEDIUM",
-                    "subject": "Điện toán đám mây AWS",
-                    "topic": "Hệ thống phân giải tên miền (Route 53)"
-                },
-                {
-                    "content": "Hàng đợi thông điệp phi máy chủ (Message Queue) giúp giải phóng phụ thuộc (Decoupling) giữa các microservices trên AWS là gì?",
-                    "options": ["Amazon SQS (Simple Queue Service)", "Amazon SNS", "Amazon EventBridge", "Amazon Kinesis"],
-                    "correctIndex": 0,
-                    "correctAnswer": "Amazon SQS (Simple Queue Service)",
-                    "score": 1,
-                    "difficulty": "EASY",
-                    "subject": "Điện toán đám mây AWS",
-                    "topic": "Hàng đợi thông điệp (SQS)"
-                },
-                {
-                    "content": "Dịch vụ pub/sub thông báo đẩy hỗ trợ gửi thông điệp tới nhiều người nhận qua Email, SMS hoặc SQS đồng thời là gì?",
-                    "options": ["Amazon SNS (Simple Notification Service)", "Amazon SES", "Amazon Pinpoint", "Amazon MQ"],
-                    "correctIndex": 0,
-                    "correctAnswer": "Amazon SNS (Simple Notification Service)",
-                    "score": 1,
-                    "difficulty": "EASY",
-                    "subject": "Điện toán đám mây AWS",
-                    "topic": "Thông báo đẩy (SNS)"
-                },
-                {
-                    "content": "Dịch vụ giám sát, thu thập số liệu (metrics), theo dõi nhật ký (logs) và cấu hình cảnh báo tài nguyên trên AWS là gì?",
-                    "options": ["Amazon CloudWatch", "AWS CloudTrail", "AWS Config", "AWS X-Ray"],
-                    "correctIndex": 0,
-                    "correctAnswer": "Amazon CloudWatch",
-                    "score": 1,
-                    "difficulty": "EASY",
-                    "subject": "Điện toán đám mây AWS",
-                    "topic": "Giám sát & Cảnh báo (CloudWatch)"
-                },
-                {
-                    "content": "Dịch vụ ghi nhật ký kiểm toán (Audit Log) theo dõi toàn bộ các lệnh gọi API được thực hiện trong tài khoản AWS là gì?",
-                    "options": ["AWS CloudTrail", "Amazon CloudWatch", "AWS Trusted Advisor", "AWS Systems Manager"],
-                    "correctIndex": 0,
-                    "correctAnswer": "AWS CloudTrail",
-                    "score": 1,
-                    "difficulty": "MEDIUM",
-                    "subject": "Điện toán đám mây AWS",
-                    "topic": "Kiểm toán hoạt động API (CloudTrail)"
-                },
-                {
-                    "content": "Dịch vụ quản lý và tạo khóa mã hóa dữ liệu tích hợp phần cứng FIPS 140-2 tiêu chuẩn trên AWS là gì?",
-                    "options": ["AWS KMS (Key Management Service)", "AWS Secrets Manager", "AWS Certificate Manager", "AWS CloudHSM"],
-                    "correctIndex": 0,
-                    "correctAnswer": "AWS KMS (Key Management Service)",
-                    "score": 1,
-                    "difficulty": "MEDIUM",
-                    "subject": "Điện toán đám mây AWS",
-                    "topic": "Mã hóa khóa (KMS)"
-                },
-                {
-                    "content": "Dịch vụ lưu trữ an toàn, tự động xoay vòng (Rotate) mật khẩu cơ sở dữ liệu và khóa API trên AWS là gì?",
-                    "options": ["AWS Secrets Manager", "AWS Systems Manager Parameter Store", "AWS KMS", "AWS IAM"],
-                    "correctIndex": 0,
-                    "correctAnswer": "AWS Secrets Manager",
-                    "score": 1,
-                    "difficulty": "MEDIUM",
-                    "subject": "Điện toán đám mây AWS",
-                    "topic": "Quản lý bí mật (Secrets Manager)"
-                },
-                {
-                    "content": "Bộ cân bằng tải hoạt động ở tầng ứng dụng Layer 7 hỗ trợ định tuyến theo đường dẫn URL (Path-based routing) là gì?",
-                    "options": ["Application Load Balancer (ALB)", "Network Load Balancer (NLB)", "Gateway Load Balancer (GWLB)", "Classic Load Balancer"],
-                    "correctIndex": 0,
-                    "correctAnswer": "Application Load Balancer (ALB)",
-                    "score": 1,
-                    "difficulty": "MEDIUM",
-                    "subject": "Điện toán đám mây AWS",
-                    "topic": "Cân bằng tải ứng dụng (ALB)"
-                },
-                {
-                    "content": "Tính năng tự động tăng hoặc giảm số lượng máy chủ EC2 dựa trên lưu lượng người dùng và tải CPU là gì?",
-                    "options": ["Amazon EC2 Auto Scaling", "AWS Elastic Beanstalk", "AWS Compute Optimizer", "Amazon ECS Service Auto Scaling"],
-                    "correctIndex": 0,
-                    "correctAnswer": "Amazon EC2 Auto Scaling",
-                    "score": 1,
-                    "difficulty": "EASY",
-                    "subject": "Điện toán đám mây AWS",
-                    "topic": "Tự động co giãn (Auto Scaling)"
-                },
-                {
-                    "content": "Tường lửa ứng dụng web giúp bảo vệ API Gateway và CloudFront trước các cuộc tấn công SQL Injection và Cross-Site Scripting (XSS) là gì?",
-                    "options": ["AWS WAF (Web Application Firewall)", "AWS Shield", "Amazon GuardDuty", "AWS Network Firewall"],
-                    "correctIndex": 0,
-                    "correctAnswer": "AWS WAF (Web Application Firewall)",
-                    "score": 1,
-                    "difficulty": "MEDIUM",
-                    "subject": "Điện toán đám mây AWS",
-                    "topic": "Tường lửa ứng dụng (WAF)"
-                },
-                {
-                    "content": "Dịch vụ cơ sở dữ liệu quan hệ được quản lý (Managed Relational Database) hỗ trợ MySQL, PostgreSQL, Oracle và SQL Server là gì?",
-                    "options": ["Amazon RDS (Relational Database Service)", "Amazon Aurora", "Amazon Redshift", "Amazon Neptune"],
-                    "correctIndex": 0,
-                    "correctAnswer": "Amazon RDS (Relational Database Service)",
-                    "score": 1,
-                    "difficulty": "EASY",
-                    "subject": "Điện toán đám mây AWS",
-                    "topic": "Cơ sở dữ liệu quan hệ (RDS)"
-                },
-                {
-                    "content": "Dịch vụ phân tích nhận diện khuôn mặt, so khớp sinh trắc học và phát hiện vật thể bằng AI trên AWS là gì?",
-                    "options": ["Amazon Rekognition", "Amazon Textract", "Amazon Comprehend", "Amazon Transcribe"],
-                    "correctIndex": 0,
-                    "correctAnswer": "Amazon Rekognition",
-                    "score": 1,
-                    "difficulty": "EASY",
-                    "subject": "Điện toán đám mây AWS",
-                    "topic": "Thị giác máy tính AI (Rekognition)"
-                },
-                {
-                    "content": "Dịch vụ điều phối luồng quy trình công việc phân tán (Workflow Orchestration) dạng State Machine không máy chủ trên AWS là gì?",
-                    "options": ["AWS Step Functions", "AWS Glue Workflows", "Amazon EventBridge Pipes", "AWS Batch"],
-                    "correctIndex": 0,
-                    "correctAnswer": "AWS Step Functions",
-                    "score": 1,
-                    "difficulty": "MEDIUM",
-                    "subject": "Điện toán đám mây AWS",
-                    "topic": "Điều phối quy trình (Step Functions)"
-                }
-            ]
-            return aws_pool[:target_count]
-        elif any(kw in lower_text for kw in ["microservice", "soa", "rest", "api"]):
-            return [
-                {
-                    "content": "Trong mô hình Kiến trúc Hướng Dịch vụ (SOA) và Microservices, đặc điểm nào sau đây là quan trọng nhất?",
-                    "options": [
-                        "Các dịch vụ có tính kết nối lỏng (Loosely Coupled) và giao tiếp qua các giao thức chuẩn",
-                        "Tất cả dịch vụ phải chia sẻ chung một bảng cơ sở dữ liệu quan hệ duy nhất",
-                        "Toàn bộ ứng dụng phải được đóng gói và triển khai đồng thời trong một tệp nhị phân",
-                        "Không được phép phân tán các dịch vụ trên nhiều máy chủ khác nhau"
-                    ],
-                    "correctIndex": 0,
-                    "correctAnswer": "Các dịch vụ có tính kết nối lỏng (Loosely Coupled) và giao tiếp qua các giao thức chuẩn",
-                    "score": 1,
-                    "difficulty": "MEDIUM",
-                    "subject": "Kiến trúc Phần mềm",
-                    "topic": "Microservices Architecture"
-                },
-                {
-                    "content": "Thành phần nào đóng vai trò điều phối thông điệp và giảm sự phụ thuộc trực tiếp giữa các dịch vụ trong kiến trúc SOA?",
-                    "options": [
-                        "Enterprise Service Bus (ESB) hoặc Message Broker (như Amazon SQS / Apache Kafka)",
-                        "Trình thông dịch mã nguồn phía Client",
-                        "Cổng giao tiếp phần cứng COM Port",
-                        "Hệ thống quản lý tệp tin cục bộ (Local File System)"
-                    ],
-                    "correctIndex": 0,
-                    "correctAnswer": "Enterprise Service Bus (ESB) hoặc Message Broker (như Amazon SQS / Apache Kafka)",
-                    "score": 1,
-                    "difficulty": "MEDIUM",
-                    "subject": "Kiến trúc Phần mềm",
-                    "topic": "Message Broker"
-                },
-                {
-                    "content": "Khi thiết kế API cho các dịch vụ SOA, giao thức RESTful thường sử dụng định dạng dữ liệu nào để truyền tải thông tin gọn nhẹ?",
-                    "options": [
-                        "JSON (JavaScript Object Notation)",
-                        "Mã máy nhị phân Assembly",
-                        "Tệp nén ZIP có mật khẩu",
-                        "Chuỗi mã vạch một chiều"
-                    ],
-                    "correctIndex": 0,
-                    "correctAnswer": "JSON (JavaScript Object Notation)",
-                    "score": 1,
-                    "difficulty": "EASY",
-                    "subject": "Kiến trúc Phần mềm",
-                    "topic": "RESTful API"
-                }
-            ]
-
     return questions
 
 
@@ -1307,6 +987,13 @@ def lambda_handler(event, context):
     )
     is_candidate = "Candidate" in user_groups or (is_student_code and not is_admin)
     is_admin_or_organizer = is_admin or is_organizer
+    # Tài khoản thí sinh không được thao tác ghi trên ngân hàng câu hỏi / thí sinh / ca thi
+    can_manage_content = is_admin_or_organizer and not is_candidate
+
+    def deny_if_cannot_manage():
+        return build_response(403, {
+            "error": "Chỉ Giảng viên/Ban tổ chức (Organizer) mới có quyền thực hiện thao tác này."
+        })
 
     try:
         body = json.loads(event.get("body") or "{}") if event.get("body") else {}
@@ -1318,6 +1005,8 @@ def lambda_handler(event, context):
         # 1. /questions API (Ngân hàng câu hỏi, Bóc tách đề thi AI & S3 Presigned URL)
         # =========================================================================
         if (resource_path == "/questions/parse-doc" or raw_path.endswith("/questions/parse-doc")) and http_method == "POST":
+            if not can_manage_content:
+                return deny_if_cannot_manage()
             # Task M-01: Bóc tách file Word đề thi qua Google Gemini AI
             raw_text = extract_text_from_doc_payload(body)
             if not raw_text:
@@ -1390,6 +1079,8 @@ def lambda_handler(event, context):
             })
 
         elif resource_path == "/questions/image-upload" and http_method == "POST":
+            if not can_manage_content:
+                return deny_if_cannot_manage()
             file_name = body.get("fileName", "image.jpg")
             content_type = body.get("contentType", "image/jpeg")
             prefix = body.get("prefix", "questions")
@@ -1476,6 +1167,8 @@ def lambda_handler(event, context):
                 return build_response(200, items)
 
             elif http_method == "POST":
+                if not can_manage_content:
+                    return deny_if_cannot_manage()
                 question_id = body.get("id") or body.get("questionId") or str(uuid.uuid4())
                 q_type = body.get("type", "SINGLE_CHOICE")
                 is_essay = q_type == "ESSAY"
@@ -1523,6 +1216,8 @@ def lambda_handler(event, context):
                 return build_response(200, item)
 
             elif http_method == "PUT":
+                if not can_manage_content:
+                    return deny_if_cannot_manage()
                 # Kiểm tra quyền sở hữu câu hỏi
                 q_res = questions_table.get_item(Key={"id": q_id})
                 existing_q = q_res.get("Item")
@@ -1564,6 +1259,8 @@ def lambda_handler(event, context):
                 return build_response(200, {"message": "Cập nhật thành công", "id": q_id})
 
             elif http_method == "DELETE":
+                if not can_manage_content:
+                    return deny_if_cannot_manage()
                 # Kiểm tra quyền sở hữu câu hỏi
                 q_res = questions_table.get_item(Key={"id": q_id})
                 existing_q = q_res.get("Item")
@@ -1594,6 +1291,8 @@ def lambda_handler(event, context):
                 return build_response(200, my_banks)
 
             elif http_method == "POST":
+                if not can_manage_content:
+                    return deny_if_cannot_manage()
                 # Hỗ trợ xóa ngân hàng câu hỏi qua POST action=DELETE (Đảm bảo tương thích API Gateway)
                 if body.get("action") == "DELETE" or body.get("_method") == "DELETE":
                     bank_id = body.get("id") or body.get("bankId") or query_params.get("id")
@@ -1642,6 +1341,8 @@ def lambda_handler(event, context):
                 return build_response(201, item)
 
             elif http_method == "DELETE":
+                if not can_manage_content:
+                    return deny_if_cannot_manage()
                 bank_id = query_params.get("id") or (body.get("id") if body else None) or (body.get("bankId") if body else None)
                 if not bank_id:
                     return build_response(400, {"error": "Thiếu id ngân hàng câu hỏi cần xóa."})
@@ -1673,6 +1374,8 @@ def lambda_handler(event, context):
         elif resource_path == "/question-banks/{id}":
             bank_id = path_parameters.get("id")
             if http_method == "DELETE":
+                if not can_manage_content:
+                    return deny_if_cannot_manage()
                 if not bank_id:
                     return build_response(400, {"error": "Thiếu id ngân hàng câu hỏi cần xóa."})
 
@@ -1726,6 +1429,8 @@ def lambda_handler(event, context):
                 return build_response(200, my_candidates)
 
             elif http_method == "POST":
+                if not can_manage_content:
+                    return deny_if_cannot_manage()
                 candidate_email = body.get("email")
                 if not candidate_email:
                     return build_response(400, {"error": "Thiếu email thí sinh."})
@@ -1830,6 +1535,8 @@ def lambda_handler(event, context):
                 return build_response(200, item)
 
             elif http_method == "DELETE":
+                if not can_manage_content:
+                    return deny_if_cannot_manage()
                 res = candidates_table.get_item(Key={"email": c_email})
                 item = res.get("Item")
                 if not item:
@@ -2141,6 +1848,8 @@ def lambda_handler(event, context):
         # Phục vụ Task 24: Truy vấn Sparse GSI SessionResultsIndex trên bảng Submissions (< 10ms)
         # =========================================================================
         elif resource_path == "/sessions/{id}/results" and http_method == "GET":
+            if not can_manage_content:
+                return deny_if_cannot_manage()
             s_id = path_parameters.get("id")
             res = sessions_table.get_item(Key={"id": s_id})
             session_item = res.get("Item")
@@ -2304,10 +2013,14 @@ def lambda_handler(event, context):
         # 3.3. /sessions/{id}/auto-finalize & /sessions/{id}/send-report APIs
         # =========================================================================
         elif (resource_path == "/sessions/{id}/auto-finalize" or raw_path.endswith("/auto-finalize")) and http_method == "POST":
+            if not can_manage_content:
+                return deny_if_cannot_manage()
             s_id = path_parameters.get("id")
             return handle_auto_finalize_session(s_id)
 
         elif (resource_path == "/sessions/{id}/send-report" or raw_path.endswith("/send-report")) and http_method == "POST":
+            if not can_manage_content:
+                return deny_if_cannot_manage()
             s_id = path_parameters.get("id")
             return handle_send_session_report(s_id)
 
@@ -2385,18 +2098,30 @@ def lambda_handler(event, context):
             if not session_id or not user_email_sub:
                 return build_response(400, {"error": "Thiếu sessionId hoặc thông tin thí sinh."})
 
-            # Kiểm tra trạng thái ca thi
+            # Kiểm tra ca thi tồn tại + trạng thái
             session_check = sessions_table.get_item(Key={"id": session_id})
             sess_item = session_check.get("Item")
-            if sess_item and sess_item.get("status") == "CLOSED":
+            if not sess_item:
+                return build_response(404, {"error": "Ca thi không tồn tại. Không thể nộp bài."})
+            if sess_item.get("status") == "CLOSED":
                 return build_response(400, {"error": "Ca thi đã kết thúc. Không thể nộp bài thêm."})
 
-            # Ưu tiên email thí sinh trong body nếu hợp lệ (Giảng viên xem trước/chấm hộ thí sinh),
+            # Ưu tiên email thí sinh trong body nếu thuộc danh sách ca thi (Giảng viên xem trước/chấm hộ thí sinh),
             # nếu không thì dùng email từ token (thí sinh tự nộp bài)
             body_email = (body.get("candidateEmail") or "").strip().lower()
-            session_emails = [e.lower() for e in (sess_item or {}).get("candidateEmails", [])]
-            if body_email and body_email in session_emails:
-                user_email_sub = body_email
+            session_emails = [e.lower() for e in sess_item.get("candidateEmails", [])]
+            organizer_preview = bool(claims.get("email")) and can_manage_content
+            if body_email:
+                if body_email in session_emails or organizer_preview:
+                    user_email_sub = body_email
+                else:
+                    return build_response(403, {
+                        "error": "Email thí sinh không thuộc danh sách của ca thi. Không thể nộp bài."
+                    })
+            elif session_emails and (user_email_sub or "").lower() not in session_emails and not organizer_preview:
+                return build_response(403, {
+                    "error": "Tài khoản không thuộc danh sách thí sinh của ca thi. Không thể nộp bài."
+                })
 
             submitted_at = datetime.now(timezone.utc).isoformat()
             submission_id = str(uuid.uuid4())

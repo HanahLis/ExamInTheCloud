@@ -114,31 +114,29 @@ export default function SessionResultsModal({ isOpen, onClose, sessionId }: Resu
 
   return (
     <div className="fixed inset-0 bg-slate-900/40 backdrop-blur-sm flex items-center justify-center z-50 p-4">
-      <div className="bg-white rounded-3xl border border-indigo-100 shadow-2xl w-full max-w-4xl flex flex-col max-h-[90vh] overflow-hidden">
+      <div className="bg-white rounded-2xl border border-slate-200 shadow-xl w-full max-w-4xl flex flex-col max-h-[90vh] overflow-hidden">
         {/* Header Modal */}
-        <div className="p-5 border-b border-indigo-100/70 flex justify-between items-center bg-gradient-to-r from-indigo-50/50 via-purple-50/20 to-sky-50/40">
+        <div className="p-5 border-b border-slate-200 flex justify-between items-center">
           <div className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-2xl bg-indigo-100/80 text-indigo-700 flex items-center justify-center border border-indigo-200/60 shadow-2xs">
+            <div className="w-10 h-10 rounded-xl bg-slate-100 text-slate-700 flex items-center justify-center">
               <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
               </svg>
             </div>
             <div>
-              <h2 className="text-base font-bold text-slate-900 tracking-tight">
+              <h2 className="text-base font-semibold text-slate-900 tracking-tight">
                 {t('res_modal_title')}{' '}
                 {sessionName && (
-                  <span className="font-semibold text-indigo-700">
-                    • {sessionId === 'EX-VNU-2026-01' ? t('default_session_exam_name') : sessionName}
-                  </span>
+                  <span className="font-medium text-slate-500">· {sessionName}</span>
                 )}
               </h2>
               <div className="flex items-center gap-2 mt-0.5">
-                <span className="text-xs font-mono font-semibold text-slate-500 bg-white/80 px-2 py-0.5 rounded-md border border-slate-200">
+                <span className="text-xs font-mono font-medium text-slate-500 bg-slate-50 px-2 py-0.5 rounded border border-slate-200">
                   #{sessionId}
                 </span>
                 {!loading && (
                   <span className="text-xs text-slate-500">
-                    • {results.length} {t('results_completed_badge')}
+                    · {results.length} {t('results_completed_badge')}
                   </span>
                 )}
               </div>
@@ -147,43 +145,49 @@ export default function SessionResultsModal({ isOpen, onClose, sessionId }: Resu
 
           <button
             onClick={onClose}
-            className="w-8 h-8 rounded-full bg-white/80 hover:bg-slate-100 text-slate-400 hover:text-slate-700 flex items-center justify-center text-sm font-bold border border-slate-200 transition cursor-pointer"
+            className="w-8 h-8 rounded-lg hover:bg-slate-100 text-slate-400 hover:text-slate-700 flex items-center justify-center transition cursor-pointer"
             title={t('close')}
           >
-            ✕
+            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M6 18L18 6M6 6l12 12" />
+            </svg>
           </button>
         </div>
 
         {/* Thông báo gửi SNS thành công */}
         {reportFeedback && (
-          <div className="mx-5 mt-4 p-3 bg-emerald-50 border border-emerald-200 text-emerald-800 text-xs rounded-2xl flex items-center justify-between shadow-2xs">
-            <span className="flex items-center gap-2 font-semibold">
-              <span className="w-5 h-5 rounded-full bg-emerald-200 text-emerald-800 flex items-center justify-center">✓</span>
+          <div className="mx-5 mt-4 p-3 bg-emerald-50 border border-emerald-200 text-emerald-800 text-xs rounded-xl flex items-center justify-between">
+            <span className="flex items-center gap-2 font-medium">
+              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M5 13l4 4L19 7" />
+              </svg>
               {reportFeedback}
             </span>
             <button
               onClick={() => setReportFeedback(null)}
-              className="text-emerald-600 hover:text-emerald-900 text-xs font-bold cursor-pointer"
+              className="text-emerald-600 hover:text-emerald-900 cursor-pointer"
             >
-              ✕
+              <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M6 18L18 6M6 6l12 12" />
+              </svg>
             </button>
           </div>
         )}
 
-        {/* Thống kê nhanh Pastel KPI Cards */}
+        {/* Thống kê nhanh */}
         {!loading && !error && results.length > 0 && (
           <div className="grid grid-cols-3 gap-3 p-5 pb-0">
-            <div className="p-3.5 bg-indigo-50/60 rounded-2xl border border-indigo-100/80 text-center space-y-1">
-              <span className="text-[11px] font-semibold text-slate-500 uppercase tracking-wider block">{t('results_kpi_avg')}</span>
-              <p className="text-xl font-bold text-indigo-700">{stats.avg} <span className="text-xs font-normal text-slate-400">/ 10</span></p>
+            <div className="p-3.5 bg-slate-50 rounded-xl border border-slate-200 text-center">
+              <span className="text-[10px] font-medium text-slate-500 uppercase tracking-wide block">{t('results_kpi_avg')}</span>
+              <p className="text-xl font-semibold text-indigo-600 mt-1">{stats.avg} <span className="text-xs font-normal text-slate-400">/ 10</span></p>
             </div>
-            <div className="p-3.5 bg-emerald-50/60 rounded-2xl border border-emerald-100/80 text-center space-y-1">
-              <span className="text-[11px] font-semibold text-slate-500 uppercase tracking-wider block">{t('results_kpi_pass')}</span>
-              <p className="text-xl font-bold text-emerald-700">{stats.passRate}%</p>
+            <div className="p-3.5 bg-slate-50 rounded-xl border border-slate-200 text-center">
+              <span className="text-[10px] font-medium text-slate-500 uppercase tracking-wide block">{t('results_kpi_pass')}</span>
+              <p className="text-xl font-semibold text-slate-900 mt-1">{stats.passRate}%</p>
             </div>
-            <div className="p-3.5 bg-sky-50/60 rounded-2xl border border-sky-100/80 text-center space-y-1">
-              <span className="text-[11px] font-semibold text-slate-500 uppercase tracking-wider block">{t('results_kpi_highest')}</span>
-              <p className="text-xl font-bold text-sky-700">{stats.highest} <span className="text-xs font-normal text-slate-400">/ 10</span></p>
+            <div className="p-3.5 bg-slate-50 rounded-xl border border-slate-200 text-center">
+              <span className="text-[10px] font-medium text-slate-500 uppercase tracking-wide block">{t('results_kpi_highest')}</span>
+              <p className="text-xl font-semibold text-slate-900 mt-1">{stats.highest} <span className="text-xs font-normal text-slate-400">/ 10</span></p>
             </div>
           </div>
         )}
@@ -221,7 +225,7 @@ export default function SessionResultsModal({ isOpen, onClose, sessionId }: Resu
                     </tr>
                   ) : (
                     results.map((res, i) => (
-                      <tr key={res.id || i} className="hover:bg-indigo-50/30 transition">
+                      <tr key={res.id || i} className="hover:bg-slate-50 transition">
                         <td className="p-3 font-mono font-semibold text-indigo-700">{res.studentCode || '—'}</td>
                         <td className="p-3 font-bold text-slate-900">{res.name}</td>
                         <td className="p-3 text-slate-500 font-mono text-[11px]">{res.email || res.candidateEmail}</td>
@@ -252,12 +256,12 @@ export default function SessionResultsModal({ isOpen, onClose, sessionId }: Resu
         </div>
 
         {/* Footer Modal */}
-        <div className="p-4 border-t border-indigo-100/70 bg-slate-50/70 flex flex-wrap justify-between items-center gap-3">
+        <div className="p-4 border-t border-slate-200 bg-slate-50/70 flex flex-wrap justify-between items-center gap-3">
           <div>
             <button
               onClick={handleSendSNSReport}
               disabled={loading || sendingReport || results.length === 0}
-              className="px-3.5 py-2 bg-sky-50 hover:bg-sky-100 text-sky-700 border border-sky-200 rounded-xl text-xs font-semibold disabled:opacity-40 transition flex items-center gap-1.5 cursor-pointer shadow-2xs"
+              className="px-3.5 py-2 bg-white hover:bg-slate-50 text-slate-700 border border-slate-300 rounded-xl text-xs font-medium disabled:opacity-40 transition flex items-center gap-1.5 cursor-pointer"
               title={t('sess_send_sns')}
             >
               <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -277,7 +281,7 @@ export default function SessionResultsModal({ isOpen, onClose, sessionId }: Resu
             <button
               onClick={handleExportCSV}
               disabled={loading || results.length === 0}
-              className="px-4 py-2 bg-gradient-to-r from-indigo-600 to-indigo-700 hover:from-indigo-500 hover:to-indigo-600 text-white text-xs font-semibold rounded-xl shadow-xs shadow-indigo-200 transition cursor-pointer disabled:opacity-40 flex items-center gap-1.5"
+              className="px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-semibold rounded-xl transition cursor-pointer disabled:opacity-40 flex items-center gap-1.5"
             >
               <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />

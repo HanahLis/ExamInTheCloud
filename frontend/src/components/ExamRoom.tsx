@@ -6,12 +6,10 @@ import {
   verifyFace,
   saveExamProgress,
   submitExam,
-  updateSessionCandidates,
   requestFacePresignedUrl,
   requestPresignedUploadUrl,
   uploadBinaryToS3,
   resolveSessionStatus,
-  DEFAULT_CANDIDATES,
   type ExamSession,
   type Question,
   type Candidate,
@@ -23,7 +21,6 @@ import { TurnstileCaptcha } from './TurnstileCaptcha';
 import { LiveLeaderboard } from './LiveLeaderboard';
 
 const TURNSTILE_SITE_KEY = (import.meta.env.VITE_TURNSTILE_SITE_KEY || '').trim();
-const TURNSTILE_DEV_TOKEN = '1x0000000000000000000000000000000AA';
 
 interface Props {
   sessionId: string;
@@ -238,8 +235,8 @@ export const ExamRoom = ({ sessionId, currentUserEmail = '', isOrganizer = false
         videoRef.current.play();
         setCameraActive(true);
       }
-    } catch (e) {
-      alert(`${t('alert_camera_error')} (${e})`);
+    } catch {
+      alert(t('alert_camera_error'));
     }
   };
 
@@ -317,8 +314,9 @@ export const ExamRoom = ({ sessionId, currentUserEmail = '', isOrganizer = false
         try {
           const matchedCand =
             candidates.find((c) => c.email.toLowerCase() === candidateEmail.toLowerCase()) ||
-            (session as any)?.candidates?.find((c: any) => c.email.toLowerCase() === candidateEmail.toLowerCase()) ||
-            DEFAULT_CANDIDATES.find((c) => c.email.toLowerCase() === candidateEmail.toLowerCase());
+            (session as any)?.candidates?.find(
+              (c: any) => c.email.toLowerCase() === candidateEmail.toLowerCase()
+            );
           const studentCode = matchedCand?.studentCode || candidateEmail.split('@')[0];
           const facePresign = await requestFacePresignedUrl(sessionId, studentCode);
           if (facePresign && facePresign.uploadUrl) {
@@ -348,13 +346,13 @@ export const ExamRoom = ({ sessionId, currentUserEmail = '', isOrganizer = false
         capturedImage: s3Key ? undefined : capturedImage,
         capturedS3Key: s3Key || undefined,
         email: candidateEmail,
-        roomPassword: session?.roomPassword || '123456',
+        roomPassword: session?.roomPassword || '',
         deviceToken: existingDevToken || undefined,
       });
 
       if (result.verified) {
-        const finalToken = result.deviceToken || existingDevToken || `tok_${Date.now()}`;
-        localStorage.setItem(localTokenKey, finalToken);
+        const finalToken = result.deviceToken || existingDevToken;
+        if (finalToken) localStorage.setItem(localTokenKey, finalToken);
         setSession((prev) => {
           if (!prev) return prev;
           return {
@@ -374,7 +372,7 @@ export const ExamRoom = ({ sessionId, currentUserEmail = '', isOrganizer = false
 
       setVerifyResult(result);
     } catch (err: any) {
-      let msg = err?.response?.data?.message || err?.response?.data?.error || err?.message || t('face_verify_failed');
+      let msg = err?.response?.data?.message || err?.response?.data?.error || err?.message || t('exam_camera_failed');
       if (msg === 'Forbidden' || err?.response?.status === 403) {
         msg = err?.response?.data?.message || t('face_mismatch_desc');
       }
@@ -391,10 +389,8 @@ export const ExamRoom = ({ sessionId, currentUserEmail = '', isOrganizer = false
 
   const handleSubmitExam = async (isAutoSubmit = false) => {
     if (TURNSTILE_SITE_KEY && !turnstileToken) {
-      if (!isAutoSubmit) {
-        alert(t('exam_turnstile_required'));
-        return;
-      }
+      alert(t(isAutoSubmit ? 'exam_time_up_turnstile_required' : 'exam_turnstile_required'));
+      return;
     }
     if (!isAutoSubmit && !confirm(t('exam_submit_confirm'))) return;
     setIsSubmitting(true);
@@ -404,7 +400,7 @@ export const ExamRoom = ({ sessionId, currentUserEmail = '', isOrganizer = false
         sessionId,
         answers: answersRef.current || answers,
         candidateEmail,
-        turnstileToken: turnstileToken || (TURNSTILE_SITE_KEY ? '' : TURNSTILE_DEV_TOKEN),
+        turnstileToken: turnstileToken || undefined,
       });
       setSubmitResult(res.result);
       setStep('COMPLETED');
@@ -426,12 +422,11 @@ export const ExamRoom = ({ sessionId, currentUserEmail = '', isOrganizer = false
     return `${m.toString().padStart(2, '0')}:${s.toString().padStart(2, '0')}`;
   };
 
-  const currentCandidateObj =
+  const currentCandidateObj: Candidate | undefined =
     candidates.find((c) => c.email.toLowerCase() === candidateEmail.toLowerCase()) ||
     (session as any)?.candidates?.find(
       (c: any) => c.email.toLowerCase() === candidateEmail.toLowerCase()
-    ) ||
-    DEFAULT_CANDIDATES.find((c) => c.email.toLowerCase() === candidateEmail.toLowerCase());
+    );
 
   if (loadingSession) {
     return (
@@ -444,13 +439,13 @@ export const ExamRoom = ({ sessionId, currentUserEmail = '', isOrganizer = false
 
   if (errorMsg || !session) {
     return (
-      <div className="max-w-md mx-auto p-8 bg-white rounded-3xl border border-slate-200/80 shadow-md text-center space-y-4">
-        <div className="w-12 h-12 mx-auto rounded-2xl bg-rose-50 text-rose-600 flex items-center justify-center">
+      <div className="max-w-md mx-auto p-8 bg-white rounded-2xl border border-slate-200 shadow-sm text-center space-y-4">
+        <div className="w-12 h-12 mx-auto rounded-xl bg-rose-50 text-rose-600 flex items-center justify-center">
           <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
           </svg>
         </div>
-        <h2 className="text-base font-bold text-slate-800">{t('exam_not_found')}</h2>
+        <h2 className="text-base font-semibold text-slate-800">{t('exam_not_found')}</h2>
         <p className="text-xs text-slate-600">{errorMsg || t('exam_invalid_id')}</p>
         <button
           onClick={onExit}
@@ -477,36 +472,36 @@ export const ExamRoom = ({ sessionId, currentUserEmail = '', isOrganizer = false
   return (
     <div className="max-w-4xl mx-auto space-y-5">
       {/* Tiêu đề ca thi & Header điều khiển */}
-      <div className="bg-white p-5 rounded-3xl border border-slate-200/80 shadow-xs flex flex-wrap justify-between items-center gap-3">
+      <div className="bg-white p-5 rounded-2xl border border-slate-200 shadow-sm flex flex-wrap justify-between items-center gap-3">
         <div className="space-y-1">
           <div className="flex items-center gap-2">
-            <span className="text-xs font-mono font-bold text-indigo-700 bg-indigo-50 px-2 py-0.5 rounded-lg border border-indigo-100">
+            <span className="text-xs font-mono font-medium text-slate-600 bg-slate-100 px-2 py-0.5 rounded-md border border-slate-200">
               #{session.id}
             </span>
             <span
-              className={`text-[10px] font-semibold px-2.5 py-0.5 rounded-full border ${statusStyles[currentStatus] || 'bg-slate-100 text-slate-600 border-slate-200'}`}
+              className={`text-[10px] font-medium px-2.5 py-0.5 rounded-md border ${statusStyles[currentStatus] || 'bg-slate-100 text-slate-600 border-slate-200'}`}
             >
               {t(statusKeys[currentStatus] || 'sess_status_scheduled')}
             </span>
           </div>
-          <h2 className="text-base font-bold text-slate-900 tracking-tight">
-            {session.id === 'EX-VNU-2026-01' ? t('default_session_exam_name') : session.name}
+          <h2 className="text-base font-semibold text-slate-900 tracking-tight">
+            {session.name}
           </h2>
           <p className="text-xs text-slate-500">
-            {sessionQuestions.length} {t('sess_questions_unit')} • {t('exam_candidate_label')} <span className="font-semibold text-slate-700">{currentCandidateObj?.name || candidateEmail}</span>
-            {currentCandidateObj?.studentCode && <span className="font-mono text-indigo-700"> ({currentCandidateObj.studentCode})</span>}
+            {sessionQuestions.length} {t('sess_questions_unit')} <span className="mx-1 text-slate-300">·</span> {t('exam_candidate_label')} <span className="font-medium text-slate-700">{currentCandidateObj?.name || candidateEmail}</span>
+            {currentCandidateObj?.studentCode && <span className="font-mono text-slate-500"> · {currentCandidateObj.studentCode}</span>}
           </p>
         </div>
 
         <div className="flex items-center gap-3">
           {step === 'IN_EXAM' && (
-            <div className="flex items-center gap-3 bg-indigo-50/70 px-4 py-2 rounded-2xl border border-indigo-100/80">
+            <div className="flex items-center gap-3 bg-slate-50 px-4 py-2 rounded-xl border border-slate-200">
               <div className="text-right">
                 <span className="text-[10px] text-slate-500 flex items-center justify-end gap-1 font-medium">
-                  <span className={`inline-block w-1.5 h-1.5 rounded-full ${isSavingDraft ? 'bg-amber-500 animate-ping' : 'bg-emerald-500'}`}></span>
+                  <span className={`inline-block w-1.5 h-1.5 rounded-full ${isSavingDraft ? 'bg-amber-500' : 'bg-emerald-500'}`}></span>
                   {isSavingDraft ? t('exam_syncing_cloud') : (lastSavedTime || t('exam_auto_save_local'))}
                 </span>
-                <span className={`text-base font-mono font-bold ${timeLeft < 300 ? 'text-rose-600 animate-pulse' : 'text-indigo-900'}`}>
+                <span className={`text-base font-mono font-semibold ${timeLeft < 300 ? 'text-rose-600' : 'text-slate-900'}`}>
                   {formatTimer(timeLeft)}
                 </span>
               </div>
@@ -515,7 +510,7 @@ export const ExamRoom = ({ sessionId, currentUserEmail = '', isOrganizer = false
 
           <button
             onClick={onExit}
-            className="text-xs text-slate-600 hover:text-slate-900 px-3.5 py-2 border border-slate-200/80 rounded-xl hover:bg-slate-50 transition cursor-pointer font-medium flex items-center gap-1.5"
+            className="text-xs text-slate-600 hover:text-slate-900 px-3.5 py-2 border border-slate-200 rounded-xl hover:bg-slate-50 transition cursor-pointer font-medium flex items-center gap-1.5"
           >
             <svg className="w-4 h-4 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M10 19l-7-7m0 0l7-7m-7 7h18" />
@@ -527,30 +522,34 @@ export const ExamRoom = ({ sessionId, currentUserEmail = '', isOrganizer = false
 
       {/* Thông báo trạng thái ca thi */}
       {currentStatus === 'SCHEDULED' && (
-        <div className="p-4 bg-amber-50/90 border border-amber-200/80 rounded-2xl text-xs text-amber-900 flex items-center gap-2.5 shadow-2xs">
-          <span className="w-5 h-5 rounded-full bg-amber-100 text-amber-800 flex items-center justify-center shrink-0">ℹ</span>
+        <div className="p-4 bg-amber-50 border border-amber-200 rounded-xl text-xs text-amber-900 flex items-center gap-2.5">
+          <svg className="w-4 h-4 text-amber-600 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+          </svg>
           <span>{t('exam_status_scheduled_msg')}</span>
         </div>
       )}
 
       {currentStatus === 'CLOSED' && (
-        <div className="p-4 bg-slate-100 border border-slate-200 rounded-2xl text-xs text-slate-700 flex items-center gap-2.5">
-          <span className="w-5 h-5 rounded-full bg-slate-200 text-slate-700 flex items-center justify-center shrink-0">✕</span>
+        <div className="p-4 bg-slate-100 border border-slate-200 rounded-xl text-xs text-slate-700 flex items-center gap-2.5">
+          <svg className="w-4 h-4 text-slate-500 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+          </svg>
           <span>{t('exam_status_closed_msg')}</span>
         </div>
       )}
 
       {/* BƯỚC 1: XÁC THỰC KHUÔN MẶT SINH TRẮC HỌC */}
       {step === 'FACE_VERIFY' && (
-        <div className="bg-white p-6 rounded-3xl border border-slate-200/80 shadow-xs space-y-5">
-          <div className="border-b border-indigo-100/60 pb-3 flex items-center gap-2.5">
-            <div className="w-8 h-8 rounded-xl bg-indigo-50 text-indigo-600 flex items-center justify-center">
+        <div className="bg-white p-6 rounded-2xl border border-slate-200 shadow-sm space-y-5">
+          <div className="border-b border-slate-200 pb-3 flex items-center gap-2.5">
+            <div className="w-8 h-8 rounded-lg bg-slate-100 text-slate-500 flex items-center justify-center">
               <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M5.121 17.804A13.937 13.937 0 0112 16c2.5 0 4.847.655 6.879 1.804M15 10a3 3 0 11-6 0 3 3 0 016 0zm6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
               </svg>
             </div>
             <div>
-              <h3 className="text-sm font-bold text-slate-900 tracking-tight">
+              <h3 className="text-sm font-semibold text-slate-900 tracking-tight">
                 {t('exam_biometric_title')}
               </h3>
               <p className="text-xs text-slate-500">
@@ -559,7 +558,7 @@ export const ExamRoom = ({ sessionId, currentUserEmail = '', isOrganizer = false
             </div>
           </div>
 
-          <div className="bg-indigo-50/40 p-4 rounded-2xl border border-indigo-100/60 space-y-3">
+          <div className="bg-slate-50 p-4 rounded-xl border border-slate-200 space-y-3">
             {isOrganizer ? (
               <div>
                 <label className="block text-xs font-semibold text-slate-700 mb-1.5">
@@ -567,25 +566,18 @@ export const ExamRoom = ({ sessionId, currentUserEmail = '', isOrganizer = false
                 </label>
                 <div className="flex flex-wrap gap-2">
                   {(() => {
-                    const sessionEmails = session.candidateEmails || [];
-                    const allEmails = Array.from(new Set([...sessionEmails, ...candidates.map((c) => c.email)]));
+                    const allEmails = session.candidateEmails || [];
                     return allEmails.map((email) => {
                       const cand = candidates.find((c) => c.email.toLowerCase() === email.toLowerCase());
                       const isSelected = candidateEmail.toLowerCase() === email.toLowerCase();
-                      const isAssigned = sessionEmails.some((e) => e.toLowerCase() === email.toLowerCase());
                       return (
                         <button
                           key={email}
                           type="button"
-                          onClick={() => {
-                            setCandidateEmail(email);
-                            if (!isAssigned) {
-                              updateSessionCandidates(sessionId, [...sessionEmails, email]).catch(() => {});
-                            }
-                          }}
-                          className={`text-xs px-3 py-1.5 rounded-xl border transition cursor-pointer font-medium ${
+                          onClick={() => setCandidateEmail(email)}
+                          className={`text-xs px-3 py-1.5 rounded-lg border transition cursor-pointer font-medium ${
                             isSelected
-                              ? 'bg-indigo-600 text-white border-indigo-600 shadow-xs'
+                              ? 'bg-indigo-600 text-white border-indigo-600'
                               : 'bg-white text-slate-700 border-slate-200 hover:bg-slate-50'
                           }`}
                         >
@@ -601,68 +593,59 @@ export const ExamRoom = ({ sessionId, currentUserEmail = '', isOrganizer = false
                 <span className="font-medium text-slate-500">{t('exam_candidate_label')}</span>
                 <span className="font-bold text-slate-900">{currentCandidateObj?.name || candidateEmail}</span>
                 {currentCandidateObj?.studentCode && (
-                  <span className="text-indigo-700 font-mono font-semibold">({currentCandidateObj.studentCode})</span>
+                  <span className="text-slate-500 font-mono">· {currentCandidateObj.studentCode}</span>
                 )}
-                <span className="text-slate-400 font-mono text-[11px]">[{candidateEmail}]</span>
+                <span className="text-slate-400 font-mono text-[11px]">· {candidateEmail}</span>
               </div>
             )}
 
-            <div className="pt-2 border-t border-indigo-100/60 flex flex-wrap items-center justify-between gap-2 text-[11px] text-slate-500">
+            <div className="pt-2 border-t border-slate-200 flex flex-wrap items-center justify-between gap-2 text-[11px] text-slate-500">
               <span className="flex items-center gap-1.5">
                 <span className="w-1.5 h-1.5 rounded-full bg-emerald-500"></span>
                 <span>{t('exam_biometric_algo')}</span>
               </span>
               <span className="font-medium">
-                {t('exam_threshold_label')} <span className="font-mono font-bold text-indigo-700">&ge; 80%</span>
+                {t('exam_threshold_label')} <span className="font-mono font-semibold text-slate-700">&ge; 80%</span>
               </span>
             </div>
           </div>
 
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4 items-start">
             {/* Ảnh hồ sơ sinh viên */}
-            <div className="space-y-2 p-4 bg-slate-50/70 rounded-2xl border border-slate-200/80 text-center">
-              <div className="text-xs text-slate-700 font-bold">
+            <div className="space-y-2 p-4 bg-slate-50 rounded-xl border border-slate-200 text-center">
+              <div className="text-xs text-slate-700 font-semibold">
                 {t('exam_profile_photo')}
               </div>
-              <div className="aspect-[3/4] max-w-[240px] mx-auto bg-slate-200/80 rounded-2xl overflow-hidden flex items-center justify-center border border-slate-200 shadow-inner">
-                {currentCandidateObj?.faceImageUrl ? (
+              <div className="relative aspect-[3/4] max-w-[240px] mx-auto bg-slate-200 rounded-lg overflow-hidden flex items-center justify-center border border-slate-200">
+                <span className="text-2xl font-semibold text-slate-400">
+                  {currentCandidateObj?.name
+                    ? currentCandidateObj.name.trim().split(/\s+/).slice(-2).map((w) => w.charAt(0)).join('').toUpperCase()
+                    : '?'}
+                </span>
+                {currentCandidateObj?.faceImageUrl && (
                   <img
                     src={currentCandidateObj.faceImageUrl}
                     alt="Profile"
-                    className="w-full h-full object-cover"
+                    className="absolute inset-0 w-full h-full object-cover"
                     onError={(e) => {
-                      const img = e.target as HTMLImageElement;
-                      const fileBase =
-                        currentCandidateObj.studentCode === 'GV001'
-                          ? 'annv'
-                          : currentCandidateObj.studentCode;
-                      const fallbackUrl = `/sample_faces/${fileBase}.jpg`;
-                      if (!img.src.includes(fallbackUrl)) {
-                        img.src = fallbackUrl;
-                      } else {
-                        img.src =
-                          'https://ui-avatars.com/api/?name=' +
-                          encodeURIComponent(currentCandidateObj.name) +
-                          '&background=e0e7ff&color=4338ca&size=256';
-                      }
+                      (e.target as HTMLElement).style.display = 'none';
                     }}
                   />
-                ) : (
-                  <span className="text-xs text-slate-400">{t('exam_no_profile_photo')}</span>
                 )}
               </div>
               <p className="text-xs text-slate-600 font-medium">
-                {currentCandidateObj?.name} ({currentCandidateObj?.studentCode})
+                {currentCandidateObj?.name}
+                {currentCandidateObj?.studentCode && <span className="font-mono text-slate-400"> · {currentCandidateObj.studentCode}</span>}
               </p>
             </div>
 
             {/* Webcam Thí sinh trực tiếp */}
-            <div className="space-y-2 p-4 bg-slate-50/70 rounded-2xl border border-slate-200/80 text-center">
-              <div className="text-xs text-slate-700 font-bold">
+            <div className="space-y-2 p-4 bg-slate-50 rounded-xl border border-slate-200 text-center">
+              <div className="text-xs text-slate-700 font-semibold">
                 {t('exam_webcam_photo')}
               </div>
 
-              <div className="aspect-[3/4] max-w-[240px] mx-auto bg-slate-900 rounded-2xl overflow-hidden flex items-center justify-center border border-slate-800 shadow-inner relative group">
+              <div className="aspect-[3/4] max-w-[240px] mx-auto bg-slate-900 rounded-lg overflow-hidden flex items-center justify-center border border-slate-800 relative group">
                 {/* Nút lật gương / Đảo chiều nhanh góc trên bên phải */}
                 <button
                   type="button"
@@ -739,13 +722,16 @@ export const ExamRoom = ({ sessionId, currentUserEmail = '', isOrganizer = false
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M8 7h12m0 0l-4-4m4 4l-4 4m0 6H4m0 0l4 4m-4-4l4-4" />
                   </svg>
                   <span>{t('exam_camera_flip')}</span>
-                  <span className="text-[10px] text-indigo-600 font-bold font-mono">({isMirrored ? t('exam_camera_mirror') : t('exam_camera_normal')})</span>
+                  <span className="text-[10px] text-slate-500 font-medium font-mono">· {isMirrored ? t('exam_camera_mirror') : t('exam_camera_normal')}</span>
                 </button>
               </div>
 
               {/* Thông báo bắt buộc chụp trực tiếp từ camera (không cho up ảnh từ máy) */}
-              <div className="p-2.5 bg-amber-50/80 border border-amber-200/80 rounded-xl text-[11px] text-amber-800 flex items-center justify-center gap-1.5 font-medium">
-                <span className="text-amber-600">📸</span>
+              <div className="p-2.5 bg-amber-50 border border-amber-200 rounded-lg text-[11px] text-amber-800 flex items-center justify-center gap-1.5 font-medium">
+                <svg className="w-3.5 h-3.5 text-amber-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M3 9a2 2 0 012-2h.93a2 2 0 001.664-.89l.812-1.22A2 2 0 0110.07 4h3.86a2 2 0 011.664.89l.812 1.22A2 2 0 0018.07 7H19a2 2 0 012 2v9a2 2 0 01-2 2H5a2 2 0 01-2-2V9z" />
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M15 13a3 3 0 11-6 0 3 3 0 016 0z" />
+                </svg>
                 <span>{t('exam_camera_only_notice')}</span>
               </div>
             </div>
@@ -755,7 +741,7 @@ export const ExamRoom = ({ sessionId, currentUserEmail = '', isOrganizer = false
             <button
               onClick={handleVerifyFace}
               disabled={!capturedImage || isVerifying}
-              className="w-full py-3 bg-gradient-to-r from-indigo-600 to-indigo-700 hover:from-indigo-500 hover:to-indigo-600 text-white font-semibold rounded-2xl shadow-sm shadow-indigo-200 disabled:opacity-40 transition cursor-pointer text-xs active:scale-[0.99]"
+              className="w-full py-3 bg-indigo-600 hover:bg-indigo-700 text-white font-semibold rounded-xl shadow-sm disabled:opacity-40 transition cursor-pointer text-xs"
             >
               {isVerifying ? (
                 <span className="flex items-center justify-center gap-2">
@@ -769,21 +755,29 @@ export const ExamRoom = ({ sessionId, currentUserEmail = '', isOrganizer = false
 
             {verifyResult && (
               <div
-                className={`p-4 rounded-2xl border text-xs space-y-2 ${
+                className={`p-4 rounded-xl border text-xs space-y-2 ${
                   verifyResult.verified
                     ? 'bg-emerald-50 border-emerald-200 text-emerald-900'
                     : 'bg-rose-50 border-rose-200 text-rose-900'
                 }`}
               >
-                <div className="font-bold flex items-center gap-2">
-                  <span className={`w-5 h-5 rounded-full flex items-center justify-center text-xs ${verifyResult.verified ? 'bg-emerald-200 text-emerald-800' : 'bg-rose-200 text-rose-800'}`}>
-                    {verifyResult.verified ? '✓' : '✕'}
-                  </span>
+                <div className="font-semibold flex items-center gap-2">
+                  {verifyResult.verified ? (
+                    <svg className="w-4 h-4 text-emerald-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+                    </svg>
+                  ) : (
+                    <svg className="w-4 h-4 text-rose-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                    </svg>
+                  )}
                   <span>{verifyResult.verified ? t('exam_camera_success') : t('exam_camera_failed')}</span>
                 </div>
                 {verifyResult.verified && (
-                  <div className="px-3 py-1.5 bg-emerald-100/70 border border-emerald-300 rounded-xl text-emerald-900 font-semibold text-[11px] flex items-center gap-1.5">
-                    <span>🔒</span>
+                  <div className="px-3 py-1.5 bg-emerald-100 border border-emerald-300 rounded-lg text-emerald-900 font-medium text-[11px] flex items-center gap-1.5">
+                    <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
+                    </svg>
                     <span>{t('exam_account_locked_success')}</span>
                   </div>
                 )}
@@ -792,7 +786,7 @@ export const ExamRoom = ({ sessionId, currentUserEmail = '', isOrganizer = false
                   <div className="space-y-1">
                     <div className="flex justify-between text-[11px] font-medium text-slate-600">
                       <span>{t('exam_similarity_label')}</span>
-                      <span className="font-mono font-bold">{verifyResult.similarity}%</span>
+                      <span className="font-mono font-semibold">{verifyResult.similarity}%</span>
                     </div>
                     <div className="w-full h-2 bg-slate-200 rounded-full overflow-hidden">
                       <div
@@ -807,7 +801,7 @@ export const ExamRoom = ({ sessionId, currentUserEmail = '', isOrganizer = false
                   currentStatus === 'RUNNING' ? (
                     <button
                       onClick={() => setStep('IN_EXAM')}
-                      className="mt-3 w-full py-2.5 bg-gradient-to-r from-emerald-600 to-teal-600 text-white font-semibold rounded-xl text-xs hover:from-emerald-500 hover:to-teal-500 transition cursor-pointer shadow-xs active:scale-[0.99]"
+                      className="mt-3 w-full py-2.5 bg-emerald-600 text-white font-semibold rounded-xl text-xs hover:bg-emerald-700 transition cursor-pointer"
                     >
                       {t('start_exam_btn')}
                     </button>
@@ -829,20 +823,20 @@ export const ExamRoom = ({ sessionId, currentUserEmail = '', isOrganizer = false
 
       {/* BƯỚC 2: LÀM BÀI THI */}
       {step === 'IN_EXAM' && (
-        <div className="bg-white p-6 rounded-3xl border border-slate-200/80 shadow-xs space-y-6">
+        <div className="bg-white p-6 rounded-2xl border border-slate-200 shadow-sm space-y-6">
           <div className="flex flex-wrap justify-between items-center border-b border-slate-100 pb-4 gap-3">
             <div>
-              <h3 className="text-sm font-bold text-slate-900 tracking-tight">
-                {t('exam_multiple_choice_title')} ({sessionQuestions.length} {t('sess_questions_unit')})
+              <h3 className="text-sm font-semibold text-slate-900 tracking-tight">
+                {t('exam_multiple_choice_title')} · {sessionQuestions.length} {t('sess_questions_unit')}
               </h3>
               <p className="text-xs text-slate-500 mt-0.5">
-                {t('exam_question_answered_stat')}: <span className="font-bold text-indigo-700">{Object.keys(answers).length}</span>/{sessionQuestions.length} {t('sess_questions_unit')}
+                {t('exam_question_answered_stat')}: <span className="font-semibold text-slate-900">{Object.keys(answers).length}</span>/{sessionQuestions.length} {t('sess_questions_unit')}
               </p>
             </div>
             <button
               onClick={() => handleSubmitExam(false)}
               disabled={isSubmitting}
-              className="py-2.5 px-6 bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-500 hover:to-teal-500 text-white font-semibold rounded-xl text-xs shadow-xs shadow-emerald-200 disabled:opacity-40 transition cursor-pointer active:scale-[0.99]"
+              className="py-2.5 px-6 bg-emerald-600 hover:bg-emerald-700 text-white font-semibold rounded-xl text-xs disabled:opacity-40 transition cursor-pointer"
             >
               {isSubmitting ? t('exam_submitting_btn') : t('exam_submit_btn')}
             </button>
@@ -854,16 +848,16 @@ export const ExamRoom = ({ sessionId, currentUserEmail = '', isOrganizer = false
               return (
                 <div
                   key={q.id}
-                  className="p-5 rounded-2xl border border-slate-200/80 space-y-3 bg-slate-50/40 hover:bg-white hover:border-indigo-200 transition-all duration-200"
+                  className="p-5 rounded-xl border border-slate-200 space-y-3 bg-white hover:border-slate-300 transition"
                 >
                   <div className="flex justify-between items-start gap-3">
                     <p className="font-medium text-slate-900 text-xs leading-relaxed">
-                      <span className="font-bold text-indigo-700 mr-2 bg-indigo-50 px-2 py-0.5 rounded-lg border border-indigo-100">
+                      <span className="font-medium text-slate-600 mr-2 bg-slate-100 px-2 py-0.5 rounded-md border border-slate-200">
                         {t('exam_question_num')} {idx + 1}
                       </span>
                       {q.content}
                     </p>
-                    <span className="text-[11px] font-semibold text-slate-400 bg-white px-2 py-0.5 rounded-md border border-slate-200 shrink-0">
+                    <span className="text-[11px] font-medium text-slate-500 bg-slate-50 px-2 py-0.5 rounded-md border border-slate-200 shrink-0">
                       {q.score} {t('exam_points_unit')}
                     </span>
                   </div>
@@ -898,10 +892,10 @@ export const ExamRoom = ({ sessionId, currentUserEmail = '', isOrganizer = false
                           <label
                             key={optIdx}
                             onClick={() => handleSelectOption(q.id, optIdx)}
-                            className={`flex items-center space-x-3 p-3 rounded-2xl border cursor-pointer text-xs transition-all duration-150 ${
+                            className={`flex items-center space-x-3 p-3 rounded-xl border cursor-pointer text-xs transition ${
                               isChecked
-                                ? 'bg-indigo-50/80 border-indigo-400 font-semibold text-indigo-900 shadow-2xs ring-1 ring-indigo-200'
-                                : 'bg-white border-slate-200/80 text-slate-700 hover:bg-slate-50 hover:border-slate-300'
+                                ? 'bg-indigo-50 border-indigo-500 font-medium text-indigo-950'
+                                : 'bg-white border-slate-200 text-slate-700 hover:bg-slate-50 hover:border-slate-300'
                             }`}
                           >
                             <input
@@ -911,7 +905,7 @@ export const ExamRoom = ({ sessionId, currentUserEmail = '', isOrganizer = false
                               onChange={() => handleSelectOption(q.id, optIdx)}
                               className="text-indigo-600 focus:ring-indigo-300"
                             />
-                            <span className={`w-6 h-6 rounded-lg text-xs font-bold flex items-center justify-center shrink-0 ${isChecked ? 'bg-indigo-600 text-white' : 'bg-slate-100 text-slate-600'}`}>
+                            <span className={`w-6 h-6 rounded-md text-xs font-semibold flex items-center justify-center shrink-0 ${isChecked ? 'bg-indigo-600 text-white' : 'bg-slate-100 text-slate-600'}`}>
                               {label}
                             </span>
                             <span className="flex-1 leading-snug">{opt}</span>
@@ -927,7 +921,7 @@ export const ExamRoom = ({ sessionId, currentUserEmail = '', isOrganizer = false
 
           <div className="pt-4 border-t border-slate-100 space-y-4">
             {TURNSTILE_SITE_KEY && (
-              <div className="flex flex-col items-center gap-2 p-4 bg-slate-50/70 border border-slate-200/80 rounded-2xl">
+              <div className="flex flex-col items-center gap-2 p-4 bg-slate-50 border border-slate-200 rounded-xl">
                 <p className="text-xs font-semibold text-slate-700">{t('exam_turnstile_verify_label')}</p>
                 <TurnstileCaptcha
                   siteKey={TURNSTILE_SITE_KEY}
@@ -936,7 +930,7 @@ export const ExamRoom = ({ sessionId, currentUserEmail = '', isOrganizer = false
                   resetKey={turnstileResetKey}
                 />
                 <p className={`text-[11px] font-medium ${turnstileToken ? 'text-emerald-600' : 'text-slate-400'}`}>
-                  {turnstileToken ? `✓ ${t('exam_turnstile_verified')}` : t('exam_turnstile_protected')}
+                  {turnstileToken ? t('exam_turnstile_verified') : t('exam_turnstile_protected')}
                 </p>
               </div>
             )}
@@ -944,7 +938,7 @@ export const ExamRoom = ({ sessionId, currentUserEmail = '', isOrganizer = false
               <button
                 onClick={() => handleSubmitExam(false)}
                 disabled={isSubmitting || (Boolean(TURNSTILE_SITE_KEY) && !turnstileToken)}
-                className="py-3 px-8 bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-500 hover:to-teal-500 text-white font-semibold rounded-2xl text-xs shadow-md shadow-emerald-200 disabled:opacity-40 transition cursor-pointer active:scale-[0.99]"
+                className="py-3 px-8 bg-emerald-600 hover:bg-emerald-700 text-white font-semibold rounded-xl text-xs disabled:opacity-40 transition cursor-pointer"
               >
                 {isSubmitting ? t('exam_submitting_btn') : t('exam_submit_btn')}
               </button>
@@ -960,23 +954,23 @@ export const ExamRoom = ({ sessionId, currentUserEmail = '', isOrganizer = false
 
       {/* BƯỚC 3: HOÀN THÀNH */}
       {step === 'COMPLETED' && submitResult && (
-        <div className="bg-white p-8 rounded-3xl border border-slate-200/80 shadow-md text-center space-y-5">
-          <div className="w-16 h-16 mx-auto rounded-3xl bg-emerald-50 text-emerald-600 flex items-center justify-center border border-emerald-100 shadow-xs">
+        <div className="bg-white p-8 rounded-2xl border border-slate-200 shadow-sm text-center space-y-5">
+          <div className="w-16 h-16 mx-auto rounded-2xl bg-emerald-50 text-emerald-600 flex items-center justify-center border border-emerald-100">
             <svg className="w-8 h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
             </svg>
           </div>
 
           <div>
-            <h3 className="text-xl font-bold text-slate-900 tracking-tight">{t('exam_complete_title')}</h3>
+            <h3 className="text-xl font-semibold text-slate-900 tracking-tight">{t('exam_complete_title')}</h3>
             <p className="text-xs text-slate-500 mt-1 max-w-md mx-auto">
               {t('exam_submitted_desc')}
             </p>
           </div>
 
-          <div className="max-w-sm mx-auto bg-slate-50/80 border border-slate-200/80 p-6 rounded-2xl space-y-4">
+          <div className="max-w-sm mx-auto bg-slate-50 border border-slate-200 p-6 rounded-xl space-y-4">
             <div>
-              <div className="text-4xl font-extrabold text-indigo-700">
+              <div className="text-4xl font-semibold text-slate-900">
                 {submitResult.score} <span className="text-lg font-normal text-slate-400">/ {submitResult.maxScore}</span>
               </div>
               <p className="text-xs text-slate-600 font-medium mt-1">
@@ -1002,7 +996,7 @@ export const ExamRoom = ({ sessionId, currentUserEmail = '', isOrganizer = false
           <div className="flex justify-center pt-2">
             <button
               onClick={onExit}
-              className="px-6 py-2.5 bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-semibold rounded-xl shadow-xs transition cursor-pointer active:scale-[0.99]"
+              className="px-6 py-2.5 bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-semibold rounded-xl shadow-sm transition cursor-pointer"
             >
               {t('exam_back_to_list')}
             </button>

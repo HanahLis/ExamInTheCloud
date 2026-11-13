@@ -8,7 +8,6 @@ import {
   getQuestionBanks,
   createQuestionBank,
   deleteQuestionBank,
-  getDeletedBankIds,
   parseQuestionsFromDoc,
   extractTextFromDocxFile,
   testGeminiApiKey,
@@ -29,7 +28,7 @@ interface Props {
 export const QuestionBankTab = ({ questions, onRefresh }: Props) => {
   const { t, lang } = useTranslation();
   const currentUser = getCurrentUser();
-  const lecturerEmail = (currentUser.email || 'annv@uet.vnu.edu.vn').toLowerCase().trim();
+  const lecturerEmail = (currentUser.email || '').toLowerCase().trim();
   const lecturerName =
     currentUser.name || (currentUser.email ? currentUser.email.split('@')[0] : t('qb_lecturer_label'));
 
@@ -135,24 +134,11 @@ export const QuestionBankTab = ({ questions, onRefresh }: Props) => {
   const loadBanks = async () => {
     try {
       const list = await getQuestionBanks(lecturerEmail);
-      const deletedIds = getDeletedBankIds();
+      setBanks(list);
 
-      const myOwned = list.filter((b) => {
-        if (deletedIds.has(b.id) || deletedIds.has(b.bankId || '')) return false;
-        // Giữ lại ngân hàng mặc định của nhà trường hoặc ngân hàng do giảng viên sở hữu
-        if (!b.ownerEmail && !b.createdBy) return true;
-        if (b.id === 'bank-se-arch-01' || b.id === 'bank-cloud-01') return true;
-        return (
-          b.ownerEmail?.toLowerCase() === lecturerEmail ||
-          b.createdBy?.toLowerCase() === lecturerEmail
-        );
-      });
-
-      setBanks(myOwned);
-
-      if (myOwned.length > 0) {
-        setBankId((prev) => (myOwned.some((b) => b.id === prev) ? prev : myOwned[0].id));
-        setImportBankId((prev) => (myOwned.some((b) => b.id === prev) ? prev : myOwned[0].id));
+      if (list.length > 0) {
+        setBankId((prev) => (list.some((b) => b.id === prev) ? prev : list[0].id));
+        setImportBankId((prev) => (list.some((b) => b.id === prev) ? prev : list[0].id));
       } else {
         setBankId('');
         setImportBankId('');
@@ -170,11 +156,8 @@ export const QuestionBankTab = ({ questions, onRefresh }: Props) => {
   }, [lecturerEmail]);
 
   const lecturerBanks = useMemo(() => {
-    const deletedIds = getDeletedBankIds();
     return banks.filter((b) => {
-      if (deletedIds.has(b.id) || deletedIds.has(b.bankId || '')) return false;
       if (!b.ownerEmail && !b.createdBy) return true;
-      if (b.id === 'bank-se-arch-01' || b.id === 'bank-cloud-01') return true;
       return (
         b.ownerEmail?.toLowerCase() === lecturerEmail ||
         b.createdBy?.toLowerCase() === lecturerEmail
@@ -202,27 +185,7 @@ export const QuestionBankTab = ({ questions, onRefresh }: Props) => {
     return lecturerQuestions.filter((q) => q.bankId === selectedBankFilter);
   }, [lecturerQuestions, selectedBankFilter]);
 
-  const getLocalizedBankName = (b?: QuestionBank | null) => {
-    if (!b) return '';
-    if (b.id === 'bank-se-arch-01' || b.bankId === 'bank-se-arch-01') {
-      return t('default_bank_se_name');
-    }
-    if (b.id === 'bank-cloud-01' || b.bankId === 'bank-cloud-01') {
-      return t('default_bank_cloud_name');
-    }
-    return b.name;
-  };
-
-  const getLocalizedBankSubject = (subj?: string) => {
-    if (!subj) return t('qb_general_subject');
-    if (subj.includes('Kiến trúc') || subj.includes('Software Architecture')) {
-      return t('default_subject_se');
-    }
-    if (subj.includes('Điện toán đám mây') || subj.includes('Cloud Computing')) {
-      return t('default_subject_cloud');
-    }
-    return subj;
-  };
+  const getBankSubject = (subj?: string) => subj || t('qb_general_subject');
 
   const handleBankChange = (newBankId: string) => {
     setBankId(newBankId);
@@ -566,19 +529,19 @@ export const QuestionBankTab = ({ questions, onRefresh }: Props) => {
   return (
     <div className="space-y-5">
       {/* 1. Header Toolbar & Quick Stats */}
-      <div className="bg-white p-5 rounded-3xl border border-slate-200/80 shadow-xs flex flex-wrap items-center justify-between gap-3">
+      <div className="bg-white p-5 rounded-2xl border border-slate-200 shadow-sm flex flex-wrap items-center justify-between gap-3">
         <div className="flex items-center gap-3">
-          <div className="w-10 h-10 rounded-2xl bg-indigo-50 text-indigo-600 flex items-center justify-center border border-indigo-100">
+          <div className="w-10 h-10 rounded-lg bg-slate-100 text-slate-500 flex items-center justify-center border border-slate-200">
             <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253" />
             </svg>
           </div>
           <div>
-            <h3 className="text-sm font-bold text-slate-900 tracking-tight">
-              {t('qb_my_banks')} ({lecturerBanks.length})
+            <h3 className="text-sm font-semibold text-slate-900 tracking-tight">
+              {t('qb_my_banks')} · {lecturerBanks.length}
             </h3>
             <p className="text-xs text-slate-500">
-              {t('qb_total_label')} <span className="font-semibold text-indigo-700">{lecturerQuestions.length} {t('sess_questions_unit')}</span> • {t('qb_lecturer_label')}: <span className="font-semibold text-slate-700">{lecturerName}</span> ({lecturerEmail})
+              {t('qb_total_label')} <span className="font-medium text-slate-700">{lecturerQuestions.length} {t('sess_questions_unit')}</span> · {t('qb_lecturer_label')}: <span className="font-medium text-slate-700">{lecturerName}</span>
             </p>
           </div>
         </div>
@@ -587,7 +550,7 @@ export const QuestionBankTab = ({ questions, onRefresh }: Props) => {
           <button
             type="button"
             onClick={handleOpenImportModal}
-            className="px-4 py-2 bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-500 hover:to-indigo-500 text-white text-xs font-semibold rounded-xl shadow-xs shadow-purple-200 transition cursor-pointer flex items-center gap-1.5 active:scale-[0.99]"
+            className="px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-semibold rounded-xl shadow-sm transition cursor-pointer flex items-center gap-1.5"
           >
             <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M13 10V3L4 14h7v7l9-11h-7z" />
@@ -619,7 +582,7 @@ export const QuestionBankTab = ({ questions, onRefresh }: Props) => {
       {/* 2. Bento Grid: Phân nhóm Ngân hàng đề thi (Trái) & Danh sách Câu hỏi (Phải) */}
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-5 items-start">
         {/* Cột trái (4 cols): Danh sách ngân hàng câu hỏi */}
-        <div className="lg:col-span-4 bg-white p-5 rounded-3xl border border-slate-200/80 shadow-xs space-y-3">
+        <div className="lg:col-span-4 bg-white p-5 rounded-2xl border border-slate-200 shadow-sm space-y-3">
           <div className="flex justify-between items-center pb-2 border-b border-slate-100">
             <span className="text-xs font-bold text-slate-800 uppercase tracking-wider">
               {t('qb_filter_bank')}
@@ -665,9 +628,9 @@ export const QuestionBankTab = ({ questions, onRefresh }: Props) => {
                     onClick={() => setSelectedBankFilter(b.id)}
                     className="flex-1 text-left min-w-0 pr-2 cursor-pointer"
                   >
-                    <p className="text-xs font-semibold truncate text-slate-900">{getLocalizedBankName(b)}</p>
+                    <p className="text-xs font-semibold truncate text-slate-900">{b.name}</p>
                     <p className="text-[10px] text-slate-500 truncate mt-0.5">
-                      {getLocalizedBankSubject(b.subject)} • {count} {t('sess_questions_unit')}
+                      {getBankSubject(b.subject)} · {count} {t('sess_questions_unit')}
                     </p>
                   </button>
 
@@ -683,9 +646,15 @@ export const QuestionBankTab = ({ questions, onRefresh }: Props) => {
                         e.stopPropagation();
                         handleDeleteBank(b);
                       }}
-                      className="w-7 h-7 rounded-xl hover:bg-rose-50 text-slate-400 hover:text-rose-600 flex items-center justify-center transition cursor-pointer text-xs"
+                      className="w-7 h-7 rounded-lg hover:bg-rose-50 text-slate-400 hover:text-rose-600 flex items-center justify-center transition cursor-pointer"
                     >
-                      {isDeleting ? '...' : '✕'}
+                      {isDeleting ? (
+                        '...'
+                      ) : (
+                        <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M6 18L18 6M6 6l12 12" />
+                        </svg>
+                      )}
                     </button>
                   </div>
                 </div>
@@ -698,17 +667,20 @@ export const QuestionBankTab = ({ questions, onRefresh }: Props) => {
         <div className="lg:col-span-8 space-y-5">
           {/* Form thêm / chỉnh sửa câu hỏi */}
           {showQuestionForm && (
-            <div className="bg-gradient-to-br from-indigo-50/40 via-purple-50/20 to-sky-50/30 p-6 rounded-3xl border border-indigo-100 shadow-sm space-y-4">
+            <div className="bg-white p-6 rounded-2xl border border-slate-200 shadow-sm space-y-4">
               <div className="flex justify-between items-center">
-                <h4 className="text-sm font-bold text-slate-900 tracking-tight">
+                <h4 className="text-sm font-semibold text-slate-900 tracking-tight">
                   {editingId ? t('qb_edit_question_title') : t('qb_create_question')}
                 </h4>
                 <button
                   type="button"
                   onClick={resetForm}
-                  className="text-slate-400 hover:text-slate-600 text-sm font-bold cursor-pointer"
+                  className="text-slate-400 hover:text-slate-600 cursor-pointer"
+                  aria-label="Close"
                 >
-                  ✕
+                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M6 18L18 6M6 6l12 12" />
+                  </svg>
                 </button>
               </div>
 
@@ -724,7 +696,7 @@ export const QuestionBankTab = ({ questions, onRefresh }: Props) => {
                     >
                       {lecturerBanks.map((b) => (
                         <option key={b.id} value={b.id}>
-                          {getLocalizedBankName(b)}
+                          {b.name}
                         </option>
                       ))}
                     </select>
@@ -853,9 +825,11 @@ export const QuestionBankTab = ({ questions, onRefresh }: Props) => {
                               <button
                                 type="button"
                                 onClick={() => handleRemoveOption(i)}
-                                className="text-slate-400 hover:text-rose-600 px-1.5 text-xs font-bold cursor-pointer"
+                                className="text-slate-400 hover:text-rose-600 px-1.5 cursor-pointer"
                               >
-                                ✕
+                                <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M6 18L18 6M6 6l12 12" />
+                                </svg>
                               </button>
                             )}
                           </div>
@@ -914,26 +888,26 @@ export const QuestionBankTab = ({ questions, onRefresh }: Props) => {
           )}
 
           {/* Danh sách câu hỏi */}
-          <div className="bg-white p-6 rounded-3xl border border-slate-200/80 shadow-xs space-y-4">
+          <div className="bg-white p-6 rounded-2xl border border-slate-200 shadow-sm space-y-4">
             <div className="flex flex-wrap justify-between items-center pb-2 border-b border-slate-100 gap-2">
               <div>
-                <h3 className="text-sm font-bold text-slate-900 tracking-tight">
-                  {t('qb_question_list_title')} ({filteredQuestions.length})
+                <h3 className="text-sm font-semibold text-slate-900 tracking-tight">
+                  {t('qb_question_list_title')} · {filteredQuestions.length}
                 </h3>
                 <p className="text-xs text-slate-500">
                   {selectedBankFilter === 'ALL'
                     ? t('qb_all_questions_desc')
-                    : `${t('qb_bank_label')}: ${getLocalizedBankName(lecturerBanks.find((b) => b.id === selectedBankFilter)) || selectedBankFilter}`}
+                    : `${t('qb_bank_label')}: ${lecturerBanks.find((b) => b.id === selectedBankFilter)?.name || selectedBankFilter}`}
                 </p>
               </div>
-              <span className="text-xs font-semibold text-indigo-700 bg-indigo-50 px-3 py-1 rounded-full border border-indigo-100">
+              <span className="text-xs font-medium text-slate-600 bg-slate-100 px-3 py-1 rounded-md border border-slate-200">
                 {t('qb_total_score')} {filteredQuestions.reduce((sum, q) => sum + (Number(q.score) || 0), 0)} {t('qb_points_suffix')}
               </span>
             </div>
 
             {filteredQuestions.length === 0 && (
-              <div className="text-center py-12 border border-dashed rounded-2xl border-slate-200 space-y-2">
-                <div className="w-12 h-12 mx-auto rounded-2xl bg-indigo-50 text-indigo-500 flex items-center justify-center">
+              <div className="text-center py-12 border border-dashed rounded-xl border-slate-200 space-y-2">
+                <div className="w-12 h-12 mx-auto rounded-xl bg-slate-100 text-slate-400 flex items-center justify-center">
                   <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253" />
                   </svg>
@@ -948,11 +922,11 @@ export const QuestionBankTab = ({ questions, onRefresh }: Props) => {
                 return (
                   <div
                     key={q.id}
-                    className="p-5 rounded-2xl border border-slate-200/80 bg-white hover:border-indigo-200 hover:shadow-xs transition-all duration-200 space-y-3 group"
+                    className="p-5 rounded-xl border border-slate-200 bg-white hover:border-slate-300 transition space-y-3"
                   >
                     <div className="flex items-start justify-between gap-3">
                       <div className="flex-1">
-                        <span className="font-bold text-indigo-700 text-xs mr-2 bg-indigo-50 px-2 py-0.5 rounded-lg border border-indigo-100">
+                        <span className="font-medium text-slate-600 text-xs mr-2 bg-slate-100 px-2 py-0.5 rounded-md border border-slate-200">
                           {t('exam_question_num')} {index + 1}
                         </span>
                         <span className="text-slate-900 text-xs font-medium leading-relaxed">
@@ -960,9 +934,9 @@ export const QuestionBankTab = ({ questions, onRefresh }: Props) => {
                         </span>
                       </div>
                       <span
-                        className={`shrink-0 text-[10px] font-semibold px-2.5 py-0.5 rounded-full border ${q.type === 'ESSAY'
-                            ? 'bg-purple-50 text-purple-700 border-purple-200'
-                            : 'bg-sky-50 text-sky-700 border-sky-200'
+                        className={`shrink-0 text-[10px] font-medium px-2.5 py-0.5 rounded-md border ${q.type === 'ESSAY'
+                            ? 'bg-amber-50 text-amber-700 border-amber-200'
+                            : 'bg-slate-100 text-slate-600 border-slate-200'
                           }`}
                       >
                         {q.type === 'ESSAY' ? t('qb_type_essay_badge') : t('qb_type_choice_badge')}
@@ -980,12 +954,12 @@ export const QuestionBankTab = ({ questions, onRefresh }: Props) => {
                     )}
 
                     {q.type === 'ESSAY' ? (
-                      <div className="p-3.5 rounded-2xl border border-indigo-100 bg-indigo-50/40 text-xs space-y-1">
-                        <div className="flex items-center gap-1.5 text-indigo-900 font-semibold text-[11px]">
+                      <div className="p-3.5 rounded-xl border border-slate-200 bg-slate-50 text-xs space-y-1">
+                        <div className="flex items-center gap-1.5 text-slate-700 font-semibold text-[11px]">
                           <span>{t('qb_essay_rubric_label')}</span>
                         </div>
                         {q.correctAnswer ? (
-                          <p className="text-slate-700 whitespace-pre-wrap leading-relaxed pl-2 border-l-2 border-indigo-400">
+                          <p className="text-slate-700 whitespace-pre-wrap leading-relaxed pl-2 border-l-2 border-slate-300">
                             {q.correctAnswer}
                           </p>
                         ) : (
@@ -999,22 +973,22 @@ export const QuestionBankTab = ({ questions, onRefresh }: Props) => {
                           return (
                             <div
                               key={i}
-                              className={`p-3 rounded-2xl border text-xs flex items-start gap-2.5 transition ${isCorrect
-                                  ? 'border-emerald-300 bg-emerald-50/70 text-emerald-950 font-semibold shadow-2xs ring-1 ring-emerald-200'
-                                  : 'border-slate-200/80 bg-slate-50/40 text-slate-700'
+                              className={`p-3 rounded-xl border text-xs flex items-start gap-2.5 transition ${isCorrect
+                                  ? 'border-emerald-300 bg-emerald-50/70 text-emerald-950 font-medium'
+                                  : 'border-slate-200 bg-slate-50 text-slate-700'
                                 }`}
                             >
                               <span
-                                className={`w-5 h-5 rounded-lg flex items-center justify-center text-[10px] font-bold shrink-0 mt-0.5 ${isCorrect ? 'bg-emerald-600 text-white' : 'bg-slate-200 text-slate-600'
+                                className={`w-5 h-5 rounded-md flex items-center justify-center text-[10px] font-bold shrink-0 mt-0.5 ${isCorrect ? 'bg-emerald-600 text-white' : 'bg-slate-200 text-slate-600'
                                   }`}
                               >
                                 {OPTION_LABELS[i] || String.fromCharCode(65 + i)}
                               </span>
-                              <span className={`flex-1 leading-relaxed ${isCorrect ? 'text-emerald-950 font-semibold' : 'text-slate-700'}`}>
+                              <span className={`flex-1 leading-relaxed ${isCorrect ? 'text-emerald-950 font-medium' : 'text-slate-700'}`}>
                                 {opt}
                               </span>
                               {isCorrect && (
-                                <span className="text-[10px] font-bold text-emerald-700 bg-emerald-100 border border-emerald-300 px-1.5 py-0.5 rounded-full shrink-0">
+                                <span className="text-[10px] font-medium text-emerald-700 bg-emerald-100 border border-emerald-300 px-1.5 py-0.5 rounded-md shrink-0">
                                   {t('qb_correct_answer_badge')}
                                 </span>
                               )}
@@ -1057,17 +1031,20 @@ export const QuestionBankTab = ({ questions, onRefresh }: Props) => {
       {/* Modal Tạo Ngân Hàng Mới */}
       {showCreateBankModal && (
         <div className="fixed inset-0 bg-slate-900/40 backdrop-blur-sm z-50 flex items-center justify-center p-4">
-          <div className="bg-white rounded-3xl p-6 max-w-md w-full border border-indigo-100 shadow-xl space-y-4">
+          <div className="bg-white rounded-2xl p-6 max-w-md w-full border border-slate-200 shadow-xl space-y-4">
             <div className="flex justify-between items-center">
-              <h4 className="text-sm font-bold text-slate-900 tracking-tight">
+              <h4 className="text-sm font-semibold text-slate-900 tracking-tight">
                 {t('qb_create_bank_modal_title')}
               </h4>
               <button
                 type="button"
                 onClick={() => setShowCreateBankModal(false)}
-                className="w-8 h-8 rounded-full bg-slate-100 hover:bg-slate-200 text-slate-600 flex items-center justify-center text-xs font-bold transition cursor-pointer"
+                className="w-8 h-8 rounded-lg bg-slate-100 hover:bg-slate-200 text-slate-500 flex items-center justify-center transition cursor-pointer"
+                aria-label="Close"
               >
-                ✕
+                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M6 18L18 6M6 6l12 12" />
+                </svg>
               </button>
             </div>
 
@@ -1137,26 +1114,29 @@ export const QuestionBankTab = ({ questions, onRefresh }: Props) => {
       {/* Modal Nhập Đề Thi / Soạn Bằng AI */}
       {showImportModal && (
         <div className="fixed inset-0 bg-slate-900/40 backdrop-blur-sm z-50 flex items-center justify-center p-4 overflow-y-auto">
-          <div className="bg-white rounded-3xl max-w-2xl w-full border border-indigo-100 shadow-2xl overflow-hidden my-8">
-            <div className="bg-gradient-to-r from-purple-600 via-indigo-600 to-indigo-700 p-5 text-white flex justify-between items-center">
+          <div className="bg-white rounded-2xl max-w-2xl w-full border border-slate-200 shadow-2xl overflow-hidden my-8">
+            <div className="p-5 border-b border-slate-200 flex justify-between items-center bg-white">
               <div>
-                <h4 className="text-base font-bold tracking-tight">{t('qb_import_modal_title')}</h4>
-                <p className="text-xs text-indigo-100 mt-0.5">
+                <h4 className="text-base font-semibold text-slate-900 tracking-tight">{t('qb_import_modal_title')}</h4>
+                <p className="text-xs text-slate-500 mt-0.5">
                   {t('qb_import_modal_desc')}
                 </p>
               </div>
               <button
                 type="button"
                 onClick={handleCloseImportModal}
-                className="w-8 h-8 rounded-full bg-white/20 hover:bg-white/30 text-white text-xs font-bold flex items-center justify-center transition cursor-pointer"
+                className="w-8 h-8 rounded-lg bg-slate-100 hover:bg-slate-200 text-slate-500 flex items-center justify-center transition cursor-pointer"
+                aria-label="Close"
               >
-                ✕
+                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M6 18L18 6M6 6l12 12" />
+                </svg>
               </button>
             </div>
 
             <div className="p-6 space-y-4 max-h-[75vh] overflow-y-auto">
               {/* Chọn ngân hàng mục tiêu */}
-              <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 bg-indigo-50/40 p-3.5 rounded-2xl border border-indigo-100">
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 bg-slate-50 p-3.5 rounded-xl border border-slate-200">
                 <div>
                   <label className="block text-xs font-semibold text-slate-700 mb-1">{t('qb_target_bank')}</label>
                   <select
@@ -1170,7 +1150,7 @@ export const QuestionBankTab = ({ questions, onRefresh }: Props) => {
                   >
                     {lecturerBanks.map((b) => (
                       <option key={b.id} value={b.id}>
-                        {getLocalizedBankName(b)}
+                        {b.name}
                       </option>
                     ))}
                   </select>
@@ -1260,11 +1240,11 @@ export const QuestionBankTab = ({ questions, onRefresh }: Props) => {
                       onChange={(e) => setImportText(e.target.value)}
                       placeholder={t('qb_import_prompt_placeholder')}
                       rows={5}
-                      className="w-full p-3 bg-white border border-slate-200 rounded-2xl text-xs outline-none focus:border-indigo-400 focus:ring-2 focus:ring-indigo-100 font-sans leading-relaxed"
+                      className="w-full p-3 bg-white border border-slate-200 rounded-xl text-xs outline-none focus:border-indigo-400 focus:ring-2 focus:ring-indigo-100 font-sans leading-relaxed"
                     />
                   </div>
                 ) : (
-                  <div className="p-6 border-2 border-dashed border-indigo-200 rounded-3xl text-center bg-indigo-50/20 hover:bg-indigo-50/40 transition">
+                  <div className="p-6 border border-dashed border-slate-300 rounded-xl text-center bg-slate-50 hover:bg-slate-100/70 transition">
                     <input
                       ref={docFileInputRef}
                       type="file"
@@ -1280,7 +1260,7 @@ export const QuestionBankTab = ({ questions, onRefresh }: Props) => {
                       id="doc-file-upload-input"
                     />
                     <label htmlFor="doc-file-upload-input" className="cursor-pointer space-y-2 block">
-                      <div className="w-12 h-12 mx-auto rounded-2xl bg-indigo-50 text-indigo-600 flex items-center justify-center">
+                      <div className="w-12 h-12 mx-auto rounded-xl bg-white border border-slate-200 text-slate-500 flex items-center justify-center">
                         <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12" />
                         </svg>
@@ -1294,21 +1274,21 @@ export const QuestionBankTab = ({ questions, onRefresh }: Props) => {
                 )}
               </div>
 
-              {/* Cấu hình kết nối Google Gemini AI (Tùy chọn) */}
-              <div className="bg-slate-50/80 p-3.5 rounded-2xl border border-slate-200/80 space-y-2.5">
+              {/* Cấu hình kết nối Google Gemini AI */}
+              <div className="bg-slate-50 p-3.5 rounded-xl border border-slate-200 space-y-2.5">
                 <div className="flex items-center justify-between">
-                  <span className="text-xs font-bold text-slate-800 flex items-center gap-1.5">
-                    <svg className="w-4 h-4 text-purple-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <span className="text-xs font-semibold text-slate-800 flex items-center gap-1.5">
+                    <svg className="w-4 h-4 text-slate-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M13 10V3L4 14h7v7l9-11h-7z" />
                     </svg>
                     <span>{t('qb_gemini_config')}</span>
                   </span>
-                  <span className={`text-[11px] px-2.5 py-0.5 rounded-full font-semibold border ${
+                  <span className={`text-[11px] px-2.5 py-0.5 rounded-md font-medium border ${
                     importApiKey
                       ? 'bg-emerald-50 text-emerald-700 border-emerald-200'
-                      : 'bg-indigo-50 text-indigo-700 border-indigo-200'
+                      : 'bg-slate-100 text-slate-600 border-slate-200'
                   }`}>
-                    {geminiKeyTestResult?.ok ? t('qb_gemini_connected') : t('qb_gemini_builtin_mode')}
+                    {geminiKeyTestResult?.ok ? t('qb_gemini_connected') : t('qb_gemini_not_configured')}
                   </span>
                 </div>
 
@@ -1328,15 +1308,15 @@ export const QuestionBankTab = ({ questions, onRefresh }: Props) => {
                       onChange={(e) => handleModelChange(e.target.value)}
                       className="w-full p-2 border border-slate-200 rounded-xl text-xs bg-white text-slate-800 outline-none"
                     >
-                      <option value="gemini-3.8-flash">gemini-3.8-flash ({t('qb_model_gemini_38')})</option>
-                      <option value="gemini-3.7-flash">gemini-3.7-flash ({t('qb_model_gemini_37')})</option>
-                      <option value="gemini-3.6-flash">gemini-3.6-flash ({t('qb_model_gemini_36')})</option>
-                      <option value="gemini-3.5-flash">gemini-3.5-flash ({t('qb_model_gemini_35')})</option>
-                      <option value="gemini-2.0-flash">gemini-2.0-flash ({t('qb_model_default')})</option>
-                      <option value="gemini-1.5-flash">gemini-1.5-flash ({t('qb_model_standard')})</option>
-                      <option value="gemini-2.5-flash">gemini-2.5-flash ({t('qb_model_preview')})</option>
-                      <option value="gemini-1.5-pro">gemini-1.5-pro ({t('qb_model_pro')})</option>
-                      <option value="gemini-2.0-flash-lite">gemini-2.0-flash-lite ({t('qb_model_lite')})</option>
+                      <option value="gemini-3.8-flash">gemini-3.8-flash · {t('qb_model_gemini_38')}</option>
+                      <option value="gemini-3.7-flash">gemini-3.7-flash · {t('qb_model_gemini_37')}</option>
+                      <option value="gemini-3.6-flash">gemini-3.6-flash · {t('qb_model_gemini_36')}</option>
+                      <option value="gemini-3.5-flash">gemini-3.5-flash · {t('qb_model_gemini_35')}</option>
+                      <option value="gemini-2.0-flash">gemini-2.0-flash · {t('qb_model_default')}</option>
+                      <option value="gemini-1.5-flash">gemini-1.5-flash · {t('qb_model_standard')}</option>
+                      <option value="gemini-2.5-flash">gemini-2.5-flash · {t('qb_model_preview')}</option>
+                      <option value="gemini-1.5-pro">gemini-1.5-pro · {t('qb_model_pro')}</option>
+                      <option value="gemini-2.0-flash-lite">gemini-2.0-flash-lite · {t('qb_model_lite')}</option>
                     </select>
                   </div>
                 </div>
@@ -1346,7 +1326,7 @@ export const QuestionBankTab = ({ questions, onRefresh }: Props) => {
                     type="button"
                     onClick={handleTestGeminiKey}
                     disabled={testingGeminiKey}
-                    className="px-3.5 py-1.5 rounded-xl text-[11px] font-bold bg-purple-600 text-white hover:bg-purple-700 disabled:opacity-50 disabled:cursor-not-allowed transition flex items-center gap-1.5 cursor-pointer"
+                    className="px-3.5 py-1.5 rounded-lg text-[11px] font-semibold bg-slate-900 text-white hover:bg-slate-800 disabled:opacity-50 disabled:cursor-not-allowed transition flex items-center gap-1.5 cursor-pointer"
                   >
                     {testingGeminiKey ? (
                       <>
@@ -1373,8 +1353,8 @@ export const QuestionBankTab = ({ questions, onRefresh }: Props) => {
                       }`}
                     >
                       {geminiKeyTestResult.ok
-                        ? `✓ ${t('qb_gemini_test_ok', { model: geminiKeyTestResult.message.split(':')[1] || importModel })}`
-                        : `✕ ${t(`qb_gemini_${geminiKeyTestResult.message}`)}`}
+                        ? t('qb_gemini_test_ok', { model: geminiKeyTestResult.message.split(':')[1] || importModel })
+                        : t(`qb_gemini_${geminiKeyTestResult.message}`)}
                     </span>
                   )}
                 </div>
@@ -1398,27 +1378,29 @@ export const QuestionBankTab = ({ questions, onRefresh }: Props) => {
               </div>
 
               {importError && (
-                <div className="p-3.5 rounded-2xl bg-rose-50 border border-rose-200 text-xs text-rose-700 font-medium">
+                <div className="p-3.5 rounded-xl bg-rose-50 border border-rose-200 text-xs text-rose-700 font-medium">
                   {importError}
                 </div>
               )}
 
               {importSuccessMessage && (
-                <div className="p-3.5 rounded-2xl bg-emerald-50 border border-emerald-200 text-xs text-emerald-800 font-semibold flex items-center gap-2">
-                  <span className="w-5 h-5 rounded-full bg-emerald-200 text-emerald-800 flex items-center justify-center text-xs">✓</span>
+                <div className="p-3.5 rounded-xl bg-emerald-50 border border-emerald-200 text-xs text-emerald-800 font-medium flex items-center gap-2">
+                  <svg className="w-4 h-4 text-emerald-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+                  </svg>
                   <span>{importSuccessMessage}</span>
                 </div>
               )}
 
               {extractedQuestions.length > 0 && (
                 <div className="space-y-3 pt-3 border-t border-slate-200">
-                  <span className="text-xs font-bold text-slate-900 block">
-                    {t('qb_ai_extracted_list')} ({extractedQuestions.length} {t('sess_questions_unit')}):
+                  <span className="text-xs font-semibold text-slate-900 block">
+                    {t('qb_ai_extracted_list')} · {extractedQuestions.length} {t('sess_questions_unit')}
                   </span>
                   <div className="space-y-2 max-h-56 overflow-y-auto pr-1">
                     {extractedQuestions.map((q, idx) => (
-                      <div key={idx} className="p-3 bg-slate-50 rounded-2xl border border-slate-200 text-xs space-y-1">
-                        <p className="font-bold text-slate-900">
+                      <div key={idx} className="p-3 bg-slate-50 rounded-xl border border-slate-200 text-xs space-y-1">
+                        <p className="font-semibold text-slate-900">
                           {t('qb_question_item_label')} {idx + 1}: {q.content}
                         </p>
                         <p className="text-[11px] text-emerald-700 font-medium">
@@ -1443,7 +1425,7 @@ export const QuestionBankTab = ({ questions, onRefresh }: Props) => {
                 type="button"
                 disabled={importLoading}
                 onClick={handleStartImport}
-                className="px-6 py-2 bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-500 hover:to-indigo-500 text-white text-xs font-semibold rounded-xl shadow-xs shadow-purple-200 transition cursor-pointer disabled:opacity-50 flex items-center gap-2 active:scale-[0.99]"
+                className="px-6 py-2 bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-semibold rounded-xl shadow-sm transition cursor-pointer disabled:opacity-50 flex items-center gap-2"
               >
                 {importLoading ? (
                   <>
