@@ -153,6 +153,13 @@ resource "aws_api_gateway_resource" "face_presign" {
   path_part   = "face-presign"
 }
 
+# /auth/assign-role (Gán Cognito group theo vai trò chọn lúc đăng ký)
+resource "aws_api_gateway_resource" "assign_role" {
+  rest_api_id = aws_api_gateway_rest_api.main.id
+  parent_id   = aws_api_gateway_resource.auth.id
+  path_part   = "assign-role"
+}
+
 # /exam
 resource "aws_api_gateway_resource" "exam" {
   rest_api_id = aws_api_gateway_rest_api.main.id
@@ -221,6 +228,7 @@ locals {
     "auth"                 = aws_api_gateway_resource.auth.id
     "face_verify"          = aws_api_gateway_resource.face_verify.id
     "face_presign"         = aws_api_gateway_resource.face_presign.id
+    "assign_role"          = aws_api_gateway_resource.assign_role.id
     "exam"                 = aws_api_gateway_resource.exam.id
     "exam_submit"          = aws_api_gateway_resource.exam_submit.id
     "exam_explain_answers" = aws_api_gateway_resource.exam_explain_answers.id
@@ -297,9 +305,9 @@ locals {
     { key = "qid_get", resource_id = aws_api_gateway_resource.question_id.id, http_method = "GET" },
     { key = "qid_put", resource_id = aws_api_gateway_resource.question_id.id, http_method = "PUT" },
     { key = "qid_del", resource_id = aws_api_gateway_resource.question_id.id, http_method = "DELETE" },
-    { key = "c_get", resource_id = aws_api_gateway_resource.candidates.id, http_method = "GET", auth = "NONE" },
+    { key = "c_get", resource_id = aws_api_gateway_resource.candidates.id, http_method = "GET" },
     { key = "c_post", resource_id = aws_api_gateway_resource.candidates.id, http_method = "POST" },
-    { key = "cm_get", resource_id = aws_api_gateway_resource.candidate_email.id, http_method = "GET", auth = "NONE" },
+    { key = "cm_get", resource_id = aws_api_gateway_resource.candidate_email.id, http_method = "GET" },
     { key = "cm_del", resource_id = aws_api_gateway_resource.candidate_email.id, http_method = "DELETE" },
     { key = "s_get", resource_id = aws_api_gateway_resource.sessions.id, http_method = "GET" },
     { key = "s_post", resource_id = aws_api_gateway_resource.sessions.id, http_method = "POST" },
@@ -313,7 +321,8 @@ locals {
     { key = "s_autofinalize_post", resource_id = aws_api_gateway_resource.session_auto_finalize.id, http_method = "POST" },
     { key = "saveprog_post", resource_id = aws_api_gateway_resource.exam_save_progress.id, http_method = "POST", auth = "NONE" },
     { key = "exam_explain_post", resource_id = aws_api_gateway_resource.exam_explain_answers.id, http_method = "POST", auth = "NONE" },
-    { key = "face_presign_post", resource_id = aws_api_gateway_resource.face_presign.id, http_method = "POST", auth = "NONE" }
+    { key = "face_presign_post", resource_id = aws_api_gateway_resource.face_presign.id, http_method = "POST", auth = "NONE" },
+    { key = "assign_role_post", resource_id = aws_api_gateway_resource.assign_role.id, http_method = "POST" }
   ]
 }
 

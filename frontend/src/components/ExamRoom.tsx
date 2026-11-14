@@ -2,7 +2,6 @@ import { useEffect, useRef, useState } from 'react';
 import {
   getSession,
   getExamPaper,
-  getCandidates,
   verifyFace,
   saveExamProgress,
   submitExam,
@@ -12,7 +11,7 @@ import {
   resolveSessionStatus,
   type ExamSession,
   type Question,
-  type Candidate,
+  type SessionCandidate,
   type FaceVerifyResponse,
   type ExamSubmitResult,
 } from '../services/apiService';
@@ -36,7 +35,7 @@ export const ExamRoom = ({ sessionId, currentUserEmail = '', isOrganizer = false
   const dateLocale = lang === 'en' ? 'en-US' : lang === 'de' ? 'de-DE' : lang === 'la' ? 'lo-LA' : 'vi-VN';
   const [session, setSession] = useState<ExamSession | null>(null);
   const [sessionQuestions, setSessionQuestions] = useState<Question[]>([]);
-  const [candidates, setCandidates] = useState<Candidate[]>([]);
+  const [candidates, setCandidates] = useState<SessionCandidate[]>([]);
   const [loadingSession, setLoadingSession] = useState(true);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
 
@@ -78,14 +77,13 @@ export const ExamRoom = ({ sessionId, currentUserEmail = '', isOrganizer = false
       setLoadingSession(true);
       setErrorMsg(null);
       try {
-        const [s, paperData, allCandidates] = await Promise.all([
+        const [s, paperData] = await Promise.all([
           getSession(sessionId),
           getExamPaper(sessionId).catch(() => null),
-          getCandidates(),
         ]);
         if (!isMounted) return;
         setSession(s);
-        setCandidates(allCandidates);
+        setCandidates(s.candidates || []);
 
         if (currentUserEmail && !isOrganizer) {
           setCandidateEmail(currentUserEmail);
@@ -93,8 +91,6 @@ export const ExamRoom = ({ sessionId, currentUserEmail = '', isOrganizer = false
           if (!candidateEmail || !s.candidateEmails.some((e) => e.toLowerCase() === candidateEmail.toLowerCase())) {
             setCandidateEmail(s.candidateEmails[0]);
           }
-        } else if (allCandidates.length > 0 && !candidateEmail) {
-          setCandidateEmail(allCandidates[0].email);
         }
 
         if (paperData && paperData.questions && paperData.questions.length > 0) {
@@ -313,11 +309,9 @@ export const ExamRoom = ({ sessionId, currentUserEmail = '', isOrganizer = false
       let s3Key = '';
       if (capturedBlob) {
         try {
-          const matchedCand =
-            candidates.find((c) => c.email.toLowerCase() === candidateEmail.toLowerCase()) ||
-            (session as any)?.candidates?.find(
-              (c: any) => c.email.toLowerCase() === candidateEmail.toLowerCase()
-            );
+          const matchedCand = candidates.find(
+            (c) => c.email.toLowerCase() === candidateEmail.toLowerCase()
+          );
           const studentCode = matchedCand?.studentCode || candidateEmail.split('@')[0];
           const facePresign = await requestFacePresignedUrl(sessionId, studentCode);
           if (facePresign && facePresign.uploadUrl) {
@@ -424,11 +418,9 @@ export const ExamRoom = ({ sessionId, currentUserEmail = '', isOrganizer = false
     return `${m.toString().padStart(2, '0')}:${s.toString().padStart(2, '0')}`;
   };
 
-  const currentCandidateObj: Candidate | undefined =
-    candidates.find((c) => c.email.toLowerCase() === candidateEmail.toLowerCase()) ||
-    (session as any)?.candidates?.find(
-      (c: any) => c.email.toLowerCase() === candidateEmail.toLowerCase()
-    );
+  const currentCandidateObj: SessionCandidate | undefined = candidates.find(
+    (c) => c.email.toLowerCase() === candidateEmail.toLowerCase()
+  );
 
   if (loadingSession) {
     return (
@@ -624,16 +616,6 @@ export const ExamRoom = ({ sessionId, currentUserEmail = '', isOrganizer = false
                     ? currentCandidateObj.name.trim().split(/\s+/).slice(-2).map((w) => w.charAt(0)).join('').toUpperCase()
                     : '?'}
                 </span>
-                {currentCandidateObj?.faceImageUrl && (
-                  <img
-                    src={currentCandidateObj.faceImageUrl}
-                    alt="Profile"
-                    className="absolute inset-0 w-full h-full object-cover"
-                    onError={(e) => {
-                      (e.target as HTMLElement).style.display = 'none';
-                    }}
-                  />
-                )}
               </div>
               <p className="text-xs text-slate-600 font-medium">
                 {currentCandidateObj?.name}

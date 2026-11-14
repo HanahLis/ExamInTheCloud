@@ -197,7 +197,7 @@ resource "aws_cognito_user_group" "organizer" {
   precedence   = 2
 }
 
-# Group Proctor: Cán bộ coi thi, giám sát phòng thi trực tuyến
+# Group Proctor: Cán bộ coi thi & giám sát phòng thi trực tuyến (Live Proctor)
 resource "aws_cognito_user_group" "proctor" {
   name         = "Proctor"
   user_pool_id = aws_cognito_user_pool.main.id
@@ -222,10 +222,10 @@ resource "aws_cognito_user" "lecturer_an" {
   message_action = "SUPPRESS"
 
   attributes = {
-    email            = "annv@uet.vnu.edu.vn"
-    email_verified   = "true"
-    name             = "PGS. TS. Nguyễn Văn An"
-    student_code     = "GV001"
+    email              = "annv@uet.vnu.edu.vn"
+    email_verified     = "true"
+    name               = "PGS. TS. Nguyễn Văn An"
+    student_code       = "GV001"
     "custom:tenant_id" = "vn"
   }
 }
@@ -244,10 +244,10 @@ resource "aws_cognito_user" "candidate_duc" {
   message_action = "SUPPRESS"
 
   attributes = {
-    email            = "24020001@vnu.edu.vn"
-    email_verified   = "true"
-    name             = "Trần Minh Đức"
-    student_code     = "24020001"
+    email              = "24020001@vnu.edu.vn"
+    email_verified     = "true"
+    name               = "Trần Minh Đức"
+    student_code       = "24020001"
     "custom:tenant_id" = "vn"
   }
 }
@@ -266,15 +266,15 @@ resource "aws_cognito_user" "organizer_laladoraema" {
   message_action = "SUPPRESS"
 
   attributes = {
-    email            = "laladoraema@gmail.com"
-    email_verified   = "true"
-    name             = "Giám thị Laladoraema"
-    student_code     = "GT002"
+    email              = "laladoraema@gmail.com"
+    email_verified     = "true"
+    name               = "Giám thị Laladoraema"
+    student_code       = "GT002"
     "custom:tenant_id" = "vn"
   }
 }
 
-resource "aws_cognito_user_in_group" "organizer_laladoraema_group" {
+resource "aws_cognito_user_in_group" "proctor_laladoraema_group" {
   user_pool_id = aws_cognito_user_pool.main.id
   group_name   = aws_cognito_user_group.proctor.name
   username     = aws_cognito_user.organizer_laladoraema.username

@@ -38,6 +38,7 @@ resource "aws_lambda_function" "core_api" {
       UPSTASH_REDIS_REST_URL          = var.upstash_redis_rest_url
       UPSTASH_REDIS_REST_TOKEN        = var.upstash_redis_rest_token
       CLOUDFLARE_TURNSTILE_SECRET_KEY = var.cloudflare_turnstile_secret_key
+      COGNITO_USER_POOL_ID            = aws_cognito_user_pool.main.id
     }
   }
 

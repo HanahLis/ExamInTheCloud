@@ -225,6 +225,68 @@ export const hasUserChosenRole = (email: string): boolean => {
   return Boolean(localStorage.getItem(`cloudexam_user_role_${cleanEmail}`));
 };
 
+export const getTokenGroups = (): string[] => {
+  const token = localStorage.getItem('id_token');
+  if (!token) return [];
+  const claims = decodeJwt(token);
+  const raw = claims?.['cognito:groups'];
+  if (Array.isArray(raw)) return raw;
+  if (typeof raw === 'string' && raw) return raw.split(',').map((g: string) => g.trim());
+  return [];
+};
+
+export const assignRoleToCognito = async (role: 'Organizer' | 'Proctor' | 'Candidate'): Promise<boolean> => {
+  const token = localStorage.getItem('id_token');
+  if (!token) return false;
+  const base = import.meta.env.VITE_API_BASE_URL || '';
+  try {
+    const res = await fetch(`${base}/auth/assign-role`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        Authorization: `Bearer ${token}`,
+      },
+      body: JSON.stringify({ role }),
+    });
+    if (!res.ok) {
+      const data = await res.json().catch(() => ({}));
+      console.warn('[CloudExam] Không gán được vai trò vào Cognito:', data?.error || res.status);
+    }
+    return res.ok;
+  } catch (err) {
+    console.warn('[CloudExam] Lỗi kết nối khi gán vai trò:', err);
+    return false;
+  }
+};
+
+export const refreshIdToken = async (): Promise<boolean> => {
+  const refreshToken = localStorage.getItem('refresh_token');
+  if (!refreshToken) return false;
+  try {
+    const res = await fetch(COGNITO_IDP_ENDPOINT, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/x-amz-json-1.1',
+        'X-Amz-Target': 'AWSCognitoIdentityProviderService.InitiateAuth',
+      },
+      body: JSON.stringify({
+        AuthFlow: 'REFRESH_TOKEN_AUTH',
+        ClientId: CLIENT_ID,
+        AuthParameters: { REFRESH_TOKEN: refreshToken },
+      }),
+    });
+    const data = await res.json().catch(() => ({}));
+    if (!res.ok || !data.AuthenticationResult?.IdToken) return false;
+    localStorage.setItem('id_token', data.AuthenticationResult.IdToken);
+    if (data.AuthenticationResult.AccessToken) {
+      localStorage.setItem('access_token', data.AuthenticationResult.AccessToken);
+    }
+    return true;
+  } catch {
+    return false;
+  }
+};
+
 // ---------- PKCE helpers (Authorization Code + PKCE cho AWS Live) ----------
 const base64Url = (bytes: Uint8Array) =>
   btoa(String.fromCharCode(...bytes)).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');

@@ -91,6 +91,14 @@ resource "aws_iam_role_policy" "lambda_core_api_policy" {
         ]
       },
 
+      # 1.6. Quyền gán Cognito group theo vai trò tự đăng ký (/auth/assign-role)
+      {
+        Sid      = "CognitoGroupAssignment"
+        Effect   = "Allow"
+        Action   = ["cognito-idp:AdminAddUserToGroup", "cognito-idp:AdminListGroupsForUser"]
+        Resource = aws_cognito_user_pool.main.arn
+      },
+
       # 1.4. Quyền đẩy bài nộp thi vào hàng đợi Amazon SQS (SQS Buffer Pipeline)
       {
         Sid    = "SQSSendSubmissionMessage"

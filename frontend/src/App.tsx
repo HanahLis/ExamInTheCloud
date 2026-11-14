@@ -8,6 +8,12 @@ import {
   signUpWithCognito,
   confirmSignUpWithCognito,
   resendConfirmationCode,
+  setUserSelectedRole,
+  hasUserChosenRole,
+  getUserSelectedRole,
+  getTokenGroups,
+  assignRoleToCognito,
+  refreshIdToken,
 } from './services/auth';
 import {
   getQuestions,
@@ -240,6 +246,7 @@ export default function App() {
   const [showOtpModal, setShowOtpModal] = useState(false);
   const [otpEmail, setOtpEmail] = useState('');
   const [otpPassword, setOtpPassword] = useState('');
+  const [otpRole, setOtpRole] = useState<'Candidate' | 'Proctor' | 'Organizer'>('Candidate');
   const [otpCode, setOtpCode] = useState('');
   const [otpLoading, setOtpLoading] = useState(false);
   const [otpResending, setOtpResending] = useState(false);
@@ -247,6 +254,17 @@ export default function App() {
 
   const loggedIn = isLoggedIn();
   const user = getCurrentUser();
+  const userChosenRole = hasUserChosenRole(user.email);
+  const [showRoleOnboarding, setShowRoleOnboarding] = useState(false);
+  const [selectedOnboardingRole, setSelectedOnboardingRole] = useState<'Candidate' | 'Organizer'>('Candidate');
+
+  useEffect(() => {
+    // Chỉ hỏi vai trò khi tài khoản chưa có Cognito group; tài khoản đã có group
+    // thì vai trò là dữ liệu máy chủ, không cần chọn lại trên thiết bị mới.
+    if (loggedIn && user.email && !userChosenRole && getTokenGroups().length === 0) {
+      setShowRoleOnboarding(true);
+    }
+  }, [loggedIn, user.email, userChosenRole]);
 
   // Tải dữ liệu an toàn (luôn có dữ liệu chuẩn, không bao giờ bị trống)
   const refreshAll = useCallback(async () => {
@@ -392,6 +410,19 @@ export default function App() {
       setLoginLoading(true);
       try {
         await loginWithCognitoPassword(cleanEmail, loginPassword);
+        // Tài khoản cũ chưa có Cognito group: đồng bộ vai trò đã chọn trước đây
+        // để lần đăng nhập sau (mọi thiết bị) giữ đúng vai trò.
+        try {
+          if (getTokenGroups().length === 0) {
+            const storedRole = getUserSelectedRole(cleanEmail);
+            if (storedRole) {
+              const assigned = await assignRoleToCognito(storedRole);
+              if (assigned) await refreshIdToken();
+            }
+          }
+        } catch (roleErr) {
+          console.warn('[CloudExam] Không đồng bộ được vai trò:', roleErr);
+        }
         window.location.reload();
       } catch (err: any) {
         const msg = err?.message || '';
@@ -440,8 +471,12 @@ export default function App() {
           regRole,
           regStudentCode.trim()
         );
+        // Ghi nhớ vai trò đã chọn để không bị hỏi lại (và không rơi về Thí sinh)
+        // sau khi xác thực OTP.
+        setUserSelectedRole(cleanEmail, regRole);
         setOtpEmail(cleanEmail);
         setOtpPassword(regPassword);
+        setOtpRole(regRole);
         setOtpNotice(null);
         setOtpCode('');
         setShowOtpModal(true);
@@ -479,6 +514,13 @@ export default function App() {
         await confirmSignUpWithCognito(otpEmail, otpCode.trim());
         if (otpPassword) {
           await loginWithCognitoPassword(otpEmail, otpPassword);
+          // Gán vai trò đã chọn vào Cognito group để không bị mất khi đăng nhập lại
+          try {
+            const assigned = await assignRoleToCognito(otpRole);
+            if (assigned) await refreshIdToken();
+          } catch (roleErr) {
+            console.warn('[CloudExam] Không gán được vai trò:', roleErr);
+          }
           window.location.reload();
         } else {
           alert('Tài khoản đã được kích hoạt thành công! Vui lòng đăng nhập.');
@@ -948,6 +990,99 @@ export default function App() {
 
 
 
+  const roleOnboardingModal = showRoleOnboarding ? (
+    <div className="fixed inset-0 z-50 bg-slate-900/60 backdrop-blur-sm flex items-center justify-center p-4">
+      <div className="bg-white rounded-2xl border border-slate-200 shadow-xl max-w-md w-full p-6 sm:p-8 space-y-6">
+        <div className="text-center space-y-2">
+          <div className="w-12 h-12 rounded-xl bg-slate-900 text-white flex items-center justify-center mx-auto">
+            <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
+            </svg>
+          </div>
+          <h3 className="text-lg font-semibold text-slate-900">{t('onboarding_role_title')}</h3>
+          <p className="text-xs text-slate-500">
+            {t('onboarding_role_subtitle')}{' '}
+            <span className="font-semibold text-slate-700 font-mono block mt-0.5">{user.email}</span>
+          </p>
+        </div>
+
+        <div className="space-y-3">
+          <button
+            type="button"
+            onClick={() => setSelectedOnboardingRole('Candidate')}
+            className={`w-full p-4 rounded-xl border text-left transition flex items-start gap-3.5 cursor-pointer ${
+              selectedOnboardingRole === 'Candidate'
+                ? 'border-indigo-600 bg-indigo-50/60 ring-1 ring-indigo-600'
+                : 'border-slate-200 bg-white hover:border-slate-300'
+            }`}
+          >
+            <div className="w-9 h-9 rounded-lg bg-slate-100 text-slate-600 border border-slate-200 flex items-center justify-center shrink-0">
+              <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 14l9-5-9-5-9 5 9 5zm0 0l6.16-3.422A12.083 12.083 0 0118.825 17 11.952 11.952 0 0112 20.055a11.952 11.952 0 01-6.825-3.055A12.083 12.083 0 0111.84 10.578L12 14z" />
+              </svg>
+            </div>
+            <div className="flex-1 min-w-0">
+              <div className="flex items-center justify-between">
+                <p className="text-xs font-semibold text-slate-900">{t('register_role_candidate')}</p>
+                {selectedOnboardingRole === 'Candidate' && (
+                  <span className="w-2.5 h-2.5 rounded-full bg-indigo-600"></span>
+                )}
+              </div>
+              <p className="text-[11px] text-slate-500 mt-0.5">{t('register_role_candidate_desc')}</p>
+            </div>
+          </button>
+
+          <button
+            type="button"
+            onClick={() => setSelectedOnboardingRole('Organizer')}
+            className={`w-full p-4 rounded-xl border text-left transition flex items-start gap-3.5 cursor-pointer ${
+              selectedOnboardingRole === 'Organizer'
+                ? 'border-indigo-600 bg-indigo-50/60 ring-1 ring-indigo-600'
+                : 'border-slate-200 bg-white hover:border-slate-300'
+            }`}
+          >
+            <div className="w-9 h-9 rounded-lg bg-slate-100 text-slate-600 border border-slate-200 flex items-center justify-center shrink-0">
+              <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
+              </svg>
+            </div>
+            <div className="flex-1 min-w-0">
+              <div className="flex items-center justify-between">
+                <p className="text-xs font-semibold text-slate-900">{t('register_role_organizer')}</p>
+                {selectedOnboardingRole === 'Organizer' && (
+                  <span className="w-2.5 h-2.5 rounded-full bg-indigo-600"></span>
+                )}
+              </div>
+              <p className="text-[11px] text-slate-500 mt-0.5">{t('register_role_organizer_desc')}</p>
+            </div>
+          </button>
+        </div>
+
+        <button
+          type="button"
+          onClick={async () => {
+            setUserSelectedRole(user.email, selectedOnboardingRole);
+            setShowRoleOnboarding(false);
+            try {
+              const assigned = await assignRoleToCognito(selectedOnboardingRole);
+              if (assigned) await refreshIdToken();
+            } catch (roleErr) {
+              console.warn('[CloudExam] Không gán được vai trò:', roleErr);
+            }
+            window.location.reload();
+          }}
+          className="w-full py-3 bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-semibold rounded-xl shadow-sm transition cursor-pointer"
+        >
+          {t('onboarding_confirm_btn')}
+        </button>
+      </div>
+    </div>
+  ) : null;
+
+  // Tài khoản chưa có Cognito group phải chọn vai trò một lần trước khi vào cổng nào.
+  if (roleOnboardingModal) {
+    return <div className="min-h-screen bg-slate-50">{roleOnboardingModal}</div>;
+  }
 
   // CỔNG THÍ SINH
   if (isCandidateOnly) {

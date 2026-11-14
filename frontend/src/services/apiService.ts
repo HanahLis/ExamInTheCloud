@@ -92,6 +92,12 @@ export type CandidateInput = Candidate;
 
 export type SessionStatus = 'SCHEDULED' | 'RUNNING' | 'CLOSED';
 
+export interface SessionCandidate {
+  email: string;
+  name?: string;
+  studentCode?: string;
+}
+
 export interface ExamSession {
   id: string;
   name: string;
@@ -102,6 +108,7 @@ export interface ExamSession {
   candidateEmails: string[];
   proctorEmails?: string[];
   proctorEmail?: string;
+  candidates?: SessionCandidate[];
   link: string;
   roomPassword?: string;
   lockedCandidates?: Record<
@@ -469,13 +476,8 @@ export const createCandidate = async (data: CandidateInput): Promise<Candidate> 
 };
 
 export const deleteCandidate = async (email: string): Promise<any> => {
-  try {
-    const res = await api.delete(`/candidates/${email}`);
-    return res.data;
-  } catch {
-    const res = await api.delete(`/candidates/${encodeURIComponent(email)}`);
-    return res.data;
-  }
+  const res = await api.delete(`/candidates/${encodeURIComponent(email)}`);
+  return res.data;
 };
 
 // ============================================================================
@@ -562,18 +564,6 @@ export const updateSessionCandidates = async (id: string, candidateEmails: strin
 export const verifyFace = async (req: FaceVerifyRequest): Promise<FaceVerifyResponse> => {
   const targetEmail = (req.email || '').trim().toLowerCase();
 
-  let candidateName = '';
-  if (targetEmail) {
-    const candRes = await api.get(`/candidates/${targetEmail}`).catch(() => null);
-    if (candRes?.data) {
-      candidateName = candRes.data.name || '';
-    } else {
-      const allCands = await getCandidates().catch(() => [] as Candidate[]);
-      const match = allCands.find((c) => c.email.toLowerCase() === targetEmail);
-      if (match) candidateName = match.name;
-    }
-  }
-
   const deviceTokenKey = `cloudexam_cand_token_${req.sessionId}_${targetEmail}`;
   let deviceToken = req.deviceToken || localStorage.getItem(deviceTokenKey) || '';
   if (!deviceToken) {
@@ -621,7 +611,7 @@ export const verifyFace = async (req: FaceVerifyRequest): Promise<FaceVerifyResp
         status: 'FAIL',
         verified: false,
         similarity: 0,
-        candidateName: candidateName || targetEmail,
+        candidateName: targetEmail,
         message:
           'Không nhận diện được khuôn mặt trong ảnh thẻ hồ sơ hoặc ảnh chụp camera. Vui lòng kiểm tra lại ảnh thẻ và hướng thẳng vào camera.',
       };
@@ -641,7 +631,7 @@ export const verifyFace = async (req: FaceVerifyRequest): Promise<FaceVerifyResp
       status: 'FAIL',
       verified: false,
       similarity: errorData?.similarity ?? 0,
-      candidateName: candidateName || targetEmail,
+      candidateName: targetEmail,
       message: friendlyMessage || 'Xác thực sinh trắc học không thành công.',
     };
   }

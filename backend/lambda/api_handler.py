@@ -32,6 +32,7 @@ BUCKET_NAME = os.getenv("S3_BUCKET_NAME", "")
 SQS_QUEUE_URL = os.getenv("SQS_QUEUE_URL", "")
 STATE_MACHINE_ARN = os.getenv("STATE_MACHINE_ARN", "")
 SNS_TOPIC_ARN = os.getenv("SNS_TOPIC_ARN", "")
+COGNITO_USER_POOL_ID = os.getenv("COGNITO_USER_POOL_ID", "").strip()
 
 # Khởi tạo Cấu hình Multi-Cloud (Google Gemini, Upstash Redis, Cloudflare Turnstile)
 # Lưu ý: KHÔNG nhúng API key vào code — key bị lộ sẽ bị Google vô hiệu hóa.
@@ -77,6 +78,7 @@ sqs_client = boto3.client("sqs", region_name=REGION, config=sqs_config)
 sfn_client = boto3.client("stepfunctions", region_name=REGION)
 sns_config = Config(connect_timeout=2, read_timeout=2, retries={'max_attempts': 1})
 sns_client = boto3.client("sns", region_name=REGION, config=sns_config)
+cognito_idp_client = boto3.client("cognito-idp", region_name=REGION)
 
 questions_table = dynamodb.Table(f"CloudExam_Questions_{ENV}")
 candidates_table = dynamodb.Table(f"CloudExam_Candidates_{ENV}")
@@ -112,6 +114,7 @@ def get_auth_claims(event):
         authorizer = event.get("requestContext", {}).get("authorizer", {})
         claims = authorizer.get("claims", {})
         email = claims.get("email", "")
+        username = claims.get("cognito:username", "")
         raw_groups = claims.get("cognito:groups", "")
         if isinstance(raw_groups, list):
             groups = raw_groups
@@ -132,15 +135,16 @@ def get_auth_claims(event):
                     payload_b64 += "=" * ((4 - len(payload_b64) % 4) % 4)
                     payload_json = json.loads(base64.urlsafe_b64decode(payload_b64.encode("utf-8")).decode("utf-8"))
                     email = payload_json.get("email", "")
+                    username = payload_json.get("cognito:username", "") or username
                     raw_grp = payload_json.get("cognito:groups", [])
                     if isinstance(raw_grp, list):
                         groups = raw_grp
                     elif isinstance(raw_grp, str) and raw_grp:
                         groups = [g.strip() for g in raw_grp.split(",")]
 
-        return {"email": (email or "").lower().strip(), "groups": groups}
+        return {"email": (email or "").lower().strip(), "groups": groups, "username": username}
     except Exception:
-        return {"email": "", "groups": []}
+        return {"email": "", "groups": [], "username": ""}
 
 def check_permission(claims, allowed_groups):
     """Kiểm tra quyền truy cập dựa trên Cognito Group (RBAC)"""
@@ -980,13 +984,21 @@ def lambda_handler(event, context):
     user_groups = claims.get("groups", [])
     is_admin = "Admin" in user_groups
     is_student_code = bool(re.match(r"^2402\d{4}@vnu\.edu\.vn$", user_email))
-    is_proctor = "Proctor" in user_groups or "laladoraema" in user_email
-    is_organizer = (
-        "Organizer" in user_groups
-        or user_email in ["annv@uet.vnu.edu.vn"]
-        or (bool(user_email) and not is_student_code and not is_proctor)
-    )
-    is_candidate = "Candidate" in user_groups or (is_student_code and not is_admin and not is_proctor)
+    # Khi tài khoản đã được gán Cognito group thì group là nguồn phân quyền duy nhất.
+    # Heuristic theo email chỉ dùng cho tài khoản cũ chưa có group.
+    role_groups = [g for g in user_groups if g in ("Admin", "Organizer", "Proctor", "Candidate")]
+    if role_groups:
+        is_proctor = (not is_admin) and "Proctor" in role_groups
+        is_organizer = (not is_admin) and (not is_proctor) and "Organizer" in role_groups
+        is_candidate = (not is_admin) and (not is_proctor) and (not is_organizer) and "Candidate" in role_groups
+    else:
+        is_proctor = "Proctor" in user_groups or "laladoraema" in user_email
+        is_organizer = (
+            "Organizer" in user_groups
+            or user_email in ["annv@uet.vnu.edu.vn"]
+            or (bool(user_email) and not is_student_code and not is_proctor)
+        )
+        is_candidate = is_student_code and not is_admin and not is_proctor
     is_admin_or_organizer = is_admin or is_organizer
     # Tài khoản thí sinh không được thao tác ghi trên ngân hàng câu hỏi / thí sinh / ca thi
     can_manage_content = is_admin_or_organizer and not is_candidate
@@ -1002,6 +1014,56 @@ def lambda_handler(event, context):
         body = {}
 
     try:
+        # =========================================================================
+        # 0. /auth/assign-role API
+        # Gán Cognito group theo vai trò người dùng đã chọn lúc đăng ký, để vai trò
+        # tồn tại ở mọi trình duyệt/thiết bị thay vì chỉ nằm trong localStorage.
+        # =========================================================================
+        if (resource_path == "/auth/assign-role" or raw_path.endswith("/auth/assign-role")) and http_method == "POST":
+            if not user_email:
+                return build_response(401, {"error": "Thiếu thông tin xác thực người dùng."})
+            role = str(body.get("role") or "").strip()
+            if role not in ("Organizer", "Proctor", "Candidate"):
+                return build_response(400, {"error": "Vai trò không hợp lệ. Chỉ hỗ trợ 'Organizer', 'Proctor' hoặc 'Candidate'."})
+            if not COGNITO_USER_POOL_ID:
+                return build_response(500, {"error": "Hệ thống chưa cấu hình Cognito User Pool."})
+            existing_role_groups = [g for g in user_groups if g in ("Admin", "Organizer", "Proctor", "Candidate")]
+            if not existing_role_groups:
+                # Token có thể được cấp trước khi group được gán: kiểm tra trực tiếp
+                # trên Cognito để tránh việc đổi vai trò bằng token cũ.
+                try:
+                    cognito_groups = cognito_idp_client.admin_list_groups_for_user(
+                        UserPoolId=COGNITO_USER_POOL_ID,
+                        Username=claims.get("username") or user_email
+                    ).get("Groups", [])
+                    existing_role_groups = [
+                        g.get("GroupName") for g in cognito_groups
+                        if g.get("GroupName") in ("Admin", "Organizer", "Proctor", "Candidate")
+                    ]
+                except Exception as list_err:
+                    print(f"[ERROR] Không kiểm tra được group hiện tại của {user_email}: {list_err}")
+                    return build_response(500, {"error": "Không kiểm tra được vai trò hiện tại của tài khoản. Vui lòng thử lại."})
+            if existing_role_groups:
+                return build_response(200, {
+                    "message": "Tài khoản đã được gán vai trò trên hệ thống.",
+                    "role": existing_role_groups[0],
+                    "alreadyAssigned": True
+                })
+            try:
+                cognito_idp_client.admin_add_user_to_group(
+                    UserPoolId=COGNITO_USER_POOL_ID,
+                    Username=claims.get("username") or user_email,
+                    GroupName=role
+                )
+            except Exception as assign_err:
+                print(f"[ERROR] Không gán được vai trò {role} cho {user_email}: {assign_err}")
+                return build_response(500, {"error": "Không gán được vai trò cho tài khoản. Vui lòng thử lại."})
+            return build_response(200, {
+                "message": f"Đã gán vai trò {role} cho tài khoản.",
+                "role": role,
+                "alreadyAssigned": False
+            })
+
         # =========================================================================
         # 1. /questions API (Ngân hàng câu hỏi, Bóc tách đề thi AI & S3 Presigned URL)
         # =========================================================================
@@ -1409,25 +1471,19 @@ def lambda_handler(event, context):
         # =========================================================================
         elif resource_path == "/candidates":
             if http_method == "GET":
+                if not user_email:
+                    return build_response(401, {"error": "Thiếu thông tin xác thực người dùng."})
                 scan_res = candidates_table.scan()
                 all_candidates = scan_res.get("Items", [])
-                if is_admin or is_organizer or not user_email:
+                # Ban tổ chức / quản trị / giám thị được xem toàn bộ danh sách.
+                if is_admin or is_organizer or is_proctor:
                     return build_response(200, all_candidates)
-                
-                # Giảng viên xem danh sách thí sinh do chính mình tạo / quản lý và các thí sinh mặc định của nhà trường
-                my_candidates = [
+
+                # Người dùng thường (thí sinh) chỉ thấy hồ sơ của chính mình.
+                return build_response(200, [
                     c for c in all_candidates
-                    if c.get("ownerEmail", "").lower() == user_email 
-                    or c.get("createdBy", "").lower() == user_email 
-                    or user_email in [o.lower() for o in c.get("ownerEmails", [])]
-                    or c.get("studentCode", "").startswith("2402000")
-                    or c.get("studentCode", "") == "24021598"
-                    or "phong" in c.get("name", "").lower()
-                    or is_admin
-                    or is_organizer
-                    or not user_email
-                ]
-                return build_response(200, my_candidates)
+                    if c.get("email", "").lower() == user_email
+                ])
 
             elif http_method == "POST":
                 if not can_manage_content:
@@ -1527,12 +1583,25 @@ def lambda_handler(event, context):
                 return build_response(201, item)
 
         elif resource_path == "/candidates/{email}":
-            c_email = path_parameters.get("email", "").lower().strip()
+            # API Gateway chuyển nguyên văn %40 trong path param (không decode),
+            # nên phải unquote để email dạng URL-encoded vẫn tra đúng khóa DynamoDB.
+            c_email = urllib.parse.unquote(path_parameters.get("email", "")).lower().strip()
             if http_method == "GET":
+                if not user_email:
+                    return build_response(401, {"error": "Thiếu thông tin xác thực người dùng."})
                 res = candidates_table.get_item(Key={"email": c_email})
                 item = res.get("Item")
                 if not item:
                     return build_response(404, {"error": "Thí sinh không tồn tại"})
+
+                if not (is_admin or is_organizer or is_proctor):
+                    raw_owners = item.get("ownerEmails", [])
+                    owners = [raw_owners] if isinstance(raw_owners, str) else list(raw_owners)
+                    if item.get("ownerEmail"):
+                        owners.append(item.get("ownerEmail"))
+                    owners_lower = [str(o).lower() for o in owners]
+                    if c_email != user_email and user_email not in owners_lower:
+                        return build_response(403, {"error": "Bạn không có quyền xem hồ sơ thí sinh của tài khoản khác."})
                 return build_response(200, item)
 
             elif http_method == "DELETE":
@@ -1565,6 +1634,35 @@ def lambda_handler(event, context):
                     )
                     return build_response(200, {"message": "Đã gỡ thí sinh khỏi danh sách của bạn", "email": c_email})
                 else:
+                    # Gỡ thí sinh khỏi mọi ca thi để không còn email "mồ côi"
+                    try:
+                        for sess in sessions_table.scan().get("Items", []):
+                            sess_emails = sess.get("candidateEmails") or []
+                            remaining_emails = [
+                                e for e in sess_emails if str(e).strip().lower() != c_email
+                            ]
+                            if len(remaining_emails) != len(sess_emails):
+                                sessions_table.update_item(
+                                    Key={"id": sess["id"]},
+                                    UpdateExpression="SET candidateEmails = :e",
+                                    ExpressionAttributeValues={":e": remaining_emails},
+                                )
+                    except Exception as sess_err:
+                        print(f"[WARN] Không gỡ được {c_email} khỏi các ca thi: {sess_err}")
+
+                    # Xoá ảnh hồ sơ trên S3 (chỉ khi thuộc bucket của hệ thống)
+                    face_url = item.get("faceImageUrl", "") or ""
+                    if face_url and BUCKET_NAME:
+                        try:
+                            parsed = urllib.parse.urlparse(face_url)
+                            if parsed.netloc.startswith(f"{BUCKET_NAME}.s3") and parsed.path:
+                                s3_client.delete_object(
+                                    Bucket=BUCKET_NAME,
+                                    Key=parsed.path.lstrip("/"),
+                                )
+                        except Exception as s3_err:
+                            print(f"[WARN] Không xoá được ảnh hồ sơ của {c_email}: {s3_err}")
+
                     candidates_table.delete_item(Key={"email": c_email})
                     return build_response(200, {"message": "Xóa thí sinh thành công", "email": c_email})
 
@@ -1725,7 +1823,8 @@ def lambda_handler(event, context):
                 if "lockedCandidates" not in item:
                     item["lockedCandidates"] = {}
 
-                # Đính kèm hồ sơ chi tiết của thí sinh trong ca thi
+                # Đính kèm hồ sơ tối thiểu của thí sinh trong ca thi (endpoint công khai,
+                # không trả ảnh hồ sơ/thông tin quản lý).
                 cand_emails = item.get("candidateEmails", [])
                 candidates_list = []
                 for email_cand in cand_emails:
@@ -1738,8 +1837,6 @@ def lambda_handler(event, context):
                                 "studentCode": ci.get("studentCode", ""),
                                 "name": ci.get("name", clean_e),
                                 "email": clean_e,
-                                "className": ci.get("className", ""),
-                                "faceImageUrl": ci.get("faceImageUrl", "")
                             })
                     except Exception as ce:
                         print(f"Error enriching candidate {email_cand}: {ce}")
