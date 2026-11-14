@@ -1210,6 +1210,32 @@ export const testGeminiApiKey = async (
   return { ok: false, modelUsed: modelsToTry[0] || '', message: 'key_network_error' };
 };
 
+// Lưu nhiều câu hỏi với giới hạn song song: Lambda chỉ chịu được một số request
+// đồng thời nhất định, Promise.all toàn bộ 50 câu sẽ bị API Gateway throttle (429)
+const saveQuestionsWithRetry = async (items: Question[]): Promise<number> => {
+  const queue = [...items];
+  let failed = 0;
+  const saveOne = async (q: Question, attempt = 0): Promise<void> => {
+    try {
+      await createQuestion(q);
+    } catch (saveErr) {
+      if (attempt < 2) {
+        await new Promise((r) => setTimeout(r, 400 * (attempt + 1)));
+        return saveOne(q, attempt + 1);
+      }
+      failed += 1;
+      console.warn(`Lỗi lưu câu hỏi ${q.id}:`, saveErr);
+    }
+  };
+  const worker = async () => {
+    for (let q = queue.shift(); q; q = queue.shift()) {
+      await saveOne(q);
+    }
+  };
+  await Promise.all(Array.from({ length: Math.min(3, items.length) }, worker));
+  return failed;
+};
+
 export const parseQuestionsFromDoc = async (payload: ParseDocRequest): Promise<ParseDocResponse> => {
   const bankId = payload.bankId || 'bank-se-arch-01';
   const subject = payload.subject || 'Kiến trúc hướng dịch vụ';
@@ -1241,13 +1267,10 @@ export const parseQuestionsFromDoc = async (payload: ParseDocRequest): Promise<P
   if (parsed.length >= 2) {
     console.log(`[CloudExam] Bóc tách thành công ${parsed.length} câu hỏi trực tiếp từ tài liệu.`);
     if (payload.autoSave !== false && parsed.length > 0) {
-      await Promise.all(
-        parsed.map((q) =>
-          createQuestion(q).catch((saveErr) => {
-            console.warn(`Lỗi lưu câu hỏi ${q.id}:`, saveErr);
-          })
-        )
-      );
+      const failed = await saveQuestionsWithRetry(parsed);
+      if (failed > 0) {
+        console.warn(`[CloudExam] ${failed}/${parsed.length} câu hỏi chưa lưu được vào DynamoDB.`);
+      }
     }
     return {
       message: `Đã số hóa thành công toàn bộ ${parsed.length} câu hỏi trắc nghiệm từ tệp Word.`,
@@ -1276,13 +1299,7 @@ export const parseQuestionsFromDoc = async (payload: ParseDocRequest): Promise<P
 
         if (geminiDirect && geminiDirect.questions.length > 0) {
           if (payload.autoSave !== false) {
-            await Promise.all(
-              geminiDirect.questions.map((q) =>
-                createQuestion(q).catch((saveErr) => {
-                  console.warn(`Lỗi lưu câu hỏi ${q.id}:`, saveErr);
-                })
-              )
-            );
+            await saveQuestionsWithRetry(geminiDirect.questions);
           }
           return {
             message: `Đã tạo thành công ${geminiDirect.questions.length} câu hỏi trắc nghiệm qua Google Gemini AI (${geminiDirect.modelUsed}).`,

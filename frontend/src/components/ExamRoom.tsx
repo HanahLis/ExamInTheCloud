@@ -400,6 +400,22 @@ export const ExamRoom = ({ sessionId, currentUserEmail = '', isOrganizer = false
       });
       setSubmitResult(res.result);
       setStep('COMPLETED');
+      // Worker SQS chấm điểm bất đồng bộ — đồng bộ lại điểm cuối khi worker hoàn tất
+      void (async () => {
+        for (let i = 0; i < 20; i += 1) {
+          await new Promise((resolve) => setTimeout(resolve, 2000));
+          try {
+            const latest = await getSession(sessionId);
+            const graded = latest.submissions?.[candidateEmail.toLowerCase()];
+            if (graded?.status === 'COMPLETED') {
+              setSubmitResult({ ...res.result, ...graded });
+              break;
+            }
+          } catch {
+            // thử lại ở vòng poll kế tiếp
+          }
+        }
+      })();
       if (isAutoSubmit) {
         alert(t('alert_time_up_auto_submit'));
       }
@@ -953,7 +969,7 @@ export const ExamRoom = ({ sessionId, currentUserEmail = '', isOrganizer = false
 
       {/* BẢNG XẾP HẠNG TRỰC TIẾP (Upstash Serverless Redis / DynamoDB Fallback) */}
       {(step === 'IN_EXAM' || step === 'COMPLETED') && (
-        <LiveLeaderboard sessionId={sessionId} currentEmail={candidateEmail} />
+        <LiveLeaderboard sessionId={sessionId} currentEmail={candidateEmail} pollIntervalMs={5000} />
       )}
 
       {/* BƯỚC 3: HOÀN THÀNH */}
