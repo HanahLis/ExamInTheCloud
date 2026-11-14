@@ -632,6 +632,16 @@ export const ExamRoom = ({ sessionId, currentUserEmail = '', isOrganizer = false
                     ? currentCandidateObj.name.trim().split(/\s+/).slice(-2).map((w) => w.charAt(0)).join('').toUpperCase()
                     : '?'}
                 </span>
+                {currentCandidateObj?.faceImageUrl && (
+                  <img
+                    src={currentCandidateObj.faceImageUrl}
+                    alt={currentCandidateObj.name || candidateEmail}
+                    className="absolute inset-0 w-full h-full object-cover"
+                    onError={(e) => {
+                      e.currentTarget.style.display = 'none';
+                    }}
+                  />
+                )}
               </div>
               <p className="text-xs text-slate-600 font-medium">
                 {currentCandidateObj?.name}

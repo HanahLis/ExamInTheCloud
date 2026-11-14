@@ -96,6 +96,7 @@ export interface SessionCandidate {
   email: string;
   name?: string;
   studentCode?: string;
+  faceImageUrl?: string;
 }
 
 export interface ExamSession {

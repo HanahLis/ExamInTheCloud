@@ -1823,8 +1823,8 @@ def lambda_handler(event, context):
                 if "lockedCandidates" not in item:
                     item["lockedCandidates"] = {}
 
-                # Đính kèm hồ sơ tối thiểu của thí sinh trong ca thi (endpoint công khai,
-                # không trả ảnh hồ sơ/thông tin quản lý).
+                # Đính kèm hồ sơ tối thiểu của thí sinh trong ca thi. Ảnh hồ sơ cần thiết
+                # cho màn điểm danh sinh trắc học của chính thí sinh.
                 cand_emails = item.get("candidateEmails", [])
                 candidates_list = []
                 for email_cand in cand_emails:
@@ -1833,10 +1833,14 @@ def lambda_handler(event, context):
                         c_res = candidates_table.get_item(Key={"email": clean_e})
                         if c_res.get("Item"):
                             ci = c_res["Item"]
+                            face_url = ci.get("faceImageUrl", "") or ""
+                            if face_url.startswith("faces/") and BUCKET_NAME:
+                                face_url = f"https://{BUCKET_NAME}.s3.{REGION}.amazonaws.com/{face_url}"
                             candidates_list.append({
                                 "studentCode": ci.get("studentCode", ""),
                                 "name": ci.get("name", clean_e),
                                 "email": clean_e,
+                                "faceImageUrl": face_url,
                             })
                     except Exception as ce:
                         print(f"Error enriching candidate {email_cand}: {ce}")
