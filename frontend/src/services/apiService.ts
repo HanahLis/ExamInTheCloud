@@ -100,6 +100,8 @@ export interface ExamSession {
   status: SessionStatus;
   questionIds: string[];
   candidateEmails: string[];
+  proctorEmails?: string[];
+  proctorEmail?: string;
   link: string;
   roomPassword?: string;
   lockedCandidates?: Record<

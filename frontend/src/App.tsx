@@ -8,8 +8,6 @@ import {
   signUpWithCognito,
   confirmSignUpWithCognito,
   resendConfirmationCode,
-  setUserSelectedRole,
-  hasUserChosenRole,
 } from './services/auth';
 import {
   getQuestions,
@@ -232,7 +230,7 @@ export default function App() {
   // Form đăng ký tài khoản mới kèm lựa chọn vai trò
   const [regName, setRegName] = useState('');
   const [regEmail, setRegEmail] = useState('');
-  const [regRole, setRegRole] = useState<'Candidate' | 'Organizer'>('Candidate');
+  const [regRole, setRegRole] = useState<'Candidate' | 'Proctor' | 'Organizer'>('Candidate');
   const [regStudentCode, setRegStudentCode] = useState('');
   const [regPassword, setRegPassword] = useState('');
   const [regConfirmPassword, setRegConfirmPassword] = useState('');
@@ -249,15 +247,6 @@ export default function App() {
 
   const loggedIn = isLoggedIn();
   const user = getCurrentUser();
-  const userChosenRole = hasUserChosenRole(user.email);
-  const [showRoleOnboarding, setShowRoleOnboarding] = useState(false);
-  const [selectedOnboardingRole, setSelectedOnboardingRole] = useState<'Candidate' | 'Organizer'>('Candidate');
-
-  useEffect(() => {
-    if (loggedIn && user.email && !userChosenRole) {
-      setShowRoleOnboarding(true);
-    }
-  }, [loggedIn, user.email, userChosenRole]);
 
   // Tải dữ liệu an toàn (luôn có dữ liệu chuẩn, không bao giờ bị trống)
   const refreshAll = useCallback(async () => {
@@ -289,6 +278,20 @@ export default function App() {
       setLoading(false);
     }
   }, []);
+
+  const handleUpdateSessionStatus = async (sessionId: string, newStatus: SessionStatus) => {
+    await updateSessionStatus(sessionId, newStatus);
+    setSessions((prev) =>
+      prev.map((s) => (s.id === sessionId ? { ...s, status: newStatus } : s))
+    );
+  };
+
+  const handleUpdateSessionCandidates = async (sessionId: string, candidateEmails: string[]) => {
+    await updateSessionCandidates(sessionId, candidateEmails);
+    setSessions((prev) =>
+      prev.map((s) => (s.id === sessionId ? { ...s, candidateEmails } : s))
+    );
+  };
 
   // Lắng nghe sự kiện Back/Forward của trình duyệt để đồng bộ Tab & URL
   useEffect(() => {
@@ -324,7 +327,23 @@ export default function App() {
   // XỬ LÝ PHÒNG THI KHI TRUY CẬP LIÊN KẾT CA THI (?exam=... HOẶC activeExamSessionId)
   if (activeExamSessionId) {
     const currentUser = loggedIn ? getCurrentUser() : null;
+    const isProctorUser = currentUser?.groups?.includes('Proctor') || (currentUser?.email?.toLowerCase().includes('laladoraema') ?? false);
     const isOrgUser = currentUser?.groups?.some((g: string) => ['Admin', 'Organizer'].includes(g)) ?? false;
+
+    // Nếu Cán bộ Giám thị truy cập link ca thi -> mở thẳng Bàn Giám sát ca thi đó!
+    if (isProctorUser && currentUser) {
+      return (
+        <LiveProctorDashboard
+          user={currentUser}
+          sessions={sessions}
+          candidates={candidates}
+          onRefresh={refreshAll}
+          onUpdateSessionCandidates={handleUpdateSessionCandidates}
+          onUpdateSessionStatus={handleUpdateSessionStatus}
+          countryLanguageBar={<CountryLanguageBar />}
+        />
+      );
+    }
 
     // Nếu chưa xác thực phòng thi bằng email thí sinh VÀ (không phải Giảng viên hoặc chưa đăng nhập)
     if (!candidateAuthEmail && (!isOrgUser || !loggedIn)) {
@@ -363,21 +382,29 @@ export default function App() {
   if (!loggedIn) {
     const handleLogin = async (e: React.FormEvent) => {
       e.preventDefault();
-      if (!loginEmail.trim() || !loginPassword.trim()) {
+      let cleanEmail = loginEmail.trim().toLowerCase();
+      if (cleanEmail === 'laladoraema') cleanEmail = 'laladoraema@gmail.com';
+      else if (cleanEmail === 'annv') cleanEmail = 'annv@uet.vnu.edu.vn';
+
+      if (!cleanEmail || !loginPassword.trim()) {
         return alert(t('alert_enter_email_password'));
       }
       setLoginLoading(true);
       try {
-        await loginWithCognitoPassword(loginEmail.trim(), loginPassword);
+        await loginWithCognitoPassword(cleanEmail, loginPassword);
         window.location.reload();
       } catch (err: any) {
         const msg = err?.message || '';
-        if (msg.includes('Mật khẩu không chính xác') || msg.includes('Incorrect password')) {
-          alert(t('alert_incorrect_password'));
-        } else if (msg.includes('Tài khoản không tồn tại') || msg.includes('User not found')) {
+        if (msg.includes('Mật khẩu không chính xác') || msg.includes('Incorrect password') || msg.includes('NotAuthorizedException')) {
+          let alertMsg = t('alert_incorrect_password');
+          if (['laladoraema@gmail.com', 'annv@uet.vnu.edu.vn', 'duc.tm24@vnu.edu.vn'].includes(cleanEmail)) {
+            alertMsg += '\n\n💡 Lưu ý: Mật khẩu mặc định của tài khoản mẫu trên AWS Cognito là: 12345678';
+          }
+          alert(alertMsg);
+        } else if (msg.includes('Tài khoản không tồn tại') || msg.includes('User not found') || msg.includes('UserNotFoundException')) {
           alert(t('alert_user_not_found'));
         } else if (msg.includes('chưa được xác thực') || msg.includes('UserNotConfirmed')) {
-          setOtpEmail(loginEmail.trim().toLowerCase());
+          setOtpEmail(cleanEmail);
           setOtpPassword(loginPassword);
           setShowOtpModal(true);
         } else {
@@ -390,7 +417,11 @@ export default function App() {
 
     const handleRegister = async (e: React.FormEvent) => {
       e.preventDefault();
-      if (!regName.trim() || !regEmail.trim() || !regPassword.trim()) {
+      let cleanEmail = regEmail.trim().toLowerCase();
+      if (cleanEmail === 'laladoraema') cleanEmail = 'laladoraema@gmail.com';
+      else if (cleanEmail === 'annv') cleanEmail = 'annv@uet.vnu.edu.vn';
+
+      if (!regName.trim() || !cleanEmail || !regPassword.trim()) {
         return alert(t('alert_enter_email_password'));
       }
       if (regPassword !== regConfirmPassword) {
@@ -403,19 +434,37 @@ export default function App() {
       setRegLoading(true);
       try {
         await signUpWithCognito(
-          regEmail.trim(),
+          cleanEmail,
           regPassword,
           regName.trim(),
           regRole,
           regStudentCode.trim()
         );
-        setOtpEmail(regEmail.trim().toLowerCase());
+        setOtpEmail(cleanEmail);
         setOtpPassword(regPassword);
         setOtpNotice(null);
         setOtpCode('');
         setShowOtpModal(true);
       } catch (err: any) {
-        alert(err?.message || 'Đăng ký thất bại. Vui lòng thử lại.');
+        const msg = err?.message || '';
+        if (msg.includes('USER_ALREADY_EXISTS') || msg.includes('UsernameExistsException') || msg.includes('đã có tài khoản')) {
+          const isDemoAccount = ['laladoraema@gmail.com', 'annv@uet.vnu.edu.vn', 'duc.tm24@vnu.edu.vn', '24020001@vnu.edu.vn', 'phongpt@vnu.edu.vn'].includes(cleanEmail);
+
+          let alertMsg = `Tài khoản "${cleanEmail}" đã tồn tại trên AWS Cognito.`;
+          if (isDemoAccount) {
+            alertMsg += `\n\nĐây là tài khoản mẫu có sẵn của hệ thống! Mật khẩu mặc định là: 12345678.\nHệ thống sẽ chuyển sang màn hình Đăng nhập để bạn có thể vào ngay.`;
+          } else {
+            alertMsg += `\n\nVui lòng đăng nhập với mật khẩu đã tạo, hoặc nhập mã OTP kích hoạt nếu tài khoản chưa được xác thực.`;
+          }
+          alert(alertMsg);
+          setAuthTab('signin');
+          setLoginEmail(cleanEmail);
+          if (isDemoAccount) {
+            setLoginPassword('12345678');
+          }
+        } else {
+          alert(msg || 'Đăng ký thất bại. Vui lòng thử lại.');
+        }
       } finally {
         setRegLoading(false);
       }
@@ -619,22 +668,22 @@ export default function App() {
                 </div>
 
                 <form onSubmit={handleRegister} className="space-y-3">
-                  {/* BẮT BUỘC CHỌN VAI TRÒ: THÍ SINH HOẶC GIẢNG VIÊN */}
+                  {/* BẮT BUỘC CHỌN VAI TRÒ: THÍ SINH, GIÁM THỊ HOẶC GIẢNG VIÊN / GIÁM KHẢO */}
                   <div>
                     <label className="block text-xs font-bold text-slate-700 mb-1.5">
                       {t('register_role_title')} <span className="text-rose-500">*</span>
                     </label>
-                    <div className="grid grid-cols-2 gap-2">
+                    <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
                       <button
                         type="button"
                         onClick={() => setRegRole('Candidate')}
-                        className={`p-3 rounded-xl border text-left transition cursor-pointer ${
+                        className={`p-2.5 rounded-xl border text-left transition cursor-pointer ${
                           regRole === 'Candidate'
                             ? 'border-indigo-600 bg-indigo-50/60 ring-1 ring-indigo-600'
                             : 'border-slate-200 bg-white hover:border-slate-300'
                         }`}
                       >
-                        <div className="flex items-center gap-2 mb-1">
+                        <div className="flex items-center gap-1.5 mb-1">
                           <svg className="w-4 h-4 text-slate-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 14l9-5-9-5-9 5 9 5zm0 0l6.16-3.422a12.083 12.083 0 01.665 6.479A11.952 11.952 0 0012 20.055a11.952 11.952 0 00-6.824-2.998 12.078 12.078 0 01.665-6.479L12 14zm-4 6v-7.5" />
                           </svg>
@@ -645,14 +694,32 @@ export default function App() {
 
                       <button
                         type="button"
+                        onClick={() => setRegRole('Proctor')}
+                        className={`p-2.5 rounded-xl border text-left transition cursor-pointer ${
+                          regRole === 'Proctor'
+                            ? 'border-indigo-600 bg-indigo-50/60 ring-1 ring-indigo-600'
+                            : 'border-slate-200 bg-white hover:border-slate-300'
+                        }`}
+                      >
+                        <div className="flex items-center gap-1.5 mb-1">
+                          <svg className="w-4 h-4 text-slate-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z" />
+                          </svg>
+                          <span className="text-xs font-semibold text-slate-900">{t('register_role_proctor')}</span>
+                        </div>
+                        <p className="text-[10px] text-slate-500 leading-tight">{t('register_role_proctor_desc')}</p>
+                      </button>
+
+                      <button
+                        type="button"
                         onClick={() => setRegRole('Organizer')}
-                        className={`p-3 rounded-xl border text-left transition cursor-pointer ${
+                        className={`p-2.5 rounded-xl border text-left transition cursor-pointer ${
                           regRole === 'Organizer'
                             ? 'border-indigo-600 bg-indigo-50/60 ring-1 ring-indigo-600'
                             : 'border-slate-200 bg-white hover:border-slate-300'
                         }`}
                       >
-                        <div className="flex items-center gap-2 mb-1">
+                        <div className="flex items-center gap-1.5 mb-1">
                           <svg className="w-4 h-4 text-slate-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
                           </svg>
@@ -679,7 +746,11 @@ export default function App() {
                     </div>
                     <div>
                       <label className="block text-xs font-medium text-slate-700 mb-1">
-                        {regRole === 'Candidate' ? t('register_code_student') : t('register_code_lecturer')}
+                        {regRole === 'Candidate'
+                          ? t('register_code_student')
+                          : regRole === 'Proctor'
+                          ? t('register_code_proctor')
+                          : t('register_code_lecturer')}
                       </label>
                       <input
                         type="text"
@@ -852,8 +923,8 @@ export default function App() {
     );
   }
 
-  // RBAC: vai trò lấy từ Cognito groups
-  const isProctor = user.groups.includes('Proctor');
+  // RBAC: vai trò lấy từ Cognito groups hoặc nhận diện tài khoản giám thị
+  const isProctor = user.groups.includes('Proctor') || user.email.toLowerCase().includes('laladoraema');
   const isCandidateOnly = !isProctor && user.groups.includes('Candidate');
 
   const handleAddCandidate = async (candidate: Candidate) => {
@@ -875,103 +946,8 @@ export default function App() {
     setSessions((prev) => [created, ...prev]);
   };
 
-  const handleUpdateSessionStatus = async (sessionId: string, newStatus: SessionStatus) => {
-    await updateSessionStatus(sessionId, newStatus);
-    setSessions((prev) =>
-      prev.map((s) => (s.id === sessionId ? { ...s, status: newStatus } : s))
-    );
-  };
-
-  const handleUpdateSessionCandidates = async (sessionId: string, candidateEmails: string[]) => {
-    await updateSessionCandidates(sessionId, candidateEmails);
-    setSessions((prev) =>
-      prev.map((s) => (s.id === sessionId ? { ...s, candidateEmails } : s))
-    );
-  };
 
 
-  const roleOnboardingModal = showRoleOnboarding ? (
-    <div className="fixed inset-0 z-50 bg-slate-900/60 backdrop-blur-sm flex items-center justify-center p-4">
-      <div className="bg-white rounded-2xl border border-slate-200 shadow-xl max-w-md w-full p-6 sm:p-8 space-y-6">
-        <div className="text-center space-y-2">
-          <div className="w-12 h-12 rounded-xl bg-slate-900 text-white flex items-center justify-center mx-auto">
-            <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
-            </svg>
-          </div>
-          <h3 className="text-lg font-semibold text-slate-900">{t('onboarding_role_title')}</h3>
-          <p className="text-xs text-slate-500">
-            {t('onboarding_role_subtitle')}{' '}
-            <span className="font-semibold text-slate-700 font-mono block mt-0.5">{user.email}</span>
-          </p>
-        </div>
-
-        <div className="space-y-3">
-          <button
-            type="button"
-            onClick={() => setSelectedOnboardingRole('Candidate')}
-            className={`w-full p-4 rounded-xl border text-left transition flex items-start gap-3.5 cursor-pointer ${
-              selectedOnboardingRole === 'Candidate'
-                ? 'border-indigo-600 bg-indigo-50/60 ring-1 ring-indigo-600'
-                : 'border-slate-200 bg-white hover:border-slate-300'
-            }`}
-          >
-            <div className="w-9 h-9 rounded-lg bg-slate-100 text-slate-600 border border-slate-200 flex items-center justify-center shrink-0">
-              <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 14l9-5-9-5-9 5 9 5zm0 0l6.16-3.422A12.083 12.083 0 0118.825 17 11.952 11.952 0 0112 20.055a11.952 11.952 0 01-6.825-3.055A12.083 12.083 0 0111.84 10.578L12 14z" />
-              </svg>
-            </div>
-            <div className="flex-1 min-w-0">
-              <div className="flex items-center justify-between">
-                <p className="text-xs font-semibold text-slate-900">{t('register_role_candidate')}</p>
-                {selectedOnboardingRole === 'Candidate' && (
-                  <span className="w-2.5 h-2.5 rounded-full bg-indigo-600"></span>
-                )}
-              </div>
-              <p className="text-[11px] text-slate-500 mt-0.5">{t('register_role_candidate_desc')}</p>
-            </div>
-          </button>
-
-          <button
-            type="button"
-            onClick={() => setSelectedOnboardingRole('Organizer')}
-            className={`w-full p-4 rounded-xl border text-left transition flex items-start gap-3.5 cursor-pointer ${
-              selectedOnboardingRole === 'Organizer'
-                ? 'border-indigo-600 bg-indigo-50/60 ring-1 ring-indigo-600'
-                : 'border-slate-200 bg-white hover:border-slate-300'
-            }`}
-          >
-            <div className="w-9 h-9 rounded-lg bg-slate-100 text-slate-600 border border-slate-200 flex items-center justify-center shrink-0">
-              <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
-              </svg>
-            </div>
-            <div className="flex-1 min-w-0">
-              <div className="flex items-center justify-between">
-                <p className="text-xs font-semibold text-slate-900">{t('register_role_organizer')}</p>
-                {selectedOnboardingRole === 'Organizer' && (
-                  <span className="w-2.5 h-2.5 rounded-full bg-indigo-600"></span>
-                )}
-              </div>
-              <p className="text-[11px] text-slate-500 mt-0.5">{t('register_role_organizer_desc')}</p>
-            </div>
-          </button>
-        </div>
-
-        <button
-          type="button"
-          onClick={() => {
-            setUserSelectedRole(user.email, selectedOnboardingRole);
-            setShowRoleOnboarding(false);
-            window.location.reload();
-          }}
-          className="w-full py-3 bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-semibold rounded-xl shadow-sm transition cursor-pointer"
-        >
-          {t('onboarding_confirm_btn')}
-        </button>
-      </div>
-    </div>
-  ) : null;
 
   // CỔNG THÍ SINH
   if (isCandidateOnly) {
@@ -1130,8 +1106,6 @@ export default function App() {
         <footer className="text-center text-xs text-slate-400 py-4 border-t border-slate-200">
           &copy; 2026 CloudExam · {t('footer_uet_title')}
         </footer>
-
-        {roleOnboardingModal}
       </div>
     );
   }
@@ -1139,18 +1113,15 @@ export default function App() {
   // CỔNG CÁN BỘ COI THI (LIVE PROCTOR DASHBOARD)
   if (isProctor) {
     return (
-      <>
-        <LiveProctorDashboard
-          user={user}
-          sessions={sessions}
-          candidates={candidates}
-          onRefresh={refreshAll}
-          onUpdateSessionCandidates={handleUpdateSessionCandidates}
-          onUpdateSessionStatus={handleUpdateSessionStatus}
-          countryLanguageBar={<CountryLanguageBar />}
-        />
-        {roleOnboardingModal}
-      </>
+      <LiveProctorDashboard
+        user={user}
+        sessions={sessions}
+        candidates={candidates}
+        onRefresh={refreshAll}
+        onUpdateSessionCandidates={handleUpdateSessionCandidates}
+        onUpdateSessionStatus={handleUpdateSessionStatus}
+        countryLanguageBar={<CountryLanguageBar />}
+      />
     );
   }
 
@@ -1169,8 +1140,8 @@ export default function App() {
             <div>
               <div className="flex items-center gap-2">
                 <h1 className="text-sm font-semibold text-slate-900 tracking-tight">{t('app_title')}</h1>
-                <span className="text-[10px] font-medium px-2 py-0.5 rounded-md bg-slate-100 text-slate-600 border border-slate-200">
-                  {t('qb_lecturer_label')}
+                <span className="text-[10px] font-medium px-2 py-0.5 rounded-md bg-indigo-50 text-indigo-700 border border-indigo-200 font-semibold">
+                  {t('role_organizer_title')}
                 </span>
               </div>
               <p className="text-[11px] text-slate-500">
@@ -1350,8 +1321,6 @@ export default function App() {
       <footer className="text-center text-xs text-slate-400 py-4 border-t border-slate-200">
         &copy; 2026 CloudExam · {t('footer_copyright')}
       </footer>
-
-      {roleOnboardingModal}
     </div>
   );
 }

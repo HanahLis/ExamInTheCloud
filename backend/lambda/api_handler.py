@@ -980,12 +980,13 @@ def lambda_handler(event, context):
     user_groups = claims.get("groups", [])
     is_admin = "Admin" in user_groups
     is_student_code = bool(re.match(r"^2402\d{4}@vnu\.edu\.vn$", user_email))
+    is_proctor = "Proctor" in user_groups or "laladoraema" in user_email
     is_organizer = (
         "Organizer" in user_groups
-        or user_email in ["annv@uet.vnu.edu.vn", "laladoraema@gmail.com"]
-        or (bool(user_email) and not is_student_code)
+        or user_email in ["annv@uet.vnu.edu.vn"]
+        or (bool(user_email) and not is_student_code and not is_proctor)
     )
-    is_candidate = "Candidate" in user_groups or (is_student_code and not is_admin)
+    is_candidate = "Candidate" in user_groups or (is_student_code and not is_admin and not is_proctor)
     is_admin_or_organizer = is_admin or is_organizer
     # Tài khoản thí sinh không được thao tác ghi trên ngân hàng câu hỏi / thí sinh / ca thi
     can_manage_content = is_admin_or_organizer and not is_candidate
@@ -1603,6 +1604,19 @@ def lambda_handler(event, context):
                 if is_admin:
                     return build_response(200, clean_items)
 
+                # Nếu là Giám thị (Proctor): Xem các ca thi được phân công hoặc toàn bộ ca thi khả dụng
+                if is_proctor and not is_admin:
+                    proctor_sessions = [
+                        s for s in clean_items
+                        if (
+                            not s.get("proctorEmails")
+                            or user_email in [e.lower() for e in s.get("proctorEmails", [])]
+                            or user_email == (s.get("proctorEmail") or "").lower()
+                            or s.get("id") == "EX-VNU-2026-01"
+                        )
+                    ]
+                    return build_response(200, proctor_sessions)
+
                 # Nếu là Thí sinh (Candidate): Chỉ xem các ca thi mà mình được phân công tham gia
                 if is_candidate and not is_organizer:
                     cand_sessions = [
@@ -1642,6 +1656,9 @@ def lambda_handler(event, context):
                 if not room_pwd:
                     room_pwd = f"{random.randint(100000, 999999)}"
 
+                proctor_emails = body.get("proctorEmails", [])
+                proctor_email = body.get("proctorEmail") or (proctor_emails[0] if proctor_emails else "laladoraema@gmail.com")
+
                 item = {
                     "id": session_id,
                     "name": body.get("name", "Ca thi trực tuyến"),
@@ -1650,6 +1667,8 @@ def lambda_handler(event, context):
                     "status": body.get("status", "SCHEDULED"),
                     "questionIds": body.get("questionIds", []),
                     "candidateEmails": body.get("candidateEmails", []),
+                    "proctorEmails": proctor_emails,
+                    "proctorEmail": proctor_email,
                     "ownerEmail": user_email,
                     "createdBy": user_email,
                     "roomPassword": str(room_pwd),
@@ -1753,6 +1772,8 @@ def lambda_handler(event, context):
                 end_time = body.get("endTime")
                 room_pwd = body.get("roomPassword")
                 locked_candidates = body.get("lockedCandidates")
+                proctor_emails = body.get("proctorEmails")
+                proctor_email = body.get("proctorEmail")
 
                 update_parts = []
                 expr_vals = {}
@@ -1765,6 +1786,12 @@ def lambda_handler(event, context):
                 if candidate_emails is not None:
                     update_parts.append("candidateEmails = :c")
                     expr_vals[":c"] = candidate_emails
+                if proctor_emails is not None:
+                    update_parts.append("proctorEmails = :pe")
+                    expr_vals[":pe"] = proctor_emails
+                if proctor_email is not None:
+                    update_parts.append("proctorEmail = :pem")
+                    expr_vals[":pem"] = proctor_email
                 if question_ids is not None:
                     update_parts.append("questionIds = :q")
                     expr_vals[":q"] = question_ids

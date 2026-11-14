@@ -303,9 +303,9 @@ export const LiveProctorDashboard = ({
                 <h1 className="text-sm md:text-base font-semibold text-slate-900 tracking-tight">
                   Bàn giám sát phòng thi
                 </h1>
-                <span className="text-[10px] font-medium px-2 py-0.5 rounded-full bg-emerald-50 text-emerald-700 border border-emerald-200 flex items-center gap-1.5">
-                  <span className="w-1.5 h-1.5 rounded-full bg-emerald-500"></span>
-                  Trực tuyến
+                <span className="text-[10px] font-medium px-2 py-0.5 rounded-md bg-emerald-50 text-emerald-800 border border-emerald-200 font-semibold flex items-center gap-1.5">
+                  <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse"></span>
+                  Cán bộ Giám thị (Proctor)
                 </span>
               </div>
               <p className="text-[11px] text-slate-500">
@@ -355,11 +355,18 @@ export const LiveProctorDashboard = ({
               onChange={(e) => setSelectedSessionId(e.target.value)}
               className="bg-white border border-slate-300 rounded-lg px-3 py-2 text-xs font-medium text-slate-800 outline-none focus:border-indigo-500 focus:ring-4 focus:ring-indigo-500/10 cursor-pointer min-w-[280px]"
             >
-              {sessions.map((s) => (
-                <option key={s.id} value={s.id}>
-                  #{s.id} — {s.name} ({resolveSessionStatus(s.status, s.startTime, s.endTime)})
-                </option>
-              ))}
+              {sessions.map((s) => {
+                const uEmail = (user.email || '').toLowerCase();
+                const isAssigned =
+                  (s.proctorEmails || []).some((em) => em.toLowerCase() === uEmail) ||
+                  (s.proctorEmail || '').toLowerCase() === uEmail ||
+                  (uEmail.includes('laladoraema') && (!s.proctorEmails || s.proctorEmails.length === 0));
+                return (
+                  <option key={s.id} value={s.id}>
+                    {isAssigned ? '⭐ [Được phân công] ' : ''}#{s.id} — {s.name} ({resolveSessionStatus(s.status, s.startTime, s.endTime)})
+                  </option>
+                );
+              })}
             </select>
 
             <span
@@ -439,6 +446,15 @@ export const LiveProctorDashboard = ({
                 </div>
 
                 <h2 className="text-lg font-semibold tracking-tight leading-tight">{activeSession.name}</h2>
+
+                <div className="flex items-center gap-1.5 text-xs text-indigo-200 bg-white/5 border border-white/10 px-3 py-1.5 rounded-lg w-fit">
+                  <span className="text-slate-400">Giám thị phụ trách:</span>
+                  <span className="font-semibold text-white">
+                    {(activeSession.proctorEmails && activeSession.proctorEmails.length > 0)
+                      ? activeSession.proctorEmails.join(', ')
+                      : (activeSession.proctorEmail || 'laladoraema@gmail.com')}
+                  </span>
+                </div>
 
                 <div>
                   <p className="text-[11px] text-slate-400 mb-2">Mật khẩu thí sinh dùng để vào phòng</p>

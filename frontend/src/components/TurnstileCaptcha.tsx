@@ -73,5 +73,5 @@ export const TurnstileCaptcha = ({ siteKey, onVerify, onExpire, resetKey = 0 }: 
     };
   }, [siteKey, resetKey]);
 
-  return <div ref={containerRef} className="flex justify-center" />;
+  return <div ref={containerRef} className="flex justify-center min-h-[65px] min-w-[300px]" />;
 };

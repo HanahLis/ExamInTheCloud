@@ -197,12 +197,20 @@ resource "aws_cognito_user_group" "organizer" {
   precedence   = 2
 }
 
+# Group Proctor: Cán bộ coi thi, giám sát phòng thi trực tuyến
+resource "aws_cognito_user_group" "proctor" {
+  name         = "Proctor"
+  user_pool_id = aws_cognito_user_pool.main.id
+  description  = "Cán bộ coi thi & giám sát phòng thi trực tuyến (Live Proctor)"
+  precedence   = 3
+}
+
 # Group Candidate: Thí sinh tham gia thi, điểm danh bằng khuôn mặt
 resource "aws_cognito_user_group" "candidate" {
   name         = "Candidate"
   user_pool_id = aws_cognito_user_pool.main.id
   description  = "Thí sinh tham gia thi trực tuyến"
-  precedence   = 3
+  precedence   = 4
 }
 
 # 4.1. Tài khoản Demo mặc định được tạo sẵn trên Cloud khi terraform apply
@@ -268,7 +276,7 @@ resource "aws_cognito_user" "organizer_laladoraema" {
 
 resource "aws_cognito_user_in_group" "organizer_laladoraema_group" {
   user_pool_id = aws_cognito_user_pool.main.id
-  group_name   = aws_cognito_user_group.organizer.name
+  group_name   = aws_cognito_user_group.proctor.name
   username     = aws_cognito_user.organizer_laladoraema.username
 }
 

@@ -423,8 +423,9 @@ pip install boto3
    ```
    * Mở trình duyệt tại: `http://localhost:5173`
    * **Tài khoản đăng nhập kiểm thử mặc định:**
-     * **Giảng viên (Quản trị đề & ca thi):** `annv@uet.vnu.edu.vn` (Mật khẩu: `12345678` hoặc `CloudExam@2026`)
-     * **Thí sinh (Vào phòng thi):** `duc.tm24@vnu.edu.vn` (Mật khẩu: `12345678`)
+     * **Giảng viên / Giám khảo (Quản trị đề & ca thi):** `annv@uet.vnu.edu.vn` (Mật khẩu: `12345678` hoặc `CloudExam@2026`)
+     * **Cán bộ Giám thị (Bàn coi thi & giám sát phòng thi Live Proctor):** `laladoraema@gmail.com` (Mật khẩu: `12345678`)
+     * **Thí sinh (Vào phòng thi & điểm danh AI):** `duc.tm24@vnu.edu.vn` (Mật khẩu: `12345678`)
 
 5. Kiểm tra build đóng gói ứng dụng:
    ```bash

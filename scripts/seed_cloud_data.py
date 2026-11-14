@@ -85,8 +85,8 @@ def seed_cognito_users(cognito_client, user_pool_id: str):
             "username": "laladoraema@gmail.com",
             "password": "12345678",
             "name": "Giám thị Laladoraema",
-            "role": "Organizer",
-            "group": "Organizer",
+            "role": "Proctor",
+            "group": "Proctor",
             "student_code": "GT002"
         },
         {
@@ -162,6 +162,15 @@ def seed_cognito_users(cognito_client, user_pool_id: str):
             "student_code": "24020007"
         }
     ]
+
+    # Đảm bảo các group RBAC đã tồn tại trong User Pool
+    for g in ["Admin", "Organizer", "Proctor", "Candidate"]:
+        try:
+            cognito_client.create_group(UserPoolId=user_pool_id, GroupName=g, Description=f"Group {g}")
+        except cognito_client.exceptions.GroupExistsException:
+            pass
+        except Exception:
+            pass
 
     for u in users:
         email = u["username"]

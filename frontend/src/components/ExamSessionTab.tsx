@@ -39,6 +39,20 @@ const STATUS_KEYS: Record<SessionStatus, string> = {
   CLOSED: 'sess_status_closed',
 };
 
+interface ProctorInfo {
+  email: string;
+  name: string;
+  code: string;
+}
+
+const DEFAULT_PROCTORS: ProctorInfo[] = [
+  {
+    email: 'laladoraema@gmail.com',
+    name: 'Cán bộ Giám thị Laladoraema',
+    code: 'GT002',
+  },
+];
+
 export const ExamSessionTab = ({
   questions,
   candidates,
@@ -59,6 +73,9 @@ export const ExamSessionTab = ({
   const [endTime, setEndTime] = useState('');
   const [selectedQuestions, setSelectedQuestions] = useState<string[]>([]);
   const [selectedCandidates, setSelectedCandidates] = useState<string[]>([]);
+  const [selectedProctors, setSelectedProctors] = useState<string[]>(['laladoraema@gmail.com']);
+  const [proctorList, setProctorList] = useState<ProctorInfo[]>(DEFAULT_PROCTORS);
+  const [customProctorEmail, setCustomProctorEmail] = useState('');
   const [submitting, setSubmitting] = useState(false);
   const [updatingId, setUpdatingId] = useState<string | null>(null);
   const [sendingReportId, setSendingReportId] = useState<string | null>(null);
@@ -67,6 +84,29 @@ export const ExamSessionTab = ({
   const [roomPassword, setRoomPassword] = useState('');
 
   const generateRoomPassword = () => `${Math.floor(100000 + Math.random() * 900000)}`;
+
+  const handleAddCustomProctor = (e?: React.FormEvent) => {
+    if (e) e.preventDefault();
+    const cleanEmail = customProctorEmail.trim().toLowerCase();
+    if (!cleanEmail || !cleanEmail.includes('@')) {
+      alert('Vui lòng nhập định dạng email giám thị hợp lệ.');
+      return;
+    }
+    if (!proctorList.some((p) => p.email.toLowerCase() === cleanEmail)) {
+      setProctorList((prev) => [
+        ...prev,
+        {
+          email: cleanEmail,
+          name: `Giám thị (${cleanEmail.split('@')[0]})`,
+          code: `GT-${Math.floor(100 + Math.random() * 900)}`,
+        },
+      ]);
+    }
+    if (!selectedProctors.includes(cleanEmail)) {
+      setSelectedProctors((prev) => [...prev, cleanEmail]);
+    }
+    setCustomProctorEmail('');
+  };
 
   useEffect(() => {
     if (showCreateForm && !roomPassword) {
@@ -181,6 +221,9 @@ export const ExamSessionTab = ({
       const initialStatus: SessionStatus =
         now >= start && now <= end ? 'RUNNING' : now < start ? 'SCHEDULED' : 'CLOSED';
 
+      const assignedProctors =
+        selectedProctors.length > 0 ? selectedProctors : ['laladoraema@gmail.com'];
+
       await onCreateSession({
         name: name.trim(),
         startTime: new Date(startTime).toISOString(),
@@ -188,6 +231,8 @@ export const ExamSessionTab = ({
         status: initialStatus,
         questionIds: selectedQuestions,
         candidateEmails: selectedCandidates,
+        proctorEmails: assignedProctors,
+        proctorEmail: assignedProctors[0] || 'laladoraema@gmail.com',
         roomPassword: cleanRoomPassword,
       });
 
@@ -197,6 +242,7 @@ export const ExamSessionTab = ({
       setRoomPassword('');
       setSelectedQuestions([]);
       setSelectedCandidates([]);
+      setSelectedProctors(['laladoraema@gmail.com']);
       setShowCreateForm(false);
     } catch (err: any) {
       alert(`${t('alert_create_session_error')} ${err?.response?.data?.error || err?.message || err}`);
@@ -515,6 +561,86 @@ export const ExamSessionTab = ({
               </div>
             </div>
 
+            {/* Phân công Cán bộ Giám thị (Proctor) */}
+            <div className="space-y-2">
+              <div className="flex justify-between items-center">
+                <label className="text-xs font-semibold text-slate-800 flex items-center gap-1.5">
+                  <svg className="w-4 h-4 text-indigo-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
+                  </svg>
+                  <span>{t('sess_select_proctors')}</span>
+                  <span className="text-indigo-600 font-bold bg-indigo-50 px-2 py-0.5 rounded-full border border-indigo-100">
+                    {selectedProctors.length} {t('sess_proctors_label')}
+                  </span>
+                </label>
+                <button
+                  type="button"
+                  className="text-xs text-indigo-600 hover:text-indigo-800 font-semibold cursor-pointer underline"
+                  onClick={() =>
+                    setSelectedProctors(
+                      selectedProctors.length === proctorList.length ? [] : proctorList.map((p) => p.email)
+                    )
+                  }
+                >
+                  {selectedProctors.length === proctorList.length ? t('sess_deselect_all') : t('sess_select_all')}
+                </button>
+              </div>
+
+              {/* Danh sách cán bộ giám thị có sẵn */}
+              <div className="border border-slate-200/80 rounded-2xl p-2.5 space-y-1.5 bg-white/70">
+                {proctorList.map((p) => (
+                  <label
+                    key={p.email}
+                    className="flex items-center space-x-2 text-xs text-slate-700 cursor-pointer p-2 hover:bg-indigo-50/50 rounded-xl transition"
+                  >
+                    <input
+                      type="checkbox"
+                      className="rounded text-indigo-600 cursor-pointer"
+                      checked={selectedProctors.includes(p.email)}
+                      onChange={(e) => toggle(selectedProctors, setSelectedProctors, p.email, e.target.checked)}
+                    />
+                    <span className="flex-1 flex items-center justify-between">
+                      <span>
+                        <span className="font-semibold text-slate-900">{p.name}</span>{' '}
+                        <span className="font-mono text-slate-500">· {p.code}</span>{' '}
+                        <span className="font-mono text-slate-400">({p.email})</span>
+                      </span>
+                      {selectedProctors.includes(p.email) && (
+                        <span className="text-[10px] px-2 py-0.5 bg-emerald-50 text-emerald-700 border border-emerald-200 rounded-md font-medium">
+                          {t('sess_proctor_assigned_badge')}
+                        </span>
+                      )}
+                    </span>
+                  </label>
+                ))}
+
+                {/* Form thêm email giám thị tùy biến */}
+                <div className="pt-2 border-t border-slate-100 flex items-center gap-2">
+                  <input
+                    type="email"
+                    value={customProctorEmail}
+                    onChange={(e) => setCustomProctorEmail(e.target.value)}
+                    onKeyDown={(e) => {
+                      if (e.key === 'Enter') {
+                        e.preventDefault();
+                        handleAddCustomProctor();
+                      }
+                    }}
+                    placeholder={t('sess_add_proctor_placeholder')}
+                    className="flex-1 px-3 py-1.5 text-xs border border-slate-200 rounded-xl outline-none focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500/10"
+                  />
+                  <button
+                    type="button"
+                    onClick={() => handleAddCustomProctor()}
+                    className="px-3 py-1.5 bg-indigo-50 hover:bg-indigo-100 text-indigo-700 rounded-xl text-xs font-semibold border border-indigo-200 transition cursor-pointer"
+                  >
+                    + {t('sess_add_proctor_btn')}
+                  </button>
+                </div>
+              </div>
+            </div>
+
             <div className="pt-2 flex items-center justify-end gap-2">
               <button
                 type="button"
@@ -636,6 +762,19 @@ export const ExamSessionTab = ({
                       </button>
                     </div>
                   )}
+
+                  <div className="flex items-center gap-1.5 px-2.5 py-0.5 bg-indigo-50/70 text-indigo-800 border border-indigo-200/80 rounded-lg text-xs">
+                    <svg className="w-3.5 h-3.5 text-indigo-600 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
+                    </svg>
+                    <span className="font-semibold text-slate-700">{t('sess_proctors_label')}:</span>
+                    <span className="font-mono text-indigo-900 font-semibold">
+                      {(s.proctorEmails && s.proctorEmails.length > 0)
+                        ? s.proctorEmails.join(', ')
+                        : (s.proctorEmail || 'laladoraema@gmail.com')}
+                    </span>
+                  </div>
                 </div>
 
                 {/* Danh sách Thí sinh tham gia */}

@@ -68,7 +68,7 @@ def seed_users():
     cognito = boto3.client("cognito-idp", region_name=REGION)
 
     # Đảm bảo các group đã tồn tại
-    groups = ["Admin", "Organizer", "Candidate"]
+    groups = ["Admin", "Organizer", "Proctor", "Candidate"]
     for g in groups:
         try:
             cognito.create_group(UserPoolId=pool_id, GroupName=g, Description=f"Group {g}")
@@ -99,6 +99,14 @@ def seed_users():
         "name": "Tran Duc Manh",
         "studentCode": "24021561",
         "groups": ["Organizer", "Admin"]
+    })
+
+    # Cán bộ Giám thị (Proctor)
+    users.append({
+        "email": "laladoraema@gmail.com",
+        "name": "Giám thị Laladoraema",
+        "studentCode": "GT002",
+        "groups": ["Proctor"]
     })
 
     # Thí sinh
