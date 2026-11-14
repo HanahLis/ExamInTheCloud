@@ -1845,18 +1845,38 @@ def lambda_handler(event, context):
                 return build_response(200, item)
 
             elif http_method == "PUT":
-                # Strict RBAC: Chỉ Giảng viên/Ban tổ chức (Organizer hoặc Admin) mới có quyền cập nhật ca thi
-                if claims.get("email") and not is_admin_or_organizer:
-                    return build_response(403, {"error": "Chỉ Giảng viên/Ban tổ chức (Organizer) mới có quyền cập nhật trạng thái ca thi."})
-
-                # Kiểm tra quyền sở hữu ca thi (Row-level Security)
                 existing_sess = sessions_table.get_item(Key={"id": s_id}).get("Item")
                 if not existing_sess:
                     return build_response(404, {"error": "Ca thi không tồn tại"})
+
+                proctor_allowlist = {"lockedCandidates", "roomPassword", "candidateEmails"}
+                assigned_proctors = [str(e).lower() for e in existing_sess.get("proctorEmails", [])]
+                is_assigned_proctor = bool(user_email) and (
+                    user_email in assigned_proctors
+                    or user_email == str(existing_sess.get("proctorEmail") or "").lower()
+                )
+
+                # Strict RBAC: Organizer/Admin toàn quyền; Giám thị được phân công chỉ
+                # mở khóa thiết bị, đổi mật khẩu phòng và bổ sung thí sinh khẩn cấp.
+                if claims.get("email") and not is_admin_or_organizer:
+                    if not (is_proctor and is_assigned_proctor):
+                        return build_response(403, {"error": "Chỉ Giảng viên/Ban tổ chức (Organizer) mới có quyền cập nhật ca thi."})
+                    forbidden_fields = [
+                        k for k in body.keys()
+                        if k not in proctor_allowlist and k != "id"
+                    ]
+                    if forbidden_fields:
+                        return build_response(403, {"error": "Giám thị chỉ được cập nhật khóa thiết bị, mật khẩu phòng và danh sách thí sinh."})
+                elif is_proctor and not is_admin:
+                    # Token không kèm email nhưng lại mang nhóm Proctor: không đủ định danh để đối chiếu phân công
+                    return build_response(403, {"error": "Không xác định được tài khoản Giám thị."})
+
+                # Kiểm tra quyền sở hữu ca thi (Row-level Security) cho Organizer
                 if (
-                    not is_admin 
-                    and s_id != "EX-VNU-2026-01" 
-                    and existing_sess.get("ownerEmail", "").lower() != user_email 
+                    not is_admin
+                    and not (is_proctor and is_assigned_proctor)
+                    and s_id != "EX-VNU-2026-01"
+                    and existing_sess.get("ownerEmail", "").lower() != user_email
                     and existing_sess.get("createdBy", "").lower() != user_email
                 ):
                     return build_response(403, {"error": "Bạn không có quyền chỉnh sửa ca thi của tài khoản khác."})
@@ -2143,9 +2163,17 @@ def lambda_handler(event, context):
             return handle_auto_finalize_session(s_id)
 
         elif (resource_path == "/sessions/{id}/send-report" or raw_path.endswith("/send-report")) and http_method == "POST":
-            if not can_manage_content:
-                return deny_if_cannot_manage()
             s_id = path_parameters.get("id")
+            if not can_manage_content:
+                # Giám thị được phân công ca thi cũng có quyền gửi báo cáo tổng kết qua SNS
+                report_sess = sessions_table.get_item(Key={"id": s_id}).get("Item") or {}
+                assigned_proctors = [str(e).lower() for e in report_sess.get("proctorEmails", [])]
+                is_assigned_proctor = bool(user_email) and (
+                    user_email in assigned_proctors
+                    or user_email == str(report_sess.get("proctorEmail") or "").lower()
+                )
+                if not (is_proctor and is_assigned_proctor):
+                    return deny_if_cannot_manage()
             return handle_send_session_report(s_id)
 
         # =========================================================================
