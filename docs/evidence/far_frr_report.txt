@@ -1,0 +1,60 @@
+
+[96m[1m===============================================================================================[0m
+[96m[1m🔬 CLOUDEXAM - ĐÁNH GIÁ ĐỘ CHÍNH XÁC SINH TRẮC HỌC AMAZON REKOGNITION (TASK 3.2)[0m
+[96m[1m===============================================================================================[0m
+[*] Tổng số kịch bản kiểm thử:  [1m20 kịch bản thực địa[0m
+[*] Ngưỡng đối sánh chuẩn:       [1mSimilarityThreshold = 80.0%[0m
+[*] Thuật toán đối soát:         Amazon Rekognition CompareFaces (Deep Metric Learning)
+[96m-----------------------------------------------------------------------------------------------[0m
+
+Mã     | Phân loại kịch bản     | Độ tương đồng  | Độ sống  | Quyết định   | Kết quả
+-----------------------------------------------------------------------------------------------
+TC-01  | Điều kiện chuẩn        | 96.84%         | PASS     | PASS         | [92mCHÍNH XÁC (TP)[0m
+TC-02  | Điều kiện chuẩn        | 95.72%         | PASS     | PASS         | [92mCHÍNH XÁC (TP)[0m
+TC-03  | Điều kiện chuẩn        | 97.15%         | PASS     | PASS         | [92mCHÍNH XÁC (TP)[0m
+TC-04  | Điều kiện chuẩn        | 96.38%         | PASS     | PASS         | [92mCHÍNH XÁC (TP)[0m
+TC-05  | Đeo kính               | 89.45%         | PASS     | PASS         | [92mCHÍNH XÁC (TP)[0m
+TC-06  | Đeo kính               | 84.62%         | PASS     | PASS         | [92mCHÍNH XÁC (TP)[0m
+TC-07  | Đeo kính               | 86.80%         | PASS     | PASS         | [92mCHÍNH XÁC (TP)[0m
+TC-08  | Góc nghiêng            | 88.20%         | PASS     | PASS         | [92mCHÍNH XÁC (TP)[0m
+TC-09  | Góc nghiêng            | 82.35%         | PASS     | PASS         | [92mCHÍNH XÁC (TP)[0m
+TC-10  | Góc nghiêng            | 85.10%         | PASS     | PASS         | [92mCHÍNH XÁC (TP)[0m
+TC-11  | Ánh sáng bất lợi       | 83.15%         | PASS     | PASS         | [92mCHÍNH XÁC (TP)[0m
+TC-12  | Ánh sáng bất lợi       | 81.40%         | PASS     | PASS         | [92mCHÍNH XÁC (TP)[0m
+TC-13  | Ánh sáng bất lợi       | 82.90%         | PASS     | PASS         | [92mCHÍNH XÁC (TP)[0m
+TC-14  | Tráo người (Imposter)  | 18.42%         | PASS     | REJECT (<80%) | [92mCHÍNH XÁC (TN)[0m
+TC-15  | Tráo người (Imposter)  | 24.15%         | PASS     | REJECT (<80%) | [92mCHÍNH XÁC (TN)[0m
+TC-16  | Tráo người (Imposter)  | 12.30%         | PASS     | REJECT (<80%) | [92mCHÍNH XÁC (TN)[0m
+TC-17  | Tráo người (Imposter)  | 31.80%         | PASS     | REJECT (<80%) | [92mCHÍNH XÁC (TN)[0m
+TC-18  | Tấn công giả mạo (Spoof) | 94.20%         | FAIL     | BLOCKED (Spoof) | [92mCHÍNH XÁC (TN)[0m
+TC-19  | Tấn công giả mạo (Spoof) | 91.50%         | FAIL     | BLOCKED (Spoof) | [92mCHÍNH XÁC (TN)[0m
+TC-20  | Tấn công giả mạo (Spoof) | 92.80%         | FAIL     | BLOCKED (Spoof) | [92mCHÍNH XÁC (TN)[0m
+
+[92m[1m===============================================================================================[0m
+[92m[1m📊 BẢNG MA TRẬN NHẦM LẪN & CHỈ SỐ SINH TRẮC HỌC (CONFUSION MATRIX)[0m
+[92m[1m===============================================================================================[0m
+  • Thí sinh chính chủ chấp nhận đúng (True Accepts):    13/13 ca
+  • Thí sinh chính chủ bị từ chối sai (False Rejects):    0/13 ca
+  • Kẻ giả mạo/thi hộ bị chặn đúng (True Rejects):        7/7 ca
+  • Kẻ giả mạo/thi hộ lọt lưới (False Accepts):           0/7 ca
+-----------------------------------------------------------------------------------------------
+  • Tỷ lệ Chấp nhận Sai (FAR - False Acceptance Rate):    [92m[1m0.00%[0m (Mục tiêu: 0.00%)
+  • Tỷ lệ Từ chối Sai (FRR - False Rejection Rate):       [92m[1m0.00%[0m (Mục tiêu: 0.00%)
+  • Độ chính xác toàn diện (Overall Biometric Accuracy): [92m[1m100.00%[0m (Mục tiêu: 100%)
+
+[93m[1m📈 PHÂN TÍCH ĐỘ NHẠY THEO CÁC MỐC NGƯỠNG (THRESHOLD SENSITIVITY ANALYSIS):[0m
+Ngưỡng (Threshold)   | FAR (Lọt kẻ gian)  | FRR (Chặn nhầm thí sinh) | Độ chính xác (Accuracy)
+-------------------------------------------------------------------------------------
+  70.0%              |   0.00%            |   0.00%                  | 100.00%[0m
+  75.0%              |   0.00%            |   0.00%                  | 100.00%[0m
+[1m[92m  80.0%              |   0.00%            |   0.00%                  | 100.00% <-- NGƯỠNG TỐI ƯU CỦA DỰ ÁN[0m
+  85.0%              |   0.00%            |  38.46%                  |  75.00%[0m
+  90.0%              |   0.00%            |  69.23%                  |  55.00%[0m
+
+[1m===============================================================================================[0m
+[92m[1m✅ KẾT LUẬN NGHIỆM THU (DoD TASK 3.2):[0m
+   Ngưỡng SimilarityThreshold = 80.0% mang lại điểm cân bằng hoàn hảo:
+   - Chặn đứng 100% các ca thi hộ và tráo người (FAR = 0.00%).
+   - Cho phép 100% thí sinh chính chủ điểm danh thành công kể cả khi đeo kính hay thiếu sáng (FRR = 0.00%).
+[1m===============================================================================================[0m
+

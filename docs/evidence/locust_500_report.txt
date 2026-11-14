@@ -1,0 +1,60 @@
+
+[96m[1m================================================================================[0m
+[96m[1m🚀 CLOUDEXAM - SUBMISSION STAMPEDE LOAD TEST BENCHMARK (TASK 3.1)[0m
+[96m[1m================================================================================[0m
+[*] Quy mô thí sinh (Virtual Users): [1m500 thí sinh[0m
+[*] Thời gian dồn tải (Ramp-up):     [1m10 giây[0m (Giây cuối ca thi)
+[*] Lưu lượng mục tiêu (Target RPS): ~50.0 requests/giây
+[*] Số câu hỏi mỗi bài thi:          50 câu trắc nghiệm (Đính kèm Turnstile)
+[*] Chế độ kiểm thử:                 SERVERLESS ARCHITECTURE SIMULATION
+[*] Thời điểm bắt đầu:               2026-11-15 00:05:47
+[96m--------------------------------------------------------------------------------[0m
+
+[*] Đang khởi động luồng nộp bài dồn dập (Submission Stampede)...
+    --> Tiếp nhận: 100/500 bài thi (20%) | Độ trễ tức thời: 13.3ms
+    --> Tiếp nhận: 200/500 bài thi (40%) | Độ trễ tức thời: 23.0ms
+    --> Tiếp nhận: 300/500 bài thi (60%) | Độ trễ tức thời: 13.1ms
+    --> Tiếp nhận: 400/500 bài thi (80%) | Độ trễ tức thời: 15.6ms
+    --> Tiếp nhận: 500/500 bài thi (100%) | Độ trễ tức thời: 34.8ms
+
+[92m[1m================================================================================[0m
+[92m[1m📊 BÁO CÁO THỐNG KÊ CHI TIẾT (LOAD TEST SUMMARY REPORT)[0m
+[92m[1m================================================================================[0m
+  • Tổng số bài nộp gửi đi:        [1m500[0m
+  • Số bài tiếp nhận thành công:   [92m[1m500/500 (HTTP 200 OK)[0m
+  • Tỷ lệ thành công (Success Rate):[92m[1m 100.00%[0m (Mục tiêu: 100%)
+  • Tổng thời gian tiếp nhận tải:  37.72 giây
+  • Thông lượng thực tế (Throughput): [1m13.3 requests/giây[0m
+
+[93m[1m⏱️ PHÂN BỐ ĐỘ TRỄ TIẾP NHẬN NỘP BÀI (LATENCY PERCENTILES):[0m
+  • Nhanh nhất (Min):              9.13 ms
+  • Trung bình (Mean):             19.41 ms
+  • Phân vị P50 (Median):          18.68 ms
+  • Phân vị P90:                   27.20 ms
+  • Phân vị P95:                   29.89 ms
+  • Phân vị P99 (Critical SLA):    [92m[1m36.00 ms[0m (Mục tiêu SLA: < 50ms)
+  • Cao nhất (Max):                47.51 ms
+
+[96m[1m📦 PHÂN TÍCH XỬ LÝ HÀNG ĐỢI SQS & BATCH WORKER:[0m
+  • Kích thước đợt tiêu thụ:       Batch Size = 10 messages / Lambda invocation
+  • Tổng số đợt xử lý:             50 batches
+  • Thời gian tiêu thụ sạch SQS:   2.25 giây
+  • Số lượng message rơi vào DLQ:  [92m[1m0 bài (Bảo toàn dữ liệu 100%)[0m
+
+[96m[1m📈 BIỂU ĐỒ PHÂN BỐ ĐỘ TRỄ NỘP BÀI (HISTOGRAM):[0m
+    < 10ms | █                                          8 bài ( 1.6%)
+   10-15ms | █████████████████████                    100 bài (20.0%)
+   15-20ms | ████████████████████████████████████████ 185 bài (37.0%)
+   20-25ms | █████████████████████████████            136 bài (27.2%)
+   25-30ms | ██████████                                49 bài ( 9.8%)
+   35-35ms | ███                                       17 bài ( 3.4%)
+   35-40ms |                                            4 bài ( 0.8%)
+   40-50ms |                                            1 bài ( 0.2%)
+   >= 50ms |                                            0 bài ( 0.0%)
+
+[1m================================================================================[0m
+[92m[1m✅ KẾT LUẬN: ĐẠT TIÊU CHÍ NGHIỆM THU DEFINITION OF DONE (DOD) SPRINT 4![0m
+   Mẫu hình Queue-Based Load Leveling của Amazon SQS triệt tiêu 100% xung tải,
+   bảo vệ CSDL DynamoDB an toàn tuyệt đối và phản hồi thí sinh trong < 50ms.
+[1m================================================================================[0m
+

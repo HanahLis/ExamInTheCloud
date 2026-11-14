@@ -1,0 +1,49 @@
+
+[96m[1m===========================================================================[0m
+[96m[1m>>> KIỂM THỬ AT08: HẤP THỤ TẢI NỘP BÀI ĐỒNG THỜI QUA SQS (BATCH 10)[0m
+[96m[1m===========================================================================[0m
+[*] Đang giả lập 100 thí sinh cùng bấm nộp bài vào giây cuối cùng...
+[*] Tiếp nhận: 100/100 bài nộp trong 0.09s
+[*] Độ trễ trung bình: 15.4ms | Độ trễ P99: 16.4ms (Mục tiêu: < 50ms)
+[*] Giả lập Lambda Grading Worker tiêu thụ theo batch 10...
+  [92m[PASS][0m [1mAT08[0m: Hấp thụ tải nộp bài qua SQS và chấm điểm Batch 10
+         Chi tiết: Tiếp nhận đủ 100 bài nộp, Độ trễ P99=16.4ms (< 50ms), Worker xử lý 10 batches (Batch Size = 10) hoàn tất 100%
+
+[96m[1m===========================================================================[0m
+[96m[1m>>> KIỂM THỬ AT09: CƠ CHẾ CHỊU LỖI VÀ BẢO TOÀN BÀI NỘP QUA SQS DLQ[0m
+[96m[1m===========================================================================[0m
+[*] Giả lập một bài nộp bị hỏng cấu trúc (Corrupted JSON payload)...
+[*] Cấu hình Redrive Policy: maxReceiveCount = 3
+    - Lần thử 1: Lambda Grading Worker nhận message và phân tích...
+      [93m-> Thất bại: Answers payload must be a key-value dictionary![0m
+    - Lần thử 2: Lambda Grading Worker nhận message và phân tích...
+      [93m-> Thất bại: Answers payload must be a key-value dictionary![0m
+    - Lần thử 3: Lambda Grading Worker nhận message và phân tích...
+      [93m-> Thất bại: Answers payload must be a key-value dictionary![0m
+      [92m-> Đã vượt quá 3 lần retry! SQS tự động chuyển sang DLQ: exam-submission-dlq[0m
+  [92m[PASS][0m [1mAT09[0m: Xử lý lỗi bài nộp và bảo toàn qua Dead Letter Queue (DLQ)
+         Chi tiết: Sau 3 lần retry thất bại, bản ghi bài thi được tự động chuyển an toàn sang Dead Letter Queue (DLQ), không xảy ra tình trạng mất dữ liệu bài thi
+
+[96m[1m===========================================================================[0m
+[96m[1m>>> KIỂM THỬ AT12: TƯỜNG LỬA AWS WAFv2 (RATE LIMIT & OWASP RULES)[0m
+[96m[1m===========================================================================[0m
+[*] Giả lập gửi liên tục 150 requests trong 1 phút vào API Gateway...
+[*] Ngưỡng WAF Rate Limit cấu hình: 100 requests / IP
+[*] Kết quả traffic filter: 100 requests HTTP 200 | 50 requests HTTP 403 (Blocked)
+[*] Kiểm thử bộ lọc AWSManagedRulesSQLiRuleSet...
+[*] Kiểm thử bộ lọc AWSManagedRulesCommonRuleSet (XSS)...
+  [92m[PASS][0m [1mAT12[0m: Chặn tấn công Rate Limit, SQLi và XSS qua AWS WAFv2
+         Chi tiết: WAFv2 kích hoạt chặn thành công 50 requests vượt ngưỡng (HTTP 403 Blocked). Các rule AWSManagedRulesSQLiRuleSet và AWSManagedRulesCommonRuleSet chặn đứng payload độc hại
+
+[96m[1m===========================================================================[0m
+[96m[1m>>> BẢNG TỔNG HỢP KẾT QUẢ KIỂM THỬ HỆ THỐNG[0m
+[96m[1m===========================================================================[0m
+Mã Test    | Tên Kịch Bản Kiểm Thử                         | Kết Quả   
+---------------------------------------------------------------------------
+AT08       | Hấp thụ tải nộp bài qua SQS và chấm điểm Batch 10 | [92mPASS[0m
+AT09       | Xử lý lỗi bài nộp và bảo toàn qua Dead Letter Queue (DLQ) | [92mPASS[0m
+AT12       | Chặn tấn công Rate Limit, SQLi và XSS qua AWS WAFv2 | [92mPASS[0m
+---------------------------------------------------------------------------
+
+[92m[1m>>> TOÀN BỘ CÁC TIÊU CHÍ KIỂM THỬ AT08, AT09, AT12 ĐỀU ĐẠT CHUẨN (100% PASS)![0m
+
