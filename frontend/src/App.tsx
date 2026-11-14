@@ -261,9 +261,23 @@ export default function App() {
   useEffect(() => {
     // Chỉ hỏi vai trò khi tài khoản chưa có Cognito group; tài khoản đã có group
     // thì vai trò là dữ liệu máy chủ, không cần chọn lại trên thiết bị mới.
-    if (loggedIn && user.email && !userChosenRole && getTokenGroups().length === 0) {
+    if (!loggedIn || !user.email) return;
+    if (getTokenGroups().length > 0) return;
+    if (!userChosenRole) {
       setShowRoleOnboarding(true);
+      return;
     }
+    // Đăng ký qua Cognito Hosted UI: token đầu tiên chưa có group, đồng bộ ngay
+    // từ vai trò đã lưu để không rơi về cổng Thí sinh.
+    const storedRole = getUserSelectedRole(user.email);
+    if (!storedRole) return;
+    (async () => {
+      const assigned = await assignRoleToCognito(storedRole);
+      if (assigned) {
+        await refreshIdToken();
+        window.location.reload();
+      }
+    })();
   }, [loggedIn, user.email, userChosenRole]);
 
   // Tải dữ liệu an toàn (luôn có dữ liệu chuẩn, không bao giờ bị trống)
