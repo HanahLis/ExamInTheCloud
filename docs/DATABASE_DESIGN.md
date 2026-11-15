@@ -59,10 +59,13 @@ Lưu trữ thông tin ca thi và các quy định thời gian.
 | `name` | String | Attribute | Tên ca thi (ví dụ: `Thi Cuối Kỳ Điện Toán Đám Mây - Ca 1`). |
 | `startTime` | String | Attribute | Thời điểm bắt đầu ca thi (ISO 8601). |
 | `endTime` | String | Attribute | Thời điểm kết thúc ca thi (ISO 8601). |
-| `status` | String | Attribute | Trạng thái: `SCHEDULED`, `RUNNING`, `CLOSED`. |
+| `status` | String | Attribute | Trạng thái: `DRAFT`, `SCHEDULED`, `RUNNING`, `COMPLETED`. |
+| `roomPassword` | String | Attribute | Mật khẩu vào phòng thi (cho thí sinh tự nhập tại cổng phòng thi). |
 | `questionIds` | List (Array of Strings) | Attribute | Danh sách ID các câu hỏi có trong ca thi. |
 | `candidateEmails` | List (Array of Strings) | Attribute | Danh sách email các thí sinh được phép vào ca thi này. |
-| `link` | String | Attribute | Đường link tham gia thi ca này. |
+| `proctorEmails` | List (Array of Strings) | Attribute | Danh sách email cán bộ Giám thị được phân công coi ca thi này. |
+| `lockedCandidates` | Map (Object) | Attribute | Map lưu trữ thông tin thiết bị đã khóa `{ email: { deviceFingerprint, lockedAt } }` ngăn chặn thí sinh đăng nhập đồng thời trên máy thứ hai hoặc thi hộ. Giám thị có thể mở khóa qua Bàn Giám thị. |
+| `link` | String | Attribute | Đường link tham gia thi ca này (dạng `https://cloudexam.id.vn/?exam={id}`). |
 
 ---
 

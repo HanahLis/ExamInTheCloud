@@ -124,7 +124,7 @@ Kịch bản kiểm thử đã được chạy thực nghiệm với 500 Virtual
 
 | Tiêu chí so sánh | Kiến trúc Đơn khối (Monolith / Direct Write) | Kiến trúc CloudExam (Queue-Based SQS Buffer) | Mức độ cải thiện |
 | :--- | :---: | :---: | :---: |
-| **Độ trễ phản hồi nộp bài (P99)** | **8,400 ms – 15,000 ms** (Quay tròn chờ chấm điểm) | **38.92 ms** (Gửi vào SQS và phản hồi ngay) | **Nhanh hơn ~250 lần** |
+| **Độ trễ phản hồi nộp bài (P99)** | **8,400 ms – 15,000 ms** (Quay tròn chờ chấm điểm) | **42.47 ms** (Gửi vào SQS và phản hồi ngay) | **Nhanh hơn ~250 lần** |
 | **Tỷ lệ chịu tải đồng thời** | Dễ sập khi vượt quá 80 – 100 kết nối DB | Co giãn không giới hạn (Serverless) | **Hấp thụ 100% xung tải** |
 | **Tỷ lệ mất mát bài thi** | 2% – 5% (Lỗi kết nối / timeout) | **0.00%** (SQS lưu trữ bền vững 14 ngày + DLQ) | **Bảo toàn 100% dữ liệu** |
 | **Tác động tới CSDL DynamoDB** | Gây nghẽn WCU đột biến, tốn chi phí On-Demand cao | Ghi nhịp độ đều đặn theo Batch 10 | **Tối ưu $0 FinOps Free Tier** |
@@ -134,6 +134,10 @@ Kịch bản kiểm thử đã được chạy thực nghiệm với 500 Virtual
 
 ## 5. KẾT LUẬN & CHỨNG NHẬN ĐẠT TIÊU CHÍ SPRINT 4 (DoD)
 
-1. **Hiệu năng vượt trội:** Kịch bản kiểm thử tải dồn dập 500 thí sinh trong 10 giây đã chứng minh hệ thống vận hành hoàn hảo với **P99 Latency = 38.92 ms** (vượt xa chỉ tiêu cam kết $< 50$ ms).
-2. **Khả năng chịu lỗi và toàn vẹn dữ liệu:** Toàn bộ 500 bài thi đều được tiếp nhận an toàn qua Amazon SQS, tiêu thụ chuẩn xác theo 50 batches bởi Lambda Grading Worker, **0 bài thi rơi vào DLQ**.
-3. **Ý nghĩa đồ án:** Mẫu hình **Queue-Based Load Leveling** của CloudExam đã giải quyết triệt để bài toán kinh điển của các hệ thống thi trực tuyến, mang lại độ tin cậy và chất lượng dịch vụ cấp doanh nghiệp trên nền tảng AWS Serverless với chi phí 0 USD.
+1. **Hiệu năng vượt trội:** Kịch bản kiểm thử tải dồn dập 500 thí sinh trong 10 giây đã chứng minh hệ thống vận hành hoàn hảo với **P99 Latency = 42.47 ms** (vượt xa chỉ tiêu cam kết $< 50$ ms).
+2. **Khả năng chịu lỗi và toàn vẹn dữ liệu:** Toàn bộ 500 bài thi đều được tiếp nhận an toàn qua Amazon SQS, tiêu thụ chuẩn xác theo các đợt lô (Batch 10) bởi Lambda Grading Worker, **0 bài thi rơi vào DLQ**.
+3. **Minh chứng thực tế từ AWS Console:**
+   - Ảnh chụp thực thi kịch bản kiểm thử tải Locust 500 VUs: `docs/evidence/hinh-3.1-locust-500vu.png` và `docs/evidence/locust_500_report.txt`.
+   - Kết quả truy vấn CloudWatch Logs Insights ghi nhận 53 batches tiêu thụ sạch hàng đợi SQS: `docs/evidence/console_logs_insights_53_batches.png`.
+   - Giám sát hàng đợi SQS và Dead-Letter Queue (DLQ = 0): `docs/evidence/console_sqs_dlq_monitoring.png`, `docs/evidence/console_sqs_charts_1.png`.
+4. **Ý nghĩa đồ án:** Mẫu hình **Queue-Based Load Leveling** của CloudExam đã giải quyết triệt để bài toán kinh điển của các hệ thống thi trực tuyến, mang lại độ tin cậy và chất lượng dịch vụ cấp doanh nghiệp trên nền tảng AWS Serverless với chi phí 0 USD.

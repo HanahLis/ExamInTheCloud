@@ -55,6 +55,8 @@ Cho phép trình duyệt Web React (ở `http://localhost:5173` hoặc trên AWS
     "AllowedOrigins": [
       "http://localhost:5173",
       "http://localhost:3000",
+      "https://cloudexam.id.vn",
+      "https://*.cloudexam.id.vn",
       "https://*.amplifyapp.com"
     ],
     "ExposeHeaders": ["ETag"],
@@ -88,4 +90,13 @@ Khi thí sinh vào phòng thi, ảnh camera chụp trực tiếp sẽ được g
 - **SourceImage:** Ảnh mẫu của thí sinh lưu tại `s3://cloudexam-storage-409289618109-dev/faces/{studentCode}.jpg`
 - **TargetImage:** Ảnh chụp từ webcam của thí sinh lúc bắt đầu thi
 - Ngưỡng tương đồng (Similarity Threshold): `>= 80%` $\rightarrow$ Đạt yêu cầu và cho phép vào thi.
+
+---
+
+## 5. Tối ưu Chi phí FinOps & Vòng đời Dữ liệu (S3 Lifecycle)
+
+Nhằm đảm bảo tôn chỉ **0.00 USD chi phí lưu trữ**, hệ thống kích hoạt các luật quản trị vòng đời đối tượng tự động trong `backend/terraform/s3.tf`:
+1. **Xóa tự động ảnh tạm webcam (`temp/`):** Các ảnh chụp đối soát webcam phục vụ điểm danh chỉ được lưu tạm thời và tự động xóa vĩnh viễn sau **24 giờ** (`expiration { days = 1 }`).
+2. **Hủy bỏ Multipart Upload dở dang:** Tự động thu hồi và giải phóng dung lượng các phân mảnh upload chưa hoàn tất sau **1 ngày** (`abort_incomplete_multipart_upload_days = 1`).
+3. **Bảo vệ Website Hosting Bucket với CloudFront OAC:** Bucket chứa mã nguồn Frontend SPA (`cloudexam-frontend-dev`) chặn 100% Public Access (`block_public_acls = true`, `block_public_policy = true`), chỉ cho phép CloudFront Service Principal ký SigV4 qua **Origin Access Control (OAC)** truy cập.
 

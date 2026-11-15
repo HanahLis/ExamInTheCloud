@@ -66,7 +66,7 @@ Toàn bộ 4 IAM Roles của hệ thống được rà soát từng dòng quyề
 | IAM Role Name | Dịch vụ đảm nhận | Phân quyền được cấp (Allowed Actions) | Tài nguyên chỉ định (Resource) | Đánh giá PoLP |
 | :--- | :--- | :--- | :--- | :---: |
 | `cloudexam-role-lambda-face-verify-dev` | Lambda Điểm danh | `rekognition:CompareFaces`, `s3:GetObject` (chỉ thư mục `faces/*`), `dynamodb:GetItem` (bảng `candidates` & `sessions`), `ec2:CreateNetworkInterface` | Định danh ARN cụ thể, không cấp quyền ghi S3 hay sửa DynamoDB | **Tuyệt đối tuân thủ** |
-| `cloudexam-role-lambda-core-api-dev` | Lambda Core REST API | `dynamodb:*Item` trên 4 bảng định danh, `sqs:SendMessage` vào hàng đợi nộp bài, `s3:PutObject` | ARN 4 bảng DynamoDB + SQS URL cụ thể | **Tuyệt đối tuân thủ** |
+| `cloudexam-role-lambda-core-api-dev` | Lambda Core REST API | `dynamodb:*Item` trên 5 bảng định danh, `sqs:SendMessage` vào hàng đợi nộp bài, `s3:PutObject`, `sns:Publish` báo cáo ca thi | ARN 5 bảng DynamoDB + SQS URL + SNS Topic ARN | **Tuyệt đối tuân thủ** |
 | `cloudexam-role-lambda-grading-worker-dev` | Lambda Chấm bài | `sqs:ReceiveMessage`, `sqs:DeleteMessage`, `dynamodb:UpdateItem` (chỉ cập nhật kết quả) | ARN Hàng đợi SQS + Bảng DynamoDB Submissions | **Tuyệt đối tuân thủ** |
 | `cloudexam-role-sfn-lifecycle-dev` | Step Functions | `dynamodb:UpdateItem` (chỉ cập nhật trường `status`), `sns:Publish` vào Topic cảnh báo | ARN Session Table + Topic ARN | **Tuyệt đối tuân thủ** |
 
@@ -80,6 +80,14 @@ Toàn bộ 4 IAM Roles của hệ thống được rà soát từng dòng quyề
    * Ngăn chặn việc sử dụng bot tự động gửi bài thi ồ ạt qua script. Mỗi bài nộp bắt buộc phải đi kèm Turnstile Token đã được xác thực từ trình duyệt thực.
 3. **Sinh Trắc Học Khuôn Mặt Amazon Rekognition:**
    * So sánh khuôn mặt trực tiếp với ảnh thẻ hồ sơ S3 với ngưỡng tin cậy `SimilarityThreshold = 80.0%`, ngăn chặn hoàn toàn việc thi hộ.
+4. **Khóa Định Danh Thiết Bị Chống Đăng Nhập Kép (Device Fingerprinting & Lock):**
+   * Ngay khi thí sinh điểm danh thành công trên một máy tính, hệ thống trích xuất mã định danh phần cứng/trình duyệt (`deviceFingerprint`) và khóa vào trường `lockedCandidates` của ca thi trong DynamoDB.
+   * Nếu thí sinh hoặc người khác cố tình đăng nhập cùng lúc trên thiết bị thứ hai, màn hình lập tức hiển thị cảnh báo chặn truy cập màu đỏ và khóa quyền làm bài.
+   * Cán bộ Giám thị coi thi phụ trách ca thi có thể trực tiếp giám sát và thực hiện thao tác "Mở khóa máy" tại Bàn Giám thị khi thí sinh có sự cố phần cứng hợp lệ.
+5. **Kiểm Soát Truy Cập Phân Quyền 3 Cổng Độc Lập (Role-Based Access Control - RBAC):**
+   * **Cổng Giảng viên (`Organizer`):** Quản lý ngân hàng câu hỏi, bóc tách đề AI, cấu hình ca thi, phân công giám thị và duyệt bảng điểm.
+   * **Cổng Giám thị (`Proctor`):** Giám thị được phân công trong ca thi (`proctorEmails`) có quyền vào Bàn Giám thị (`LiveProctorDashboard`), giám sát danh sách thí sinh làm bài, mở khóa thiết bị thí sinh (`lockedCandidates`), cập nhật mật khẩu phòng thi và kích hoạt gửi báo cáo kết quả qua Amazon SNS Topic (`cloudexam-exam-reports-dev`). Giám thị không có quyền sửa đổi nội dung câu hỏi hay trạng thái ca thi.
+   * **Cổng Thí sinh (`Candidate`):** Thí sinh chỉ được truy cập vào phòng thi được chỉ định (`/?exam=...`), không có quyền truy cập vào các API quản trị hệ thống.
 
 ---
 
