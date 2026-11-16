@@ -84,6 +84,8 @@
   "exam_submitting": "Prüfung wird eingereicht...",
   "exam_submitted_title": "Prüfung erfolgreich eingereicht!",
   "exam_submitted_desc": "Ihre Prüfung wurde erfolgreich empfangen und wird automatisch bewertet.",
+  "exam_graded_desc": "Ihre Prüfung wurde automatisch bewertet.",
+  "exam_grading_in_progress": "Automatische Bewertung läuft, bitte einen Moment warten",
   "exam_turnstile_protected": "Sichere Prüfungsumgebung mit Betrugsschutz",
   "exam_turnstile_required": "Bitte schließen Sie die CAPTCHA-Überprüfung ab, bevor Sie die Prüfung abgeben.",
   "exam_time_up_turnstile_required": "Die Zeit ist abgelaufen. Bitte schließen Sie die CAPTCHA-Überprüfung ab und klicken Sie dann auf Abgeben.",

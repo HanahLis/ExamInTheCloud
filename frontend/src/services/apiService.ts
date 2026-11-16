@@ -233,6 +233,7 @@ export interface ExamSubmitResult {
 export interface ExamSubmitResponse {
   message: string;
   result: ExamSubmitResult;
+  alreadySubmitted?: boolean;
 }
 
 export interface CandidateSessionResult {

@@ -84,6 +84,8 @@
   "exam_submitting": "Submitting exam...",
   "exam_submitted_title": "Exam Submitted Successfully!",
   "exam_submitted_desc": "Your exam has been received successfully and is being graded automatically.",
+  "exam_graded_desc": "Your exam has been graded automatically.",
+  "exam_grading_in_progress": "Grading automatically, please wait a moment",
   "exam_turnstile_protected": "Secure exam environment with anti-fraud protection",
   "exam_turnstile_required": "Please complete the CAPTCHA verification before submitting your exam.",
   "exam_time_up_turnstile_required": "Time is up. Please complete the CAPTCHA verification, then click Submit.",

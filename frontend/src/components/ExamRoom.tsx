@@ -85,17 +85,30 @@ export const ExamRoom = ({ sessionId, currentUserEmail = '', isOrganizer = false
         setSession(s);
         setCandidates(s.candidates || []);
 
+        let effectiveEmail = candidateEmail;
         if (currentUserEmail && !isOrganizer) {
-          setCandidateEmail(currentUserEmail);
+          effectiveEmail = currentUserEmail;
         } else if (s.candidateEmails && s.candidateEmails.length > 0) {
-          if (!candidateEmail || !s.candidateEmails.some((e) => e.toLowerCase() === candidateEmail.toLowerCase())) {
-            setCandidateEmail(s.candidateEmails[0]);
+          if (!effectiveEmail || !s.candidateEmails.some((e) => e.toLowerCase() === effectiveEmail.toLowerCase())) {
+            effectiveEmail = s.candidateEmails[0];
           }
         }
+        setCandidateEmail(effectiveEmail);
 
         if (paperData && paperData.questions && paperData.questions.length > 0) {
           setSessionQuestions(paperData.questions);
-          const localDraftKey = `cloudexam_draft_${sessionId}_${candidateEmail}`;
+        }
+
+        // Đã nộp bài thì vào thẳng màn kết quả, không cho làm lại sau khi tải lại trang
+        const existingSub = !isOrganizer ? s.submissions?.[effectiveEmail.toLowerCase()] : undefined;
+        if (existingSub && existingSub.status) {
+          setSubmitResult(existingSub as ExamSubmitResult);
+          setStep('COMPLETED');
+          if (existingSub.status === 'QUEUED') {
+            void pollGradedResult(existingSub as ExamSubmitResult, effectiveEmail);
+          }
+        } else if (paperData && paperData.questions && paperData.questions.length > 0) {
+          const localDraftKey = `cloudexam_draft_${sessionId}_${effectiveEmail}`;
           let restoredAnswers = paperData.draftAnswers || {};
           let draftSource = 'Cloud';
 
@@ -382,6 +395,23 @@ export const ExamRoom = ({ sessionId, currentUserEmail = '', isOrganizer = false
     }
   };
 
+  // Worker SQS chấm điểm bất đồng bộ — poll lại điểm cuối khi worker hoàn tất
+  const pollGradedResult = async (baseResult: ExamSubmitResult, email: string) => {
+    for (let i = 0; i < 60; i += 1) {
+      await new Promise((resolve) => setTimeout(resolve, 2000));
+      try {
+        const latest = await getSession(sessionId);
+        const graded = latest.submissions?.[email.toLowerCase()];
+        if (graded?.status === 'COMPLETED' || graded?.status === 'AUTO_FINALIZED') {
+          setSubmitResult({ ...baseResult, ...graded });
+          return;
+        }
+      } catch {
+        // thử lại ở vòng poll kế tiếp
+      }
+    }
+  };
+
   const handleSubmitExam = async (isAutoSubmit = false) => {
     if (TURNSTILE_SITE_KEY && !turnstileToken) {
       turnstileSectionRef.current?.scrollIntoView({ behavior: 'smooth', block: 'center' });
@@ -400,22 +430,14 @@ export const ExamRoom = ({ sessionId, currentUserEmail = '', isOrganizer = false
       });
       setSubmitResult(res.result);
       setStep('COMPLETED');
-      // Worker SQS chấm điểm bất đồng bộ — đồng bộ lại điểm cuối khi worker hoàn tất
-      void (async () => {
-        for (let i = 0; i < 20; i += 1) {
-          await new Promise((resolve) => setTimeout(resolve, 2000));
-          try {
-            const latest = await getSession(sessionId);
-            const graded = latest.submissions?.[candidateEmail.toLowerCase()];
-            if (graded?.status === 'COMPLETED') {
-              setSubmitResult({ ...res.result, ...graded });
-              break;
-            }
-          } catch {
-            // thử lại ở vòng poll kế tiếp
-          }
-        }
-      })();
+      try {
+        localStorage.removeItem(`cloudexam_draft_${sessionId}_${candidateEmail}`);
+      } catch (e) {
+        console.warn('Lỗi xóa local draft:', e);
+      }
+      if (res.result.status === 'QUEUED') {
+        void pollGradedResult(res.result, candidateEmail);
+      }
       if (isAutoSubmit) {
         alert(t('alert_time_up_auto_submit'));
       }
@@ -994,19 +1016,26 @@ export const ExamRoom = ({ sessionId, currentUserEmail = '', isOrganizer = false
           <div>
             <h3 className="text-xl font-semibold text-slate-900 tracking-tight">{t('exam_complete_title')}</h3>
             <p className="text-xs text-slate-500 mt-1 max-w-md mx-auto">
-              {t('exam_submitted_desc')}
+              {submitResult.status === 'QUEUED' ? t('exam_submitted_desc') : t('exam_graded_desc')}
             </p>
           </div>
 
           <div className="max-w-sm mx-auto bg-slate-50 border border-slate-200 p-6 rounded-xl space-y-4">
-            <div>
-              <div className="text-4xl font-semibold text-slate-900">
-                {submitResult.score} <span className="text-lg font-normal text-slate-400">/ {submitResult.maxScore}</span>
+            {submitResult.status === 'QUEUED' ? (
+              <div className="flex flex-col items-center gap-3 py-2">
+                <span className="w-8 h-8 border-3 border-indigo-200 border-t-indigo-600 rounded-full animate-spin"></span>
+                <p className="text-xs text-slate-600 font-medium">{t('exam_grading_in_progress')}</p>
               </div>
-              <p className="text-xs text-slate-600 font-medium mt-1">
-                {t('res_correct_count')}: {submitResult.correctCount} / {submitResult.totalQuestions} {t('sess_questions_unit')}
-              </p>
-            </div>
+            ) : (
+              <div>
+                <div className="text-4xl font-semibold text-slate-900">
+                  {submitResult.score} <span className="text-lg font-normal text-slate-400">/ {submitResult.maxScore}</span>
+                </div>
+                <p className="text-xs text-slate-600 font-medium mt-1">
+                  {t('res_correct_count')}: {submitResult.correctCount} / {submitResult.totalQuestions} {t('sess_questions_unit')}
+                </p>
+              </div>
+            )}
 
             <div className="text-xs text-slate-600 space-y-1.5 pt-3 border-t border-slate-200/70 text-left">
               <p>

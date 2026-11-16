@@ -812,6 +812,18 @@ def handle_auto_finalize_session(session_id: str):
     })
 
 
+def clear_candidate_draft(session_id: str, candidate_email: str):
+    """Xóa bài nháp của thí sinh sau khi nộp để không khôi phục lại đáp án cũ khi tải lại trang."""
+    try:
+        sessions_table.update_item(
+            Key={"id": session_id},
+            UpdateExpression="REMOVE draftSubmissions.#email",
+            ExpressionAttributeNames={"#email": candidate_email}
+        )
+    except Exception as err:
+        print(f"[WARN] Không xóa được nháp của {candidate_email}: {err}")
+
+
 def _sns_ascii_subject(text: str, limit: int = 100) -> str:
     """SNS Subject chỉ chấp nhận ký tự ASCII, không xuống dòng, tối đa 100 ký tự."""
     text = text.replace("đ", "d").replace("Đ", "D")
@@ -2192,12 +2204,20 @@ def lambda_handler(event, context):
                 return build_response(400, {"error": "Thiếu sessionId hoặc candidateEmail."})
 
             # Ưu tiên email thí sinh trong body nếu thuộc danh sách ca thi (Giảng viên xem trước/chấm hộ)
+            sess_check = sessions_table.get_item(Key={"id": s_id}).get("Item") or {}
             body_email = (body.get("candidateEmail") or "").strip().lower()
             if body_email:
-                sess_check = sessions_table.get_item(Key={"id": s_id}).get("Item") or {}
                 sess_emails = [e.lower() for e in sess_check.get("candidateEmails", [])]
                 if body_email in sess_emails:
                     c_email = body_email
+
+            # Đã nộp bài thì không nhận lưu nháp nữa, tránh khôi phục bài làm cũ
+            if (sess_check.get("submissions") or {}).get(c_email):
+                return build_response(200, {
+                    "saved": False,
+                    "alreadySubmitted": True,
+                    "message": "Thí sinh đã nộp bài cho ca thi này."
+                })
 
             now_iso = datetime.now(timezone.utc).isoformat()
             draft_payload = {
@@ -2279,6 +2299,15 @@ def lambda_handler(event, context):
                     "error": "Tài khoản không thuộc danh sách thí sinh của ca thi. Không thể nộp bài."
                 })
 
+            # Chặn nộp lại: đã có bài nộp (kể cả đang chờ chấm SQS) thì giữ nguyên kết quả
+            existing_sub = (sess_item.get("submissions") or {}).get(user_email_sub)
+            if existing_sub and not organizer_preview:
+                return build_response(200, {
+                    "message": "Thí sinh đã nộp bài cho ca thi này. Kết quả được giữ nguyên.",
+                    "alreadySubmitted": True,
+                    "result": existing_sub
+                })
+
             submitted_at = datetime.now(timezone.utc).isoformat()
             submission_id = str(uuid.uuid4())
 
@@ -2308,12 +2337,31 @@ def lambda_handler(event, context):
                         "sessionId": session_id,
                         "candidateEmail": user_email_sub,
                         "score": 0,
-                        "maxScore": len(answers),
+                        "maxScore": 0,
                         "correctCount": 0,
-                        "totalQuestions": len(answers),
+                        "totalQuestions": len(sess_item.get("questionIds", [])),
                         "submittedAt": submitted_at,
                         "status": "QUEUED"
                     }
+
+                    # Ghi nhận bài nộp ngay vào session để tải lại trang không cho làm lại;
+                    # worker SQS sẽ ghi đè bản ghi này bằng kết quả COMPLETED khi chấm xong
+                    try:
+                        sessions_table.update_item(
+                            Key={"id": session_id},
+                            UpdateExpression="SET submissions = if_not_exists(submissions, :empty_map)",
+                            ExpressionAttributeValues={":empty_map": {}}
+                        )
+                        sessions_table.update_item(
+                            Key={"id": session_id},
+                            UpdateExpression="SET submissions.#email = :res",
+                            ExpressionAttributeNames={"#email": user_email_sub},
+                            ExpressionAttributeValues={":res": result_item}
+                        )
+                    except Exception as mark_err:
+                        print(f"[WARN] Không ghi nhận được bài nộp QUEUED vào session: {mark_err}")
+
+                    clear_candidate_draft(session_id, user_email_sub)
 
                     return build_response(200, {
                         "message": "Bài thi đã được tiếp nhận qua hàng đợi SQS và chấm điểm tự động ngầm.",
@@ -2380,6 +2428,8 @@ def lambda_handler(event, context):
                 )
             except Exception as sub_err:
                 print(f"[WARN] Lỗi cập nhật Submissions table fallback: {str(sub_err)}")
+
+            clear_candidate_draft(session_id, user_email_sub)
 
             # Đẩy điểm fallback vào Upstash Redis nếu có cấu hình
             try:

@@ -84,6 +84,8 @@
   "exam_submitting": "Đang nộp bài thi...",
   "exam_submitted_title": "Nộp bài thành công!",
   "exam_submitted_desc": "Bài thi của bạn đã được tiếp nhận thành công và đang được chấm điểm tự động.",
+  "exam_graded_desc": "Bài thi của bạn đã được chấm điểm tự động.",
+  "exam_grading_in_progress": "Đang chấm điểm tự động, vui lòng chờ trong giây lát",
   "exam_turnstile_protected": "Hệ thống thi an toàn, bảo vệ chống gian lận",
   "exam_turnstile_required": "Vui lòng xác thực CAPTCHA trước khi nộp bài.",
   "exam_time_up_turnstile_required": "Đã hết giờ làm bài. Vui lòng xác thực CAPTCHA rồi bấm Nộp bài để gửi.",
